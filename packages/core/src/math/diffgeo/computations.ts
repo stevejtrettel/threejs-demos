@@ -145,15 +145,16 @@ export function computeChristoffelSymbols(
   const g_inv_uv = -F / det;
   const g_inv_vv = E / det;
 
-  // Christoffel symbols using the formula
-  // Γ^u_uu = (1/2) g^u_u E_u + g^u_v F_u - (1/2) g^u_v E_v
+  // Christoffel symbols: Γ^k_ij = (1/2) g^kl (∂_i g_jl + ∂_j g_il - ∂_l g_ij)
+  // Derived correctly for surface coordinates (u,v) with metric g_ij = [[E,F],[F,G]]
+
   const Γ_u_uu = 0.5 * g_inv_uu * E_u + g_inv_uv * F_u - 0.5 * g_inv_uv * E_v;
-  const Γ_u_uv = 0.5 * g_inv_uu * E_v + 0.5 * g_inv_uv * (F_u + F_v - G_u);
+  const Γ_u_uv = 0.5 * g_inv_uu * E_v + 0.5 * g_inv_uv * G_u;
   const Γ_u_vu = Γ_u_uv;  // Symmetry
   const Γ_u_vv = 0.5 * g_inv_uu * (2 * F_v - G_u) + 0.5 * g_inv_uv * G_v;
 
   const Γ_v_uu = 0.5 * g_inv_uv * E_u + 0.5 * g_inv_vv * (2 * F_u - E_v);
-  const Γ_v_uv = 0.5 * g_inv_uv * E_v + 0.5 * g_inv_vv * (F_u + F_v - G_u);
+  const Γ_v_uv = 0.5 * g_inv_uv * E_v + 0.5 * g_inv_vv * G_u;
   const Γ_v_vu = Γ_v_uv;  // Symmetry
   const Γ_v_vv = 0.5 * g_inv_uv * (2 * F_v - G_u) + 0.5 * g_inv_vv * G_v;
 

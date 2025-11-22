@@ -1,26 +1,30 @@
-import * as THREE from 'three';
 import { App } from '@core/App';
+import { SpinningSphere } from './SpinningSphere';
 
 const app = new App();
 
-// Setup scene
-app.backgrounds.setGradient('#1a1a2e', '#16213e');
+app.backgrounds.setColor(0x1a1a2e);
 app.lights.set('three-point');
 app.controls.setOrbit();
 
-// Create geometry with proper material
-const geometry = new THREE.SphereGeometry(1, 32, 32);
-const material = new THREE.MeshStandardMaterial({
-  color: 0xff0000,
-  roughness: 0.5,
-  metalness: 0.5
-});
-const sphere = new THREE.Mesh(geometry, material);
-
-app.scene.add(sphere);
-
-app.addAnimateCallback((time, delta) => {
-  sphere.rotation.y += delta * 0.001;
-});
+// Add multiple spheres using app.add()
+const spheres: SpinningSphere[] = [];
+for (let i = 0; i < 5; i++) {
+  const sphere = new SpinningSphere(Math.random() + 0.5);
+  app.add(sphere);  // Automatically adds to scene and animation!
+  spheres.push(sphere);
+}
 
 app.start();
+
+// Test removal after 3 seconds
+setTimeout(() => {
+  console.log('Removing first sphere...');
+  app.remove(spheres[0]);
+}, 3000);
+
+// Test clear after 6 seconds
+setTimeout(() => {
+  console.log('Clearing all...');
+  app.clear();
+}, 6000);

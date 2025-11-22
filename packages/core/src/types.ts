@@ -12,6 +12,12 @@ export interface Renderable {
   mesh?: THREE.Object3D;
 }
 
+export interface MathComponent extends
+  Partial<Animatable>,
+  Partial<Disposable>,
+  Partial<Renderable> {
+}
+
 export type AnimateCallback = (time: number, delta: number) => void;
 
 export interface AppOptions {

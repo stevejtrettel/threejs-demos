@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { App, CoordinateAxes, Grid } from '@core';
+import { App, CoordinateAxes, Grid, Materials } from '@core';
 
 const app = new App();
 
@@ -24,13 +24,13 @@ const grid = new Grid({
 });
 app.add(grid);
 
-// Test MaterialManager with different materials
+// Test Materials with different presets
 const materials = [
-  { mat: app.materials.plastic(0xff0000), name: 'Plastic' },
-  { mat: app.materials.metal(0x00ff00), name: 'Metal' },
-  { mat: app.materials.glass(0x0088ff, 0.6), name: 'Glass' },
-  { mat: app.materials.matte(0xffff00), name: 'Matte' },
-  { mat: app.materials.glossy(0xff00ff), name: 'Glossy' }
+  { mat: Materials.plastic(0xff0000), name: 'Plastic' },
+  { mat: Materials.metal(0x00ff00), name: 'Metal' },
+  { mat: Materials.glass(0x0088ff, 0.6), name: 'Glass' },
+  { mat: Materials.matte(0xffff00), name: 'Matte' },
+  { mat: Materials.glossy(0xff00ff), name: 'Glossy' }
 ];
 
 // Create spheres with different materials

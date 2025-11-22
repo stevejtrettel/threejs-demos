@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { App, CoordinateAxes, Grid } from '@core';
+import { App, CoordinateAxes, Grid, Materials } from '@core';
 
 // Demo 1: Default configuration (ACES tone mapping, no shadows)
 console.log('=== Renderer Configuration Demo ===');
@@ -44,7 +44,7 @@ app.add(grid);
 
 // Create objects that cast and receive shadows
 const groundGeometry = new THREE.PlaneGeometry(10, 10);
-const groundMaterial = app.materials.matte(0x444444);
+const groundMaterial = Materials.matte(0x444444);
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.01;
@@ -53,9 +53,9 @@ app.scene.add(ground);
 
 // Create spheres with different materials that cast shadows
 const materials = [
-  { mat: app.materials.plastic(0xff3333), name: 'Plastic' },
-  { mat: app.materials.metal(0x33ff33), name: 'Metal' },
-  { mat: app.materials.glass(0x3333ff, 0.6), name: 'Glass' }
+  { mat: Materials.plastic(0xff3333), name: 'Plastic' },
+  { mat: Materials.metal(0x33ff33), name: 'Metal' },
+  { mat: Materials.glass(0x3333ff, 0.6), name: 'Glass' }
 ];
 
 materials.forEach((item, i) => {

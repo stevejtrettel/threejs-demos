@@ -4,7 +4,6 @@ import { LightManager } from './managers/LightManager';
 import { ControlsManager } from './managers/ControlsManager';
 import { LayoutManager } from './managers/LayoutManager';
 import { ParameterManager } from './managers/ParameterManager';
-import { MaterialManager } from './managers/MaterialManager';
 import { ComponentParams } from './components/ComponentParams';
 import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from './types';
 
@@ -20,7 +19,6 @@ export class App {
   controls: ControlsManager;
   layout: LayoutManager;
   params: ParameterManager;
-  materials: MaterialManager;
 
   // Object tracking
   private animatables: Animatable[] = [];
@@ -49,7 +47,6 @@ export class App {
     this.controls = new ControlsManager(this.camera, this.renderer);
     this.layout = new LayoutManager(this.renderer, this.camera);
     this.params = new ParameterManager();
-    this.materials = new MaterialManager();
 
     // Default fullscreen layout
     this.layout.setFullscreen();

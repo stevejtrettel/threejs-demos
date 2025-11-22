@@ -1,0 +1,23 @@
+{
+  "name": "threejs-demos",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "three": "^0.181.2",
+    "three-custom-shader-material": "^6.4.0",
+    "three-gpu-pathtracer": "^0.0.23"
+  }
+}

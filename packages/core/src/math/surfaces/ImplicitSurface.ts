@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ComponentParams } from '../../components/ComponentParams';
+import { MARCHING_CUBES_TRIANGLES } from './marchingCubesTable';
 
 export interface ImplicitFunction {
   (x: number, y: number, z: number): number;
@@ -20,7 +21,7 @@ export interface ImplicitSurfaceOptions {
 }
 
 /**
- * Implicit surface visualization using marching cubes
+ * Implicit surface visualization using simplified marching cubes
  *
  * Displays the level set f(x,y,z) = isovalue of an implicit function.
  *
@@ -93,14 +94,13 @@ export class ImplicitSurface {
   private buildGeometry(): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry();
     const positions: number[] = [];
-    const normals: number[] = [];
 
     const res = Math.floor(this.resolution);
     const dx = (this.bounds.xMax - this.bounds.xMin) / res;
     const dy = (this.bounds.yMax - this.bounds.yMin) / res;
     const dz = (this.bounds.zMax - this.bounds.zMin) / res;
 
-    // Sample the field
+    // Sample the field on a grid
     const field: number[][][] = [];
     for (let i = 0; i <= res; i++) {
       field[i] = [];
@@ -115,197 +115,114 @@ export class ImplicitSurface {
       }
     }
 
-    // March through cubes
+    // Process each cube
     for (let i = 0; i < res; i++) {
       for (let j = 0; j < res; j++) {
         for (let k = 0; k < res; k++) {
-          const x0 = this.bounds.xMin + i * dx;
-          const y0 = this.bounds.yMin + j * dy;
-          const z0 = this.bounds.zMin + k * dz;
+          const x = this.bounds.xMin + i * dx;
+          const y = this.bounds.yMin + j * dy;
+          const z = this.bounds.zMin + k * dz;
 
-          const cube = {
-            p: [
-              { x: x0, y: y0, z: z0 },
-              { x: x0 + dx, y: y0, z: z0 },
-              { x: x0 + dx, y: y0 + dy, z: z0 },
-              { x: x0, y: y0 + dy, z: z0 },
-              { x: x0, y: y0, z: z0 + dz },
-              { x: x0 + dx, y: y0, z: z0 + dz },
-              { x: x0 + dx, y: y0 + dy, z: z0 + dz },
-              { x: x0, y: y0 + dy, z: z0 + dz }
-            ],
-            v: [
-              field[i][j][k],
-              field[i + 1][j][k],
-              field[i + 1][j + 1][k],
-              field[i][j + 1][k],
-              field[i][j][k + 1],
-              field[i + 1][j][k + 1],
-              field[i + 1][j + 1][k + 1],
-              field[i][j + 1][k + 1]
-            ]
-          };
-
-          this.polygonizeCube(cube, positions, normals);
+          this.processCube(i, j, k, dx, dy, dz, field, positions);
         }
       }
     }
 
     if (positions.length > 0) {
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      if (normals.length > 0) {
-        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-      } else {
-        geometry.computeVertexNormals();
-      }
+      geometry.computeVertexNormals();
     }
 
     return geometry;
   }
 
-  /**
-   * Polygonize a single cube using marching cubes
-   */
-  private polygonizeCube(
-    cube: { p: { x: number; y: number; z: number }[]; v: number[] },
-    positions: number[],
-    normals: number[]
+  private processCube(
+    i: number,
+    j: number,
+    k: number,
+    dx: number,
+    dy: number,
+    dz: number,
+    field: number[][][],
+    positions: number[]
   ): void {
-    // Determine which vertices are inside the surface
-    let cubeindex = 0;
-    for (let i = 0; i < 8; i++) {
-      if (cube.v[i] < this.isovalue) {
-        cubeindex |= (1 << i);
+    const x = this.bounds.xMin + i * dx;
+    const y = this.bounds.yMin + j * dy;
+    const z = this.bounds.zMin + k * dz;
+
+    // 8 corners of the cube
+    const corners = [
+      { x: x, y: y, z: z, v: field[i][j][k] },
+      { x: x + dx, y: y, z: z, v: field[i + 1][j][k] },
+      { x: x + dx, y: y + dy, z: z, v: field[i + 1][j + 1][k] },
+      { x: x, y: y + dy, z: z, v: field[i][j + 1][k] },
+      { x: x, y: y, z: z + dz, v: field[i][j][k + 1] },
+      { x: x + dx, y: y, z: z + dz, v: field[i + 1][j][k + 1] },
+      { x: x + dx, y: y + dy, z: z + dz, v: field[i + 1][j + 1][k + 1] },
+      { x: x, y: y + dy, z: z + dz, v: field[i][j + 1][k + 1] }
+    ];
+
+    // Determine cube index (which corners are inside)
+    let cubeIndex = 0;
+    for (let n = 0; n < 8; n++) {
+      if (corners[n].v < this.isovalue) {
+        cubeIndex |= (1 << n);
       }
     }
 
-    // Cube is entirely in/out of the surface
-    if (cubeindex === 0 || cubeindex === 255) {
+    // Skip if cube is entirely inside or outside
+    if (cubeIndex === 0 || cubeIndex === 255) {
       return;
     }
 
-    // Find the vertices where the surface intersects the cube edges
-    const vertlist: THREE.Vector3[] = [];
-
-    // Edge table: which edges intersect the surface
-    const edgeTable = this.getEdgeTable();
-    const edges = edgeTable[cubeindex];
-
-    if (edges === 0) return;
-
-    // Interpolate along edges
-    const edgeVertices = [
+    // 12 edges of the cube
+    const edges = [
       [0, 1], [1, 2], [2, 3], [3, 0],  // Bottom face
       [4, 5], [5, 6], [6, 7], [7, 4],  // Top face
       [0, 4], [1, 5], [2, 6], [3, 7]   // Vertical edges
     ];
 
-    for (let i = 0; i < 12; i++) {
-      if (edges & (1 << i)) {
-        const [v1, v2] = edgeVertices[i];
-        vertlist[i] = this.interpolate(
-          cube.p[v1],
-          cube.p[v2],
-          cube.v[v1],
-          cube.v[v2]
+    // Find edge intersections
+    const vertList: THREE.Vector3[] = [];
+    for (let e = 0; e < 12; e++) {
+      const [v1, v2] = edges[e];
+      const c1 = corners[v1];
+      const c2 = corners[v2];
+
+      // Check if edge crosses the isosurface
+      if ((c1.v < this.isovalue && c2.v >= this.isovalue) ||
+          (c1.v >= this.isovalue && c2.v < this.isovalue)) {
+        // Interpolate
+        const t = (this.isovalue - c1.v) / (c2.v - c1.v);
+        vertList[e] = new THREE.Vector3(
+          c1.x + t * (c2.x - c1.x),
+          c1.y + t * (c2.y - c1.y),
+          c1.z + t * (c2.z - c1.z)
         );
       }
     }
 
-    // Create triangles
-    const triTable = this.getTriangleTable();
-    const triangles = triTable[cubeindex];
-
-    for (let i = 0; i < triangles.length; i += 3) {
-      const v1 = vertlist[triangles[i]];
-      const v2 = vertlist[triangles[i + 1]];
-      const v3 = vertlist[triangles[i + 2]];
+    // Triangulate based on cube index
+    const triangles = this.getTriangles(cubeIndex);
+    for (let t = 0; t < triangles.length; t += 3) {
+      const v1 = vertList[triangles[t]];
+      const v2 = vertList[triangles[t + 1]];
+      const v3 = vertList[triangles[t + 2]];
 
       if (v1 && v2 && v3) {
         positions.push(v1.x, v1.y, v1.z);
         positions.push(v2.x, v2.y, v2.z);
         positions.push(v3.x, v3.y, v3.z);
-
-        // Compute normal via gradient
-        const n1 = this.computeGradient(v1.x, v1.y, v1.z);
-        const n2 = this.computeGradient(v2.x, v2.y, v2.z);
-        const n3 = this.computeGradient(v3.x, v3.y, v3.z);
-
-        normals.push(n1.x, n1.y, n1.z);
-        normals.push(n2.x, n2.y, n2.z);
-        normals.push(n3.x, n3.y, n3.z);
       }
     }
   }
 
   /**
-   * Interpolate between two points based on field values
+   * Get marching cubes triangulation for a cube configuration
+   * Returns edge indices for triangulation based on which corners are inside
    */
-  private interpolate(
-    p1: { x: number; y: number; z: number },
-    p2: { x: number; y: number; z: number },
-    v1: number,
-    v2: number
-  ): THREE.Vector3 {
-    const t = (this.isovalue - v1) / (v2 - v1);
-    return new THREE.Vector3(
-      p1.x + t * (p2.x - p1.x),
-      p1.y + t * (p2.y - p1.y),
-      p1.z + t * (p2.z - p1.z)
-    );
-  }
-
-  /**
-   * Compute gradient (normal) at a point
-   */
-  private computeGradient(x: number, y: number, z: number): THREE.Vector3 {
-    const epsilon = 0.01;
-    const grad = new THREE.Vector3(
-      this.fn(x + epsilon, y, z) - this.fn(x - epsilon, y, z),
-      this.fn(x, y + epsilon, z) - this.fn(x, y - epsilon, z),
-      this.fn(x, y, z + epsilon) - this.fn(x, y, z - epsilon)
-    );
-    return grad.normalize();
-  }
-
-  /**
-   * Simplified edge table for marching cubes
-   */
-  private getEdgeTable(): number[] {
-    // This is a simplified version - full table has 256 entries
-    // For production use, include the complete marching cubes lookup table
-    const table = new Array(256).fill(0);
-
-    // Basic cases (this is simplified - real implementation needs all 256)
-    table[0] = 0;
-    table[255] = 0;
-
-    // For other cases, we'll use a simple approximation
-    for (let i = 1; i < 255; i++) {
-      table[i] = 0xFFF; // All edges potentially intersect
-    }
-
-    return table;
-  }
-
-  /**
-   * Simplified triangle table for marching cubes
-   */
-  private getTriangleTable(): number[][] {
-    // This is a simplified version - full table has 256 entries
-    const table: number[][] = new Array(256).fill([]);
-
-    // Simple cases
-    table[0] = [];
-    table[255] = [];
-
-    // For demonstration, use a basic triangulation pattern
-    // In production, use the complete marching cubes triangle table
-    for (let i = 1; i < 255; i++) {
-      table[i] = [0, 1, 2, 2, 3, 0]; // Simple quad triangulation
-    }
-
-    return table;
+  private getTriangles(cubeIndex: number): number[] {
+    return MARCHING_CUBES_TRIANGLES[cubeIndex] || [];
   }
 
   /**

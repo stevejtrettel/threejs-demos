@@ -1,25 +1,55 @@
 import * as THREE from 'three';
+import { ComponentParams } from '@core/components/ComponentParams';
 
 export class SpinningSphere {
   mesh: THREE.Mesh;
-  private speed: number;
+  params: ComponentParams;
 
-  constructor(speed = 1) {
-    this.speed = speed;
+  // These will be created by params.define()
+  speed!: number;
+  size!: number;
+  color!: number;
 
+  constructor() {
+    this.params = new ComponentParams(this);
+
+    // Define parameters
+    this.params.define('speed', 1, {
+      min: 0,
+      max: 5,
+      step: 0.1,
+      onChange: (value) => {
+        console.log('Speed changed to:', value);
+      }
+    });
+
+    this.params.define('size', 1, {
+      min: 0.5,
+      max: 3,
+      step: 0.1,
+      onChange: (value) => {
+        console.log('Size changed to:', value);
+        this.mesh.scale.setScalar(value);
+      }
+    });
+
+    this.params.define('color', 0xff0000, {
+      type: 'color',
+      onChange: (value) => {
+        console.log('Color changed to:', value.toString(16));
+        (this.mesh.material as THREE.MeshStandardMaterial).color.setHex(value);
+      }
+    });
+
+    // Create mesh
     const geometry = new THREE.SphereGeometry(1, 32, 32);
     const material = new THREE.MeshStandardMaterial({
-      color: Math.random() * 0xffffff,
+      color: this.color,
       roughness: 0.5,
       metalness: 0.5
     });
 
     this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.set(
-      (Math.random() - 0.5) * 5,
-      (Math.random() - 0.5) * 5,
-      (Math.random() - 0.5) * 5
-    );
   }
 
   animate(time: number, delta: number): void {

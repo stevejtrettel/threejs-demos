@@ -7,24 +7,24 @@ app.backgrounds.setColor(0x1a1a2e);
 app.lights.set('three-point');
 app.controls.setOrbit();
 
-// Add multiple spheres using app.add()
-const spheres: SpinningSphere[] = [];
-for (let i = 0; i < 5; i++) {
-  const sphere = new SpinningSphere(Math.random() + 0.5);
-  app.add(sphere);  // Automatically adds to scene and animation!
-  spheres.push(sphere);
-}
+// Add sphere with parameter exposure
+const sphere = new SpinningSphere();
+app.add(sphere, {
+  params: true  // Expose all parameters
+});
 
 app.start();
 
-// Test removal after 3 seconds
-setTimeout(() => {
-  console.log('Removing first sphere...');
-  app.remove(spheres[0]);
-}, 3000);
+// Test parameter changes via console
+console.log('Test changing parameters:');
+console.log('sphere.speed = 3');
+console.log('sphere.size = 2');
+console.log('sphere.color = 0x00ff00');
 
-// Test clear after 6 seconds
+// Auto-test after 2 seconds
 setTimeout(() => {
-  console.log('Clearing all...');
-  app.clear();
-}, 6000);
+  console.log('Auto-testing parameters...');
+  sphere.speed = 3;
+  sphere.size = 2;
+  sphere.color = 0x00ff00;
+}, 2000);

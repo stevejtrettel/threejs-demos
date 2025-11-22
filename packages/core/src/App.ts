@@ -3,7 +3,9 @@ import { BackgroundManager } from './managers/BackgroundManager';
 import { LightManager } from './managers/LightManager';
 import { ControlsManager } from './managers/ControlsManager';
 import { LayoutManager } from './managers/LayoutManager';
-import type { AnimateCallback, AppOptions, Animatable, Disposable } from './types';
+import { ParameterManager } from './managers/ParameterManager';
+import { ComponentParams } from './components/ComponentParams';
+import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions } from './types';
 
 export class App {
   // Three.js core
@@ -16,6 +18,7 @@ export class App {
   lights: LightManager;
   controls: ControlsManager;
   layout: LayoutManager;
+  params: ParameterManager;
 
   // Object tracking
   private animatables: Animatable[] = [];
@@ -45,6 +48,7 @@ export class App {
     this.lights = new LightManager(this.scene);
     this.controls = new ControlsManager(this.camera, this.renderer);
     this.layout = new LayoutManager(this.renderer, this.camera);
+    this.params = new ParameterManager();
 
     // Default fullscreen layout
     this.layout.setFullscreen();
@@ -54,7 +58,7 @@ export class App {
    * Add an object to the app
    * Automatically detects and registers animate/dispose methods
    */
-  add(obj: any): this {
+  add(obj: any, options?: AddOptions): this {
     // 1. Add to scene if renderable
     if (obj.mesh || obj instanceof THREE.Object3D) {
       this.scene.add(obj.mesh || obj);
@@ -70,7 +74,53 @@ export class App {
       this.disposables.push(obj);
     }
 
+    // 4. Handle parameters
+    if (obj.params instanceof ComponentParams) {
+      this.handleComponentParams(obj, options);
+    }
+
+    // 5. Set values without exposing
+    if (options?.set) {
+      Object.entries(options.set).forEach(([key, value]) => {
+        if (obj.params) {
+          obj.params.set(key, value);
+        } else {
+          obj[key] = value;
+        }
+      });
+    }
+
     return this;
+  }
+
+  private handleComponentParams(obj: any, options?: AddOptions): void {
+    const paramConfig = options?.params;
+
+    if (paramConfig === undefined || paramConfig === false) {
+      return;
+    }
+
+    if (paramConfig === true) {
+      this.params.exposeAll(obj.params);
+      return;
+    }
+
+    if (Array.isArray(paramConfig)) {
+      paramConfig.forEach(name => {
+        this.params.expose(obj.params, name);
+      });
+      return;
+    }
+
+    if (typeof paramConfig === 'object') {
+      Object.entries(paramConfig).forEach(([name, config]) => {
+        if (config === true) {
+          this.params.expose(obj.params, name);
+        } else {
+          this.params.expose(obj.params, name, config as ParamOptions);
+        }
+      });
+    }
   }
 
   /**

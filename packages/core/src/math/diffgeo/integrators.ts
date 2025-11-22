@@ -155,8 +155,25 @@ export function integrateGeodesic(
   const acceleration = (tv: TangentVector) => geodesicAcceleration(surface, tv);
 
   for (let i = 0; i < steps; i++) {
+    // Check for invalid state
+    if (isNaN(state.pos.x) || isNaN(state.pos.y) ||
+        isNaN(state.vel.x) || isNaN(state.vel.y) ||
+        !isFinite(state.pos.x) || !isFinite(state.pos.y) ||
+        !isFinite(state.vel.x) || !isFinite(state.vel.y)) {
+      console.warn('Geodesic integration encountered invalid state at step', i);
+      break;
+    }
+
     // Add current point
     const p = surface.parameterization(state.pos.x, state.pos.y);
+
+    // Validate point
+    if (!p || isNaN(p.x) || isNaN(p.y) || isNaN(p.z) ||
+        !isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) {
+      console.warn('Geodesic parameterization returned invalid point at step', i, 'state:', state.pos);
+      break;
+    }
+
     points.push(p);
 
     // Check arc length limit

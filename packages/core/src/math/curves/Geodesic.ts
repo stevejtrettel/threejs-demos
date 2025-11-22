@@ -127,13 +127,34 @@ export class Geodesic implements MathComponent {
     );
 
     // Integrate geodesic
-    const points = integrateGeodesic(this.surface, initialTV, {
+    const rawPoints = integrateGeodesic(this.surface, initialTV, {
       steps: this.steps,
       stepSize: this.stepSize,
       maxArcLength: this.maxArcLength
     });
 
-    if (this.useThickLine && points.length >= 2) {
+    // Filter out undefined/invalid points
+    const points = rawPoints.filter(p => {
+      return p !== undefined &&
+             p !== null &&
+             !isNaN(p.x) &&
+             !isNaN(p.y) &&
+             !isNaN(p.z) &&
+             isFinite(p.x) &&
+             isFinite(p.y) &&
+             isFinite(p.z);
+    });
+
+    // Need at least 2 points for a curve
+    if (points.length < 2) {
+      console.warn('Geodesic integration produced insufficient valid points:', points.length);
+      // Return empty geometry
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
+      return geometry;
+    }
+
+    if (this.useThickLine) {
       // Use TubeGeometry for thick line
       const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
       return new THREE.TubeGeometry(curve, points.length * 2, this.thickness, 8, false);

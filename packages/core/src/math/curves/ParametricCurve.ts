@@ -77,8 +77,9 @@ export class ParametricCurve {
 
   private rebuild(): void {
     const newGeometry = this.buildGeometry();
-    this.mesh.geometry.dispose();
+    const oldGeometry = this.mesh.geometry;
     this.mesh.geometry = newGeometry;
+    oldGeometry.dispose();
   }
 
   dispose(): void {

@@ -126,11 +126,16 @@ export class Geodesic implements MathComponent {
       new THREE.Vector2(this.du0, this.dv0)
     );
 
-    // Integrate geodesic
+    // Integrate geodesic with optional domain checking
+    const isOutsideDomain = 'isOutsideDomain' in this.surface
+      ? (u: number, v: number) => (this.surface as any).isOutsideDomain(u, v)
+      : undefined;
+
     const rawPoints = integrateGeodesic(this.surface, initialTV, {
       steps: this.steps,
       stepSize: this.stepSize,
-      maxArcLength: this.maxArcLength
+      maxArcLength: this.maxArcLength,
+      isOutsideDomain
     });
 
     // Filter out undefined/invalid points

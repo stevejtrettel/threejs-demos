@@ -306,6 +306,14 @@ export class GraphSurface implements MathComponent, DifferentialSurface {
     throw new Error('secondFundamentalForm not yet implemented - awaiting optimized formula');
   }
 
+  /**
+   * Check if point (x, y) is outside the domain
+   * From GraphGeometry.js lines 25-26
+   */
+  isOutsideDomain(x: number, y: number): boolean {
+    return x < this.xMin || x > this.xMax || y < this.yMin || y > this.yMax;
+  }
+
   // ===== Component Lifecycle =====
 
   rebuild(): void {

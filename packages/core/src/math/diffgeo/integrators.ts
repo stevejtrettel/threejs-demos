@@ -139,12 +139,14 @@ export function integrateGeodesic(
     steps?: number;
     stepSize?: number;
     maxArcLength?: number;
+    isOutsideDomain?: (u: number, v: number) => boolean;
   } = {}
 ): THREE.Vector3[] {
   const {
     steps = 500,
     stepSize = 0.01,
-    maxArcLength = Infinity
+    maxArcLength = Infinity,
+    isOutsideDomain
   } = options;
 
   const points: THREE.Vector3[] = [];
@@ -155,6 +157,11 @@ export function integrateGeodesic(
   const acceleration = (tv: TangentVector) => geodesicAcceleration(surface, tv);
 
   for (let i = 0; i < steps; i++) {
+    // Check domain boundary (from GraphGeometry.js line 198)
+    if (isOutsideDomain && isOutsideDomain(state.pos.x, state.pos.y)) {
+      break;
+    }
+
     // Check for invalid state
     if (isNaN(state.pos.x) || isNaN(state.pos.y) ||
         isNaN(state.vel.x) || isNaN(state.vel.y) ||

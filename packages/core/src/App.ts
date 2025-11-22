@@ -5,7 +5,7 @@ import { ControlsManager } from './managers/ControlsManager';
 import { LayoutManager } from './managers/LayoutManager';
 import { ParameterManager } from './managers/ParameterManager';
 import { ComponentParams } from './components/ComponentParams';
-import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions } from './types';
+import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from './types';
 
 export class App {
   // Three.js core
@@ -38,10 +38,8 @@ export class App {
     );
     this.camera.position.z = 5;
 
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: options.antialias ?? true,
-      alpha: options.alpha ?? false
-    });
+    // Create and configure renderer
+    this.renderer = this.createRenderer(options);
 
     // Initialize managers
     this.backgrounds = new BackgroundManager(this.scene, this.renderer);
@@ -227,6 +225,100 @@ export class App {
 
     // Render
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Create and configure WebGL renderer
+   */
+  private createRenderer(options: AppOptions): THREE.WebGLRenderer {
+    // Create renderer with WebGL context options
+    const renderer = new THREE.WebGLRenderer({
+      antialias: options.antialias ?? true,
+      alpha: options.alpha ?? false,
+      powerPreference: options.powerPreference ?? 'default'
+    });
+
+    // Configure shadows
+    this.configureShadows(renderer, options.shadows);
+
+    // Configure tone mapping
+    renderer.toneMapping = this.getToneMappingType(options.toneMapping ?? 'aces');
+    renderer.toneMappingExposure = options.toneMappingExposure ?? 1;
+
+    // Configure color space
+    renderer.outputColorSpace = this.getColorSpace(options.colorSpace ?? 'srgb');
+
+    // Physically correct lights (deprecated in newer Three.js but kept for compatibility)
+    if (options.physicallyCorrectLights !== undefined) {
+      (renderer as any).physicallyCorrectLights = options.physicallyCorrectLights;
+    }
+
+    return renderer;
+  }
+
+  /**
+   * Configure shadow map settings
+   */
+  private configureShadows(renderer: THREE.WebGLRenderer, shadows?: boolean | ShadowConfig): void {
+    if (shadows === undefined || shadows === false) {
+      renderer.shadowMap.enabled = false;
+      return;
+    }
+
+    if (shadows === true) {
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      return;
+    }
+
+    // Detailed shadow configuration
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = this.getShadowMapType(shadows.type ?? 'pcfsoft');
+
+    if (shadows.autoUpdate !== undefined) {
+      renderer.shadowMap.autoUpdate = shadows.autoUpdate;
+    }
+  }
+
+  /**
+   * Map shadow type string to Three.js constant
+   */
+  private getShadowMapType(type: 'basic' | 'pcf' | 'pcfsoft' | 'vsm'): THREE.ShadowMapType {
+    const types = {
+      'basic': THREE.BasicShadowMap,
+      'pcf': THREE.PCFShadowMap,
+      'pcfsoft': THREE.PCFSoftShadowMap,
+      'vsm': THREE.VSMShadowMap
+    };
+    return types[type];
+  }
+
+  /**
+   * Map tone mapping type string to Three.js constant
+   */
+  private getToneMappingType(type: ToneMappingType): THREE.ToneMapping {
+    const types = {
+      'none': THREE.NoToneMapping,
+      'linear': THREE.LinearToneMapping,
+      'reinhard': THREE.ReinhardToneMapping,
+      'cineon': THREE.CineonToneMapping,
+      'aces': THREE.ACESFilmicToneMapping,
+      'neutral': THREE.NeutralToneMapping
+    };
+    return types[type];
+  }
+
+  /**
+   * Map color space string to Three.js constant
+   */
+  private getColorSpace(space: ColorSpace): THREE.ColorSpace {
+    const spaces: Record<ColorSpace, THREE.ColorSpace> = {
+      'srgb': THREE.SRGBColorSpace,
+      'linear': THREE.LinearSRGBColorSpace,
+      // DisplayP3ColorSpace might not be available in all Three.js versions
+      'display-p3': (THREE as any).DisplayP3ColorSpace || THREE.SRGBColorSpace
+    };
+    return spaces[space];
   }
 
   /**

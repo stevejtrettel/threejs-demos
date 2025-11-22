@@ -122,18 +122,22 @@ export function computeChristoffelSymbols(
   v: number,
   epsilon: number = 0.0001
 ): ChristoffelSymbols {
-  // First fundamental form and its derivatives
+  // First fundamental form at center and offset points
   const g = computeFirstFundamentalForm(f, u, v, epsilon);
-  const g_u = computeFirstFundamentalForm(f, u + epsilon, v, epsilon);
-  const g_v = computeFirstFundamentalForm(f, u, v + epsilon, epsilon);
+
+  // Use CENTRAL differences for better accuracy (O(ε²) vs O(ε))
+  const g_u_plus = computeFirstFundamentalForm(f, u + epsilon, v, epsilon);
+  const g_u_minus = computeFirstFundamentalForm(f, u - epsilon, v, epsilon);
+  const g_v_plus = computeFirstFundamentalForm(f, u, v + epsilon, epsilon);
+  const g_v_minus = computeFirstFundamentalForm(f, u, v - epsilon, epsilon);
 
   const E = g.E, F = g.F, G = g.G;
-  const E_u = (g_u.E - E) / epsilon;
-  const E_v = (g_v.E - E) / epsilon;
-  const F_u = (g_u.F - F) / epsilon;
-  const F_v = (g_v.F - F) / epsilon;
-  const G_u = (g_u.G - G) / epsilon;
-  const G_v = (g_v.G - G) / epsilon;
+  const E_u = (g_u_plus.E - g_u_minus.E) / (2 * epsilon);
+  const E_v = (g_v_plus.E - g_v_minus.E) / (2 * epsilon);
+  const F_u = (g_u_plus.F - g_u_minus.F) / (2 * epsilon);
+  const F_v = (g_v_plus.F - g_v_minus.F) / (2 * epsilon);
+  const G_u = (g_u_plus.G - g_u_minus.G) / (2 * epsilon);
+  const G_v = (g_v_plus.G - g_v_minus.G) / (2 * epsilon);
 
   // Inverse metric: g^ij
   const det = E * G - F * F;

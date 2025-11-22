@@ -27,9 +27,19 @@ app.params.addColor(cube.material);
 
 app.start();
 
+// Expose to console for testing
+(window as any).app = app;
+(window as any).sphere = sphere;
+(window as any).cube = cube;
+
 // Test in console
-console.log('Try these in console:');
-console.log('cube.position.x = 5');
-console.log('cube.rotation.y = Math.PI');
-console.log('sphere.speed = 5');
-console.log('sphere.color = 0xff00ff');
+console.log('✨ Variables available in console:');
+console.log('  app    - The main App instance');
+console.log('  sphere - The spinning red sphere');
+console.log('  cube   - The green cube');
+console.log('');
+console.log('Try these commands:');
+console.log('  cube.position.x = 0');
+console.log('  cube.rotation.y = Math.PI');
+console.log('  sphere.speed = 5');
+console.log('  sphere.color = 0xff00ff');

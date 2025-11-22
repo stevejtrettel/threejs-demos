@@ -1,0 +1,35 @@
+/* Centered Layout Styles */
+.threejs-centered-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  /* Sizing - will be set by JS */
+  width: 80vw;
+  max-width: 1200px;
+  height: 80vh;
+  max-height: 800px;
+
+  /* Styling */
+  background: #000;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+
+  /* Margin from edges */
+  margin: 40px;
+}
+
+.threejs-centered-container canvas {
+  display: block;
+  border-radius: 12px;
+}
+
+/* Background for centered layout */
+body.threejs-centered-layout {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+}

@@ -2,6 +2,9 @@ import { App, ParametricCurve } from '@core';
 
 const app = new App();
 
+// Try the centered layout!
+app.layout.setCentered();
+
 app.backgrounds.setGradient('#0a0a1a', '#1a1a3a');
 app.lights.set('ambient');
 app.controls.setOrbit({ enableDamping: true });
@@ -33,10 +36,14 @@ app.start();
 (window as any).app = app;
 (window as any).helix = helix;
 
-console.log('✨ ParametricCurve Demo');
+console.log('✨ ParametricCurve Demo - Centered Layout');
 console.log('');
 console.log('Try these commands:');
 console.log('  helix.tMax = 5 * Math.PI     // Shorter helix');
 console.log('  helix.tMax = 15 * Math.PI    // Longer helix');
 console.log('  helix.segments = 300         // Smoother curve');
 console.log('  helix.segments = 20          // Jagged curve');
+console.log('');
+console.log('Switch layouts:');
+console.log('  app.layout.setFullscreen()   // Back to fullscreen');
+console.log('  app.layout.setCentered()     // Centered with margins');

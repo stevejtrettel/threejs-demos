@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { BackgroundManager } from './managers/BackgroundManager';
+import { LightManager } from './managers/LightManager';
+import { ControlsManager } from './managers/ControlsManager';
 import { LayoutManager } from './managers/LayoutManager';
 import type { AnimateCallback, AppOptions } from './types';
 
@@ -9,6 +12,9 @@ export class App {
   renderer: THREE.WebGLRenderer;
 
   // Managers
+  backgrounds: BackgroundManager;
+  lights: LightManager;
+  controls: ControlsManager;
   layout: LayoutManager;
 
   // Animation tracking
@@ -33,6 +39,9 @@ export class App {
     });
 
     // Initialize managers
+    this.backgrounds = new BackgroundManager(this.scene, this.renderer);
+    this.lights = new LightManager(this.scene);
+    this.controls = new ControlsManager(this.camera, this.renderer);
     this.layout = new LayoutManager(this.renderer, this.camera);
 
     // Default fullscreen layout
@@ -62,6 +71,9 @@ export class App {
     const delta = time - this.lastTime;
     this.lastTime = time;
 
+    // Update controls
+    this.controls.update();
+
     // Execute callbacks
     this.animateCallbacks.forEach(fn => fn(time, delta));
 
@@ -74,6 +86,9 @@ export class App {
    */
   dispose(): void {
     this.renderer.dispose();
+    this.backgrounds.dispose();
+    this.lights.dispose();
+    this.controls.dispose();
     this.layout.dispose();
   }
 }

@@ -3,17 +3,24 @@ import { App } from '@core/App';
 
 const app = new App();
 
-// Create a spinning cube
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-const cube = new THREE.Mesh(geometry, material);
+// Setup scene
+app.backgrounds.setGradient('#1a1a2e', '#16213e');
+app.lights.set('three-point');
+app.controls.setOrbit();
 
-app.scene.add(cube);
+// Create geometry with proper material
+const geometry = new THREE.SphereGeometry(1, 32, 32);
+const material = new THREE.MeshStandardMaterial({
+  color: 0xff0000,
+  roughness: 0.5,
+  metalness: 0.5
+});
+const sphere = new THREE.Mesh(geometry, material);
 
-// Animate it
+app.scene.add(sphere);
+
 app.addAnimateCallback((time, delta) => {
-  cube.rotation.x += delta * 0.001;
-  cube.rotation.y += delta * 0.001;
+  sphere.rotation.y += delta * 0.001;
 });
 
 app.start();

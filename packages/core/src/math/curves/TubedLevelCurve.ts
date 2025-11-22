@@ -209,17 +209,36 @@ export class TubedLevelCurve {
       return;
     }
 
+    // Compute tolerance based on grid size
+    const res = Math.floor(this.resolution);
+    const dx = (this.bounds.xMax - this.bounds.xMin) / res;
+    const dy = (this.bounds.yMax - this.bounds.yMin) / res;
+    const gridSize = Math.min(dx, dy);
+    const tolerance = gridSize * 0.01; // 1% of grid cell size
+
     // Connect segments into paths
-    const paths = connectLineSegments(segments);
+    const paths = connectLineSegments(segments, tolerance);
 
     // Create tube for each path
     for (const path of paths) {
       if (path.length < 2) continue;
 
-      const closed = isPathClosed(path);
+      // Simplify path to remove near-duplicate points
+      const simplified = this.simplifyPath(path, tolerance);
 
-      // Create curve from path
-      const curve = new THREE.CatmullRomCurve3(path, closed);
+      if (simplified.length < 2) continue;
+
+      const closed = isPathClosed(simplified, tolerance);
+
+      // For closed curves, remove duplicate endpoint
+      const curvePoints = closed && simplified.length > 2
+        ? simplified.slice(0, -1)
+        : simplified;
+
+      if (curvePoints.length < 2) continue;
+
+      // Create curve from path with centripetal parameterization (smoother)
+      const curve = new THREE.CatmullRomCurve3(curvePoints, closed, 'centripetal');
 
       // Create tube geometry
       const geometry = new THREE.TubeGeometry(
@@ -233,6 +252,38 @@ export class TubedLevelCurve {
       const tube = new THREE.Mesh(geometry, this.material.clone());
       this.mesh.add(tube);
     }
+  }
+
+  /**
+   * Remove points that are too close together
+   */
+  private simplifyPath(path: THREE.Vector3[], tolerance: number): THREE.Vector3[] {
+    if (path.length <= 2) return path;
+
+    // Check if path is closed (first and last points are same)
+    const isClosed = path[0].distanceTo(path[path.length - 1]) < tolerance;
+
+    // If closed, temporarily remove duplicate endpoint
+    const pointsToSimplify = isClosed ? path.slice(0, -1) : path;
+
+    const simplified: THREE.Vector3[] = [pointsToSimplify[0]];
+
+    for (let i = 1; i < pointsToSimplify.length; i++) {
+      const prev = simplified[simplified.length - 1];
+      const curr = pointsToSimplify[i];
+
+      // Only add point if it's far enough from previous
+      if (prev.distanceTo(curr) > tolerance) {
+        simplified.push(curr);
+      }
+    }
+
+    // For closed paths, add first point back at end
+    if (isClosed && simplified.length > 0) {
+      simplified.push(simplified[0].clone());
+    }
+
+    return simplified;
   }
 
   /**

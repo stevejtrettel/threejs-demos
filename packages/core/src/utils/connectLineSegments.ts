@@ -108,15 +108,8 @@ export function connectLineSegments(
       currentIdx = nextIdx;
     }
 
-    // Check if path is closed (first and last points are same)
-    if (path.length > 2) {
-      const first = path[0];
-      const last = path[path.length - 1];
-      if (first.distanceTo(last) < tolerance) {
-        // It's a closed loop, remove duplicate endpoint
-        path.pop();
-      }
-    }
+    // Note: We keep the duplicate endpoint for closed curves
+    // The consumer can use isPathClosed() to detect and handle as needed
 
     return path;
   };

@@ -54,7 +54,7 @@ const torus = new ImplicitSurface(
     return q * q + z * z - r * r;
   },
   {
-    resolution: 32,
+    resolution: 64,
     isovalue: 0,
     material: Materials.glossy(0x33ff33),
     bounds: {

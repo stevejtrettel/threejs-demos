@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ComponentParams } from '../../components/ComponentParams';
+import type { MathComponent } from '../../types';
 
 export interface ParametricFunction {
   (t: number): { x: number; y: number; z: number };
@@ -13,27 +14,36 @@ export interface ParametricCurveOptions {
   linewidth?: number;
 }
 
-export class ParametricCurve {
+/**
+ * Parametric curve visualization
+ *
+ * Follows the component lifecycle pattern:
+ * - rebuild(): Called when tMin, tMax, or segments change (expensive)
+ * - update(): Called when color changes (cheap)
+ */
+export class ParametricCurve implements MathComponent {
   mesh: THREE.Line;
   params: ComponentParams;
 
   private fn: ParametricFunction;
 
+  // Reactive properties
   tMin!: number;
   tMax!: number;
   segments!: number;
+  colorHex!: number;
 
   constructor(fn: ParametricFunction, options: ParametricCurveOptions = {}) {
     this.fn = fn;
     this.params = new ComponentParams(this);
 
-    // Define parameters
+    // STRUCTURAL PARAMETERS → rebuild
     this.params.define('tMin', options.tMin ?? 0, {
       min: -10,
       max: 10,
       step: 0.1,
       label: 't Min',
-      onChange: () => this.rebuild()
+      triggers: 'rebuild'  // Domain change requires new geometry
     });
 
     this.params.define('tMax', options.tMax ?? 2 * Math.PI, {
@@ -41,7 +51,7 @@ export class ParametricCurve {
       max: 10,
       step: 0.1,
       label: 't Max',
-      onChange: () => this.rebuild()
+      triggers: 'rebuild'  // Domain change requires new geometry
     });
 
     this.params.define('segments', options.segments ?? 100, {
@@ -49,17 +59,45 @@ export class ParametricCurve {
       max: 500,
       step: 1,
       label: 'Segments',
-      onChange: () => this.rebuild()
+      triggers: 'rebuild'  // Topology change requires new geometry
+    });
+
+    // VISUAL PARAMETERS → update
+    this.params.define('colorHex', options.color ?? 0xff0000, {
+      type: 'color',
+      label: 'Color',
+      triggers: 'update'  // Color change just updates material
     });
 
     // Build initial curve
     const geometry = this.buildGeometry();
     const material = new THREE.LineBasicMaterial({
-      color: options.color ?? 0xff0000,
+      color: this.colorHex,
       linewidth: options.linewidth ?? 1
     });
 
     this.mesh = new THREE.Line(geometry, material);
+  }
+
+  /**
+   * Rebuild geometry when structural parameters change (tMin, tMax, segments)
+   * This is EXPENSIVE - allocates new BufferGeometry
+   */
+  rebuild(): void {
+    const newGeometry = this.buildGeometry();
+    const oldGeometry = this.mesh.geometry;
+    this.mesh.geometry = newGeometry;
+    oldGeometry.dispose();
+  }
+
+  /**
+   * Update visual properties in place (color, etc.)
+   * This is CHEAP - just updates material
+   */
+  update(): void {
+    const material = this.mesh.material as THREE.LineBasicMaterial;
+    material.color.setHex(this.colorHex);
+    material.needsUpdate = true;
   }
 
   private buildGeometry(): THREE.BufferGeometry {
@@ -73,13 +111,6 @@ export class ParametricCurve {
     }
 
     return new THREE.BufferGeometry().setFromPoints(points);
-  }
-
-  private rebuild(): void {
-    const newGeometry = this.buildGeometry();
-    const oldGeometry = this.mesh.geometry;
-    this.mesh.geometry = newGeometry;
-    oldGeometry.dispose();
   }
 
   dispose(): void {

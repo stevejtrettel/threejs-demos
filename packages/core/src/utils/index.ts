@@ -10,5 +10,8 @@ export * from './paths';
 // Interpolation and easing
 export * from './interpolation';
 
+// Vector interpolation (Catmull-Rom)
+export * from './interpolation-vectors';
+
 // Geometry computations
 export * from './geometry';

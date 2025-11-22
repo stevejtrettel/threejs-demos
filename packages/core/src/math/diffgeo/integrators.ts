@@ -199,6 +199,103 @@ export function integrateGeodesic(
 }
 
 /**
+ * Compute parallel transport derivative: DV/dt = -Γ^i_jk γ'^j V^k
+ *
+ * From GraphGeometry.js lines 53-79
+ *
+ * @param surface - Surface with Christoffel symbols
+ * @param tv - Tangent vector (position and velocity along curve)
+ * @param V - Vector being transported
+ * @returns Derivative of V
+ */
+export function parallelTransportDerivative(
+  surface: DifferentialSurface,
+  tv: TangentVector,
+  V: THREE.Vector2
+): THREE.Vector2 {
+  const { pos, vel } = tv;
+  const Γ = surface.christoffelSymbols(pos.x, pos.y);
+
+  // DV/dt = -Γ^i_jk γ'^j V^k
+  const VuP =
+    -vel.x * (Γ.u.u.u * V.x + Γ.u.u.v * V.y) -
+    vel.y * (Γ.u.v.u * V.x + Γ.u.v.v * V.y);
+
+  const VvP =
+    -vel.x * (Γ.v.u.u * V.x + Γ.v.u.v * V.y) -
+    vel.y * (Γ.v.v.u * V.x + Γ.v.v.v * V.y);
+
+  return new THREE.Vector2(VuP, VvP);
+}
+
+/**
+ * Integrate parallel transport along a curve
+ *
+ * From GraphGeometry.js getParallelTransport (lines 252-256)
+ *
+ * @param surface - Surface to transport on
+ * @param curve - Array of (u,v) points defining the curve
+ * @param initialVectors - Initial basis vectors to transport [e1, e2]
+ * @param options - Integration parameters
+ * @returns Array of transported basis vectors at each curve point
+ *
+ * @example
+ *   const curve = integrateGeodesicCoords(surface, initialTV, { steps: 100 });
+ *   const initial = [new Vector2(1,0), new Vector2(0,1)];
+ *   const transported = integrateParallelTransport(surface, curve, initial);
+ *   // transported[i] = [e1, e2] at curve[i]
+ */
+export function integrateParallelTransport(
+  surface: DifferentialSurface,
+  curve: THREE.Vector2[],
+  initialVectors: [THREE.Vector2, THREE.Vector2],
+  options: {
+    stepSize?: number;
+  } = {}
+): Array<[THREE.Vector2, THREE.Vector2]> {
+  const { stepSize = 0.0005 } = options;
+
+  if (curve.length < 2) {
+    return [initialVectors];
+  }
+
+  const result: Array<[THREE.Vector2, THREE.Vector2]> = [];
+  result.push([initialVectors[0].clone(), initialVectors[1].clone()]);
+
+  let e1 = initialVectors[0].clone();
+  let e2 = initialVectors[1].clone();
+
+  // Integrate along curve segments
+  for (let i = 1; i < curve.length; i++) {
+    const p0 = curve[i - 1];
+    const p1 = curve[i];
+
+    // Tangent vector along curve
+    const dt = p1.clone().sub(p0);
+    const ds = dt.length();
+
+    if (ds < 1e-10) {
+      result.push([e1.clone(), e2.clone()]);
+      continue;
+    }
+
+    const vel = dt.divideScalar(ds);
+    const tv = new TangentVector(p0, vel);
+
+    // Simple Euler integration (can upgrade to RK4 if needed)
+    const de1 = parallelTransportDerivative(surface, tv, e1);
+    const de2 = parallelTransportDerivative(surface, tv, e2);
+
+    e1.add(de1.multiplyScalar(stepSize));
+    e2.add(de2.multiplyScalar(stepSize));
+
+    result.push([e1.clone(), e2.clone()]);
+  }
+
+  return result;
+}
+
+/**
  * Integrate geodesic in parameter space (returns (u,v) coordinates)
  *
  * @param surface - Surface to integrate on

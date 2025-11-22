@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { App } from '@core/App';
 import { SpinningSphere } from './SpinningSphere';
 
@@ -7,24 +8,28 @@ app.backgrounds.setColor(0x1a1a2e);
 app.lights.set('three-point');
 app.controls.setOrbit();
 
-// Add sphere with parameter exposure
+// Component with internal params
 const sphere = new SpinningSphere();
-app.add(sphere, {
-  params: true  // Expose all parameters
-});
+app.add(sphere, { params: ['speed', 'color'] });
+
+// Ad-hoc Three.js object with helper params
+const cube = new THREE.Mesh(
+  new THREE.BoxGeometry(),
+  new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+);
+cube.position.set(3, 0, 0);
+app.scene.add(cube);
+
+// Add parameters using helpers
+app.params.addPosition(cube);
+app.params.addRotation(cube);
+app.params.addColor(cube.material);
 
 app.start();
 
-// Test parameter changes via console
-console.log('Test changing parameters:');
-console.log('sphere.speed = 3');
-console.log('sphere.size = 2');
-console.log('sphere.color = 0x00ff00');
-
-// Auto-test after 2 seconds
-setTimeout(() => {
-  console.log('Auto-testing parameters...');
-  sphere.speed = 3;
-  sphere.size = 2;
-  sphere.color = 0x00ff00;
-}, 2000);
+// Test in console
+console.log('Try these in console:');
+console.log('cube.position.x = 5');
+console.log('cube.rotation.y = Math.PI');
+console.log('sphere.speed = 5');
+console.log('sphere.color = 0xff00ff');

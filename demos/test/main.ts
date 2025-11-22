@@ -1,45 +1,42 @@
-import * as THREE from 'three';
-import { App } from '@core/App';
-import { SpinningSphere } from './SpinningSphere';
+import { App, ParametricCurve } from '@core';
 
 const app = new App();
 
-app.backgrounds.setColor(0x1a1a2e);
-app.lights.set('three-point');
-app.controls.setOrbit();
+app.backgrounds.setGradient('#0a0a1a', '#1a1a3a');
+app.lights.set('ambient');
+app.controls.setOrbit({ enableDamping: true });
 
-// Component with internal params
-const sphere = new SpinningSphere();
-app.add(sphere, { params: ['speed', 'color'] });
-
-// Ad-hoc Three.js object with helper params
-const cube = new THREE.Mesh(
-  new THREE.BoxGeometry(),
-  new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+// Helix curve
+const helix = new ParametricCurve(
+  (t) => ({
+    x: Math.cos(t),
+    y: Math.sin(t),
+    z: t / 5
+  }),
+  {
+    tMin: 0,
+    tMax: 10 * Math.PI,
+    color: 0xff0000
+  }
 );
-cube.position.set(3, 0, 0);
-app.scene.add(cube);
 
-// Add parameters using helpers
-app.params.addPosition(cube);
-app.params.addRotation(cube);
-app.params.addColor(cube.material);
+app.add(helix, {
+  params: {
+    tMax: { min: 0, max: 20 * Math.PI },
+    segments: true
+  }
+});
 
 app.start();
 
-// Expose to console for testing
+// Expose to console
 (window as any).app = app;
-(window as any).sphere = sphere;
-(window as any).cube = cube;
+(window as any).helix = helix;
 
-// Test in console
-console.log('✨ Variables available in console:');
-console.log('  app    - The main App instance');
-console.log('  sphere - The spinning red sphere');
-console.log('  cube   - The green cube');
+console.log('✨ ParametricCurve Demo');
 console.log('');
 console.log('Try these commands:');
-console.log('  cube.position.x = 0');
-console.log('  cube.rotation.y = Math.PI');
-console.log('  sphere.speed = 5');
-console.log('  sphere.color = 0xff00ff');
+console.log('  helix.tMax = 5 * Math.PI     // Shorter helix');
+console.log('  helix.tMax = 15 * Math.PI    // Longer helix');
+console.log('  helix.segments = 300         // Smoother curve');
+console.log('  helix.segments = 20          // Jagged curve');

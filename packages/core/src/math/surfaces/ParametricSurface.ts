@@ -1,8 +1,15 @@
 import * as THREE from 'three';
 import { ComponentParams } from '../../components/ComponentParams';
+import type { MathComponent } from '../../types';
+import type { DifferentialSurface, FirstFundamentalForm, ChristoffelSymbols } from '../diffgeo/types';
+import {
+  computeSurfaceNormal,
+  computeFirstFundamentalForm,
+  computeChristoffelSymbols
+} from '../diffgeo/computations';
 
 export interface ParametricSurfaceFunction {
-  (u: number, v: number): { x: number; y: number; z: number };
+  (u: number, v: number): { x: number; y: number; z: number } | THREE.Vector3;
 }
 
 export interface ParametricSurfaceOptions {
@@ -13,13 +20,16 @@ export interface ParametricSurfaceOptions {
   uSegments?: number;
   vSegments?: number;
   material?: THREE.Material;
+  color?: number;
+  wireframe?: boolean;
   computeNormals?: boolean;
 }
 
 /**
- * Parametric surface visualization
+ * Parametric surface with differential geometry structure
  *
- * Creates a mesh from a parametric function (u, v) → {x, y, z}
+ * Implements DifferentialSurface for geodesic integration
+ * Follows component lifecycle pattern (rebuild/update)
  *
  * @example
  *   // Sphere
@@ -32,12 +42,14 @@ export interface ParametricSurfaceOptions {
  *     { uMin: 0, uMax: Math.PI, vMin: 0, vMax: 2 * Math.PI }
  *   );
  */
-export class ParametricSurface {
+export class ParametricSurface implements MathComponent, DifferentialSurface {
   mesh: THREE.Mesh;
   params: ComponentParams;
 
   private fn: ParametricSurfaceFunction;
   private computeNormals: boolean;
+  private geometry!: THREE.BufferGeometry;
+  private material!: THREE.Material;
 
   uMin!: number;
   uMax!: number;
@@ -45,70 +57,74 @@ export class ParametricSurface {
   vMax!: number;
   uSegments!: number;
   vSegments!: number;
+  colorHex!: number;
+  wireframe!: number;
 
   constructor(fn: ParametricSurfaceFunction, options: ParametricSurfaceOptions = {}) {
     this.fn = fn;
     this.computeNormals = options.computeNormals ?? true;
     this.params = new ComponentParams(this);
 
-    // Define parameters
+    // STRUCTURAL PARAMETERS → rebuild
     this.params.define('uMin', options.uMin ?? 0, {
-      min: -10,
-      max: 10,
-      step: 0.1,
-      label: 'u Min',
-      onChange: () => this.rebuild()
+      min: -10, max: 10, step: 0.1,
+      label: 'U Min',
+      triggers: 'rebuild'
     });
 
     this.params.define('uMax', options.uMax ?? 2 * Math.PI, {
-      min: -10,
-      max: 10,
-      step: 0.1,
-      label: 'u Max',
-      onChange: () => this.rebuild()
+      min: -10, max: 10, step: 0.1,
+      label: 'U Max',
+      triggers: 'rebuild'
     });
 
     this.params.define('vMin', options.vMin ?? 0, {
-      min: -10,
-      max: 10,
-      step: 0.1,
-      label: 'v Min',
-      onChange: () => this.rebuild()
+      min: -10, max: 10, step: 0.1,
+      label: 'V Min',
+      triggers: 'rebuild'
     });
 
     this.params.define('vMax', options.vMax ?? 2 * Math.PI, {
-      min: -10,
-      max: 10,
-      step: 0.1,
-      label: 'v Max',
-      onChange: () => this.rebuild()
+      min: -10, max: 10, step: 0.1,
+      label: 'V Max',
+      triggers: 'rebuild'
     });
 
     this.params.define('uSegments', options.uSegments ?? 32, {
-      min: 4,
-      max: 128,
-      step: 1,
-      label: 'u Segments',
-      onChange: () => this.rebuild()
+      min: 4, max: 128, step: 1,
+      label: 'U Segments',
+      triggers: 'rebuild'
     });
 
     this.params.define('vSegments', options.vSegments ?? 32, {
-      min: 4,
-      max: 128,
-      step: 1,
-      label: 'v Segments',
-      onChange: () => this.rebuild()
+      min: 4, max: 128, step: 1,
+      label: 'V Segments',
+      triggers: 'rebuild'
+    });
+
+    // VISUAL PARAMETERS → update
+    this.params.define('colorHex', options.color ?? 0xff0000, {
+      type: 'color',
+      label: 'Color',
+      triggers: 'update'
+    });
+
+    this.params.define('wireframe', options.wireframe ?? false, {
+      type: 'boolean',
+      label: 'Wireframe',
+      triggers: 'update'
     });
 
     // Build initial surface
-    const geometry = this.buildGeometry();
-    const material = options.material ?? new THREE.MeshStandardMaterial({
-      color: 0xff0000,
+    this.geometry = this.buildGeometry();
+    this.material = options.material ?? new THREE.MeshStandardMaterial({
+      color: this.colorHex,
       side: THREE.DoubleSide,
-      flatShading: false
+      flatShading: false,
+      wireframe: this.wireframe
     });
 
-    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh = new THREE.Mesh(this.geometry, this.material);
   }
 
   private buildGeometry(): THREE.BufferGeometry {
@@ -200,25 +216,68 @@ export class ParametricSurface {
     return normal;
   }
 
+  // ===== DifferentialSurface Interface =====
+
   /**
-   * Rebuild geometry with current parameters
+   * Parameterization: (u,v) → (x,y,z)
+   */
+  parameterization(u: number, v: number): THREE.Vector3 {
+    const result = this.fn(u, v);
+    if (result instanceof THREE.Vector3) {
+      return result;
+    }
+    return new THREE.Vector3(result.x, result.y, result.z);
+  }
+
+  /**
+   * Surface normal at (u,v)
+   */
+  surfaceNormal(u: number, v: number): THREE.Vector3 {
+    return computeSurfaceNormal((u, v) => this.parameterization(u, v), u, v);
+  }
+
+  /**
+   * First fundamental form at (u,v)
+   */
+  firstFundamentalForm(u: number, v: number): FirstFundamentalForm {
+    return computeFirstFundamentalForm((u, v) => this.parameterization(u, v), u, v);
+  }
+
+  /**
+   * Christoffel symbols at (u,v) for geodesic equations
+   */
+  christoffelSymbols(u: number, v: number): ChristoffelSymbols {
+    return computeChristoffelSymbols((u, v) => this.parameterization(u, v), u, v);
+  }
+
+  // ===== Component Lifecycle =====
+
+  /**
+   * Rebuild geometry when structural parameters change
    * Uses safe swap pattern: build → swap → dispose
    */
-  private rebuild(): void {
+  rebuild(): void {
     const newGeometry = this.buildGeometry();
-    const oldGeometry = this.mesh.geometry;
+    const oldGeometry = this.geometry;
+
     this.mesh.geometry = newGeometry;
+    this.geometry = newGeometry;
+
     oldGeometry.dispose();
   }
 
+  /**
+   * Update visual properties (color, wireframe)
+   */
+  update(): void {
+    const mat = this.material as THREE.MeshStandardMaterial;
+    mat.color.setHex(this.colorHex);
+    mat.wireframe = this.wireframe;
+    mat.needsUpdate = true;
+  }
+
   dispose(): void {
-    this.mesh.geometry.dispose();
-    if (this.mesh.material) {
-      if (Array.isArray(this.mesh.material)) {
-        this.mesh.material.forEach(m => m.dispose());
-      } else {
-        this.mesh.material.dispose();
-      }
-    }
+    this.geometry.dispose();
+    this.material.dispose();
   }
 }

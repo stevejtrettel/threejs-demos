@@ -3,3 +3,6 @@ export type { ParametricSurfaceFunction, ParametricSurfaceOptions } from './Para
 
 export { ImplicitSurface } from './ImplicitSurface';
 export type { ImplicitFunction, ImplicitSurfaceOptions } from './ImplicitSurface';
+
+export { GraphSurface } from './GraphSurface';
+export type { GraphFunction, GraphDerivatives, GraphSurfaceOptions } from './GraphSurface';

@@ -15,3 +15,6 @@ export type { TubedLevelCurveOptions } from './TubedLevelCurve';
 
 export { TubedLevelCurves } from './TubedLevelCurves';
 export type { TubedLevelCurvesOptions } from './TubedLevelCurves';
+
+export { Geodesic } from './Geodesic';
+export type { GeodesicOptions } from './Geodesic';

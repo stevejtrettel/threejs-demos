@@ -20,12 +20,38 @@ export interface MathComponent extends
 
 export type AnimateCallback = (time: number, delta: number) => void;
 
+export interface ShadowConfig {
+  type?: 'basic' | 'pcf' | 'pcfsoft' | 'vsm';
+  mapSize?: number;
+  autoUpdate?: boolean;
+}
+
+export type ToneMappingType = 'none' | 'linear' | 'reinhard' | 'cineon' | 'aces' | 'neutral';
+export type ColorSpace = 'srgb' | 'linear' | 'display-p3';
+
 export interface AppOptions {
+  // Camera options
   fov?: number;
   near?: number;
   far?: number;
+
+  // Renderer WebGL context options
   antialias?: boolean;
   alpha?: boolean;
+  powerPreference?: 'default' | 'high-performance' | 'low-power';
+
+  // Shadow configuration
+  shadows?: boolean | ShadowConfig;
+
+  // Tone mapping
+  toneMapping?: ToneMappingType;
+  toneMappingExposure?: number;
+
+  // Color space
+  colorSpace?: ColorSpace;
+
+  // Physically correct lighting
+  physicallyCorrectLights?: boolean;
 }
 
 export interface ParamOptions {

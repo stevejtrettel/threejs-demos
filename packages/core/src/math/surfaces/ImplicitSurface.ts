@@ -210,9 +210,10 @@ export class ImplicitSurface {
       const v3 = vertList[triangles[t + 2]];
 
       if (v1 && v2 && v3) {
+        // Reverse winding order to fix normals pointing outward
         positions.push(v1.x, v1.y, v1.z);
-        positions.push(v2.x, v2.y, v2.z);
         positions.push(v3.x, v3.y, v3.z);
+        positions.push(v2.x, v2.y, v2.z);
       }
     }
   }

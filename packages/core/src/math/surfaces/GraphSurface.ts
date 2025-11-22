@@ -48,7 +48,7 @@ export class GraphSurface implements MathComponent, DifferentialSurface {
   mesh: THREE.Mesh;
   params: ComponentParams;
 
-  private derivatives: GraphDerivatives;
+  readonly derivatives: GraphDerivatives;
   private geometry!: THREE.BufferGeometry;
   private material!: THREE.Material;
 

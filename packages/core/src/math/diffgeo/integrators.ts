@@ -309,11 +309,13 @@ export function integrateGeodesicCoords(
   options: {
     steps?: number;
     stepSize?: number;
+    isOutsideDomain?: (u: number, v: number) => boolean;
   } = {}
 ): THREE.Vector2[] {
   const {
     steps = 500,
-    stepSize = 0.01
+    stepSize = 0.01,
+    isOutsideDomain
   } = options;
 
   const coords: THREE.Vector2[] = [];
@@ -322,6 +324,11 @@ export function integrateGeodesicCoords(
   const acceleration = (tv: TangentVector) => geodesicAcceleration(surface, tv);
 
   for (let i = 0; i < steps; i++) {
+    // Check domain boundary
+    if (isOutsideDomain && isOutsideDomain(state.pos.x, state.pos.y)) {
+      break;
+    }
+
     coords.push(state.pos.clone());
     state = rungeKutta4TangentVector(acceleration, state, stepSize);
   }

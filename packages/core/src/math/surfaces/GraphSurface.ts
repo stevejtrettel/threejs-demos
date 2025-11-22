@@ -273,6 +273,39 @@ export class GraphSurface implements MathComponent, DifferentialSurface {
     };
   }
 
+  // ===== Additional Differential Geometry =====
+
+  /**
+   * Gaussian curvature K = (f_xx * f_yy - f_xy²) / (1 + f_x² + f_y²)²
+   * From GraphGeometry.js lines 81-90
+   */
+  gaussianCurvature(x: number, y: number): number {
+    const fx = this.derivatives.fx!(x, y);
+    const fy = this.derivatives.fy!(x, y);
+    const fxx = this.derivatives.fxx!(x, y);
+    const fyy = this.derivatives.fyy!(x, y);
+    const fxy = this.derivatives.fxy!(x, y);
+
+    const denom = 1 + fx * fx + fy * fy;
+    return (fxx * fyy - fxy * fxy) / (denom * denom);
+  }
+
+  /**
+   * Mean curvature H
+   * TODO: Need optimized formula from user for z = f(x,y) graphs
+   */
+  meanCurvature(x: number, y: number): number {
+    throw new Error('meanCurvature not yet implemented - awaiting optimized formula');
+  }
+
+  /**
+   * Second fundamental form
+   * TODO: Need optimized formula from user for z = f(x,y) graphs
+   */
+  secondFundamentalForm(x: number, y: number): { L: number; M: number; N: number } {
+    throw new Error('secondFundamentalForm not yet implemented - awaiting optimized formula');
+  }
+
   // ===== Component Lifecycle =====
 
   rebuild(): void {

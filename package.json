@@ -20,6 +20,9 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@types/file-saver": "^2.0.7",
+    "file-saver": "^2.0.5",
+    "jszip": "^3.10.1",
     "three": "^0.181.2",
     "three-custom-shader-material": "^6.4.0",
     "three-gpu-pathtracer": "^0.0.23"

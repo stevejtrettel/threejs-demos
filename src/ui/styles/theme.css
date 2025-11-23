@@ -1,0 +1,60 @@
+:root {
+  /* Colors */
+  --cr-bg-primary: #1a1a1a;
+  --cr-bg-secondary: #252525;
+  --cr-bg-hover: #333333;
+  --cr-bg-active: #404040;
+  
+  --cr-text-primary: #e0e0e0;
+  --cr-text-secondary: #aaaaaa;
+  --cr-text-accent: #4da6ff;
+  
+  --cr-border: #333333;
+  --cr-accent: #0077ff;
+  
+  /* Spacing */
+  --cr-space-xs: 4px;
+  --cr-space-s: 8px;
+  --cr-space-m: 12px;
+  
+  /* Typography */
+  --cr-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --cr-font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --cr-font-size-s: 11px;
+  --cr-font-size-m: 12px;
+  
+  /* Layout */
+  --cr-sidebar-width: 300px;
+  --cr-header-height: 40px;
+  --cr-row-height: 28px;
+}
+
+.cr-ui {
+  font-family: var(--cr-font-family);
+  font-size: var(--cr-font-size-m);
+  color: var(--cr-text-primary);
+  box-sizing: border-box;
+}
+
+.cr-ui * {
+  box-sizing: border-box;
+}
+
+/* Scrollbar */
+.cr-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.cr-scroll::-webkit-scrollbar-track {
+  background: var(--cr-bg-primary);
+}
+
+.cr-scroll::-webkit-scrollbar-thumb {
+  background: var(--cr-bg-hover);
+  border-radius: 4px;
+}
+
+.cr-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--cr-bg-active);
+}

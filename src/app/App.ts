@@ -9,6 +9,9 @@ import { ParameterManager } from './ParameterManager';
 import { SelectionManager } from './SelectionManager';
 import { TimelineManager } from './TimelineManager';
 import { CameraManager } from './CameraManager';
+import { ScreenshotManager } from './ScreenshotManager';
+import { VideoExportManager } from './VideoExportManager';
+import { ExportManager } from './ExportManager';
 import { Params } from '../Params';
 import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from '../types';
 
@@ -28,6 +31,11 @@ export class App {
   selection: SelectionManager;
   timeline: TimelineManager;
   cameraManager: CameraManager;
+
+  // Export Managers
+  screenshots: ScreenshotManager;
+  video: VideoExportManager;
+  export: ExportManager;
 
   // Object tracking
   private animatables: Animatable[] = [];
@@ -60,6 +68,11 @@ export class App {
     this.layout = new LayoutManager(this.renderer, this.cameraManager.camera);
     this.params = new ParameterManager();
     this.selection = new SelectionManager(this.scene, this.cameraManager.camera, this.renderer.domElement);
+
+    // Initialize export managers
+    this.screenshots = new ScreenshotManager(this.renderer, this.scene, this.cameraManager.camera);
+    this.video = new VideoExportManager(this.timeline, this.screenshots);
+    this.export = new ExportManager(this.scene);
 
     // Default fullscreen layout
     this.layout.setFullscreen();
@@ -132,17 +145,11 @@ export class App {
 
     if (paramConfig === true) {
       this.params.exposeAll(obj.params);
-      return;
-    }
-
-    if (Array.isArray(paramConfig)) {
+    } else if (Array.isArray(paramConfig)) {
       paramConfig.forEach(name => {
         this.params.expose(obj.params, name);
       });
-      return;
-    }
-
-    if (typeof paramConfig === 'object') {
+    } else if (typeof paramConfig === 'object') {
       Object.entries(paramConfig).forEach(([name, config]) => {
         if (config === true) {
           this.params.expose(obj.params, name);
@@ -196,6 +203,9 @@ export class App {
     this.disposables = [];
     this.animateCallbacks = [];
     this.timeline.reset();
+
+    // Clear parameters and sync UI
+    this.params.clear();
   }
 
   /**
@@ -272,7 +282,8 @@ export class App {
     const renderer = new THREE.WebGLRenderer({
       antialias: options.antialias ?? true,
       alpha: options.alpha ?? false,
-      powerPreference: options.powerPreference ?? 'default'
+      powerPreference: options.powerPreference ?? 'default',
+      preserveDrawingBuffer: true // Required for screenshots
     });
 
     // Configure shadows
@@ -367,6 +378,11 @@ export class App {
     this.debug.disable();
     this.timeline.dispose();
     this.cameraManager.dispose();
+
+    // Dispose export managers
+    this.screenshots.dispose();
+    this.video.dispose();
+    this.export.dispose();
 
     // Dispose other managers
     this.selection.dispose();

@@ -1,5 +1,20 @@
 import type { ParamOptions, ParamDefinition } from './types';
 
+/**
+ * Reactive parameter system for math objects
+ *
+ * Creates reactive properties on owner object with automatic lifecycle hooks.
+ * When a parameter changes, it can automatically trigger rebuild() or update().
+ *
+ * @example
+ *   class MyCurve {
+ *     constructor() {
+ *       this.params = new Params(this);
+ *       this.params.define('segments', 100, { triggers: 'rebuild' });
+ *       this.params.define('color', 0xff0000, { triggers: 'update' });
+ *     }
+ *   }
+ */
 export class Params {
   private owner: any;
   private params = new Map<string, ParamDefinition>();
@@ -8,6 +23,13 @@ export class Params {
     this.owner = owner;
   }
 
+  /**
+   * Define a reactive parameter on the owner object
+   *
+   * @param name - Property name to create on owner
+   * @param defaultValue - Initial value
+   * @param options - Parameter options (min, max, triggers, onChange, etc.)
+   */
   define(name: string, defaultValue: any, options: ParamOptions = {}): void {
     // Create reactive property on owner
     let currentValue = defaultValue;

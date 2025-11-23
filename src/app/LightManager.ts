@@ -24,7 +24,9 @@ export class LightManager {
       case 'none':
         break;
       default:
-        console.warn(`Unknown light preset: ${preset}`);
+        throw new Error(
+          `Unknown light preset: '${preset}'. Available presets: 'three-point', 'ambient', 'directional', 'none'`
+        );
     }
   }
 

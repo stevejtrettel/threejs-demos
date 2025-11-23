@@ -128,6 +128,26 @@ export class ParametricSurface implements MathComponent, DifferentialSurface {
   }
 
   private buildGeometry(): THREE.BufferGeometry {
+    // Validate domain
+    if (this.uMin >= this.uMax) {
+      throw new Error(
+        `Invalid u domain: uMin (${this.uMin}) must be less than uMax (${this.uMax})`
+      );
+    }
+    if (this.vMin >= this.vMax) {
+      throw new Error(
+        `Invalid v domain: vMin (${this.vMin}) must be less than vMax (${this.vMax})`
+      );
+    }
+
+    // Validate segments
+    if (this.uSegments < 1) {
+      throw new Error(`Invalid uSegments: ${this.uSegments} (must be at least 1)`);
+    }
+    if (this.vSegments < 1) {
+      throw new Error(`Invalid vSegments: ${this.vSegments} (must be at least 1)`);
+    }
+
     const geometry = new THREE.BufferGeometry();
 
     const positions: number[] = [];
@@ -146,6 +166,20 @@ export class ParametricSurface implements MathComponent, DifferentialSurface {
         const v = this.vMin + (j / vSegments) * (this.vMax - this.vMin);
 
         const p = this.fn(u, v);
+
+        // Validate function output
+        if (p == null || typeof p.x !== 'number' || typeof p.y !== 'number' || typeof p.z !== 'number') {
+          throw new Error(
+            `Invalid surface function output at (u=${u}, v=${v}): expected {x, y, z} with numbers, got ${JSON.stringify(p)}`
+          );
+        }
+
+        if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) {
+          throw new Error(
+            `Non-finite values in surface at (u=${u}, v=${v}): {x: ${p.x}, y: ${p.y}, z: ${p.z}}`
+          );
+        }
+
         positions.push(p.x, p.y, p.z);
 
         // UV coordinates

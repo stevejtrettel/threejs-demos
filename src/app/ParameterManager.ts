@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ParamOptions } from '../types';
-import type { Params } from '../components/Params';
+import type { Params } from '../Params';
 
 interface RegisteredParam {
   object: any;
@@ -51,8 +51,9 @@ export class ParameterManager {
   expose(componentParams: Params, paramName: string, overrideOptions?: Partial<ParamOptions>): void {
     const definition = componentParams.getDefinition(paramName);
     if (!definition) {
-      console.warn(`Parameter ${paramName} not found in component`);
-      return;
+      throw new Error(
+        `Parameter '${paramName}' not found in component. Available parameters: ${Array.from(componentParams.getAllDefinitions().keys()).join(', ')}`
+      );
     }
 
     // Merge options

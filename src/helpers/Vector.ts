@@ -66,7 +66,11 @@ export class Vector {
       onChange: () => this.updateArrow()
     });
 
-    // Store origin and direction (non-reactive for now)
+    // Store origin and direction
+    // LIMITATION: These are Vector3 objects, so onChange only fires when you REPLACE the object:
+    //   vector.origin = new THREE.Vector3(1, 2, 3)  ✓ triggers onChange
+    //   vector.origin.x = 5                         ✗ does NOT trigger (mutates object)
+    // Use setOrigin(x, y, z) or setDirection(x, y, z) for component-wise updates
     this.params.define('origin', origin, {
       onChange: () => this.updateArrow()
     });

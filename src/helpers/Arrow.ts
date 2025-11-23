@@ -69,6 +69,10 @@ export class Arrow {
       onChange: () => this.updateColor()
     });
 
+    // LIMITATION: These are Vector3 objects, so onChange only fires when you REPLACE the object:
+    //   arrow.origin = new THREE.Vector3(1, 2, 3)  ✓ triggers onChange
+    //   arrow.origin.x = 5                         ✗ does NOT trigger (mutates object)
+    // Use setOrigin(x, y, z) or setDirection(x, y, z) for component-wise updates
     this.params.define('origin', origin, {
       onChange: () => this.updatePosition()
     });

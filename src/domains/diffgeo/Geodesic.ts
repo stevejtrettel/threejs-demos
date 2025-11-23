@@ -53,6 +53,16 @@ export class Geodesic implements MathComponent {
   thickness!: number;
 
   constructor(options: GeodesicOptions) {
+    if (!options.surface) {
+      throw new Error('Geodesic requires a surface object with position() and christoffel() methods');
+    }
+    if (typeof options.surface.position !== 'function') {
+      throw new Error('Surface must have a position(u, v) method');
+    }
+    if (typeof options.surface.christoffel !== 'function') {
+      throw new Error('Surface must have a christoffel(u, v) method');
+    }
+
     this.surface = options.surface;
     this.useThickLine = options.useThickLine ?? false;
     this.params = new Params(this);
@@ -152,11 +162,11 @@ export class Geodesic implements MathComponent {
 
     // Need at least 2 points for a curve
     if (points.length < 2) {
-      console.warn('Geodesic integration produced insufficient valid points:', points.length);
-      // Return empty geometry
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
-      return geometry;
+      throw new Error(
+        `Geodesic integration failed: produced only ${points.length} valid point(s), need at least 2. ` +
+        `Check initial conditions (u0=${this.u0}, v0=${this.v0}, du0=${this.du0}, dv0=${this.dv0}) ` +
+        `and ensure the surface is well-defined in this region.`
+      );
     }
 
     if (this.useThickLine) {

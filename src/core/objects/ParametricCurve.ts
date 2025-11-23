@@ -101,12 +101,38 @@ export class ParametricCurve implements MathComponent {
   }
 
   private buildGeometry(): THREE.BufferGeometry {
+    // Validate domain
+    if (this.tMin >= this.tMax) {
+      throw new Error(
+        `Invalid domain: tMin (${this.tMin}) must be less than tMax (${this.tMax})`
+      );
+    }
+
+    // Validate segments
+    if (this.segments < 1) {
+      throw new Error(`Invalid segments: ${this.segments} (must be at least 1)`);
+    }
+
     const points: THREE.Vector3[] = [];
     const dt = (this.tMax - this.tMin) / this.segments;
 
     for (let i = 0; i <= this.segments; i++) {
       const t = this.tMin + i * dt;
       const p = this.fn(t);
+
+      // Validate function output
+      if (p == null || typeof p.x !== 'number' || typeof p.y !== 'number' || typeof p.z !== 'number') {
+        throw new Error(
+          `Invalid curve function output at t=${t}: expected {x, y, z} with numbers, got ${JSON.stringify(p)}`
+        );
+      }
+
+      if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z)) {
+        throw new Error(
+          `Non-finite values in curve at t=${t}: {x: ${p.x}, y: ${p.y}, z: ${p.z}}`
+        );
+      }
+
       points.push(new THREE.Vector3(p.x, p.y, p.z));
     }
 

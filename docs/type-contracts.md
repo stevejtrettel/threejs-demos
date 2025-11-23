@@ -642,8 +642,8 @@ Here's a complete component that uses all the major type contracts:
 
 ```typescript
 import * as THREE from 'three';
-import { ComponentParams } from '@core/components/ComponentParams';
-import type { Animatable, Disposable, Renderable, MathComponent } from '@core/types';
+import { ComponentParams } from '@/components/ComponentParams';
+import type { Animatable, Disposable, Renderable, MathComponent } from '@/types';
 
 /**
  * A geodesic path visualization with animated particle
@@ -782,7 +782,7 @@ class Geodesic implements MathComponent {
 }
 
 // Usage in a demo
-import { App } from '@core/App';
+import { App } from '@/App';
 
 const app = new App();
 const metric = { mass: 1 };

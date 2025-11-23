@@ -8,7 +8,7 @@ import {
   integrateGeodesicCoords,
   integrateParallelTransport,
   createCatmullRomVec
-} from '@core';
+} from '@';
 
 const app = new App({
   fov: 60,

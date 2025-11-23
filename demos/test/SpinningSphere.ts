@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '@core/components/ComponentParams';
+import { ComponentParams } from '@/components/ComponentParams';
 
 export class SpinningSphere {
   mesh: THREE.Mesh;

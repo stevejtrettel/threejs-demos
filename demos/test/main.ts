@@ -1,4 +1,4 @@
-import { App, ParametricCurve } from '@core';
+import { App, ParametricCurve } from '@';
 
 const app = new App();
 

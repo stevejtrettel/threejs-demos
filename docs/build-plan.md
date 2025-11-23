@@ -351,7 +351,7 @@ export * from './types';
 
 ```typescript
 import * as THREE from 'three';
-import { App } from '@core/App';
+import { App } from '@/App';
 
 const app = new App();
 
@@ -708,7 +708,7 @@ export class App {
 
 ```typescript
 import * as THREE from 'three';
-import { App } from '@core/App';
+import { App } from '@/App';
 
 const app = new App();
 
@@ -940,7 +940,7 @@ export class SpinningSphere {
 ### Update demos/test/main.ts
 
 ```typescript
-import { App } from '@core/App';
+import { App } from '@/App';
 import { SpinningSphere } from './TestComponent';
 
 const app = new App();
@@ -1286,7 +1286,7 @@ Add parameters:
 
 ```typescript
 import * as THREE from 'three';
-import { ComponentParams } from '@core/components/ComponentParams';
+import { ComponentParams } from '@/components/ComponentParams';
 
 export class SpinningSphere {
   mesh: THREE.Mesh;
@@ -1356,7 +1356,7 @@ export class SpinningSphere {
 Test parameters:
 
 ```typescript
-import { App } from '@core/App';
+import { App } from '@/App';
 import { SpinningSphere } from './TestComponent';
 
 const app = new App();
@@ -1473,7 +1473,7 @@ Update `demos/test/main.ts`:
 
 ```typescript
 import * as THREE from 'three';
-import { App } from '@core/App';
+import { App } from '@/App';
 import { SpinningSphere } from './TestComponent';
 
 const app = new App();
@@ -1643,7 +1643,7 @@ Create `demos/test/fixed-layout.html`:
 Create `demos/test/fixed-layout.ts`:
 
 ```typescript
-import { App } from '@core/App';
+import { App } from '@/App';
 import { SpinningSphere } from './TestComponent';
 
 const app = new App();
@@ -1779,8 +1779,8 @@ export class ParametricCurve {
 Create `demos/calculus/tangent-line/main.ts`:
 
 ```typescript
-import { App } from '@core/App';
-import { ParametricCurve } from '@core/math/curves/ParametricCurve';
+import { App } from '@/App';
+import { ParametricCurve } from '@/math/curves/ParametricCurve';
 
 const app = new App();
 
@@ -1936,7 +1936,7 @@ export * from './math';
 ### Test It
 
 ```typescript
-import { App, CoordinateAxes } from '@core';
+import { App, CoordinateAxes } from '@';
 
 const app = new App();
 app.backgrounds.setColor(0x000000);

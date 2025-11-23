@@ -7,7 +7,7 @@ import {
   Materials,
   computeGaussianCurvature,
   computeMeanCurvature
-} from '@core';
+} from '@';
 
 const app = new App({
   fov: 60,

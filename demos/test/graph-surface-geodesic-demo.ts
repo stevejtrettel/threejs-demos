@@ -4,7 +4,7 @@ import {
   GraphSurface,
   Geodesic,
   CoordinateAxes
-} from '@core';
+} from '@';
 
 const app = new App({
   fov: 60,

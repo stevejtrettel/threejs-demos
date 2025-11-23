@@ -84,6 +84,10 @@ export interface AppOptions {
 
   // Physically correct lighting
   physicallyCorrectLights?: boolean;
+
+  // Debug mode (enables keyboard shortcuts and performance monitoring)
+  // Default: true
+  debug?: boolean;
 }
 
 export interface ParamOptions {
@@ -102,7 +106,7 @@ export interface ParamOptions {
    * - 'update': Triggers cheap in-place update (colors, materials)
    * - 'none': No automatic action (use onChange for custom behavior)
    *
-   * ComponentParams will automatically call owner.rebuild() or owner.update()
+   * Params will automatically call owner.rebuild() or owner.update()
    *
    * @example
    *   this.params.define('segments', 32, {

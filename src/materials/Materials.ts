@@ -96,6 +96,33 @@ function glossy(color: number = 0xffffff, options: Partial<THREE.MeshPhysicalMat
 }
 
 /**
+ * Ceramic material (smooth, glossy porcelain-like finish)
+ */
+function ceramic(color: number = 0xffffff, options: Partial<THREE.MeshPhysicalMaterialParameters> = {}): THREE.MeshPhysicalMaterial {
+  return physical({
+    color,
+    roughness: 0.15,
+    metalness: 0.0,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.15,
+    ...options
+  });
+}
+
+/**
+ * Rubber material (matte, soft appearance)
+ */
+function rubber(color: number = 0x333333, options: Partial<THREE.MeshPhysicalMaterialParameters> = {}): THREE.MeshPhysicalMaterial {
+  return physical({
+    color,
+    roughness: 0.9,
+    metalness: 0.0,
+    clearcoat: 0.0,
+    ...options
+  });
+}
+
+/**
  * Create MeshStandardMaterial (simpler, more performant than Physical)
  */
 function standard(options: Partial<THREE.MeshStandardMaterialParameters> = {}): THREE.MeshStandardMaterial {
@@ -176,6 +203,8 @@ export const Materials = {
   glass,
   matte,
   glossy,
+  ceramic,
+  rubber,
 
   // Other material types
   standard,

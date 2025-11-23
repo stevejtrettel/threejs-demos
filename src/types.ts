@@ -84,6 +84,10 @@ export interface AppOptions {
 
   // Physically correct lighting
   physicallyCorrectLights?: boolean;
+
+  // Debug mode (enables keyboard shortcuts and performance monitoring)
+  // Default: true
+  debug?: boolean;
 }
 
 export interface ParamOptions {

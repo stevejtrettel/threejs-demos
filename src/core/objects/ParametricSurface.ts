@@ -58,7 +58,7 @@ export class ParametricSurface implements MathComponent, DifferentialSurface {
   uSegments!: number;
   vSegments!: number;
   colorHex!: number;
-  wireframe!: number;
+  wireframe!: boolean;
 
   constructor(fn: ParametricSurfaceFunction, options: ParametricSurfaceOptions = {}) {
     this.fn = fn;

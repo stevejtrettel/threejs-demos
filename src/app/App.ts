@@ -1,9 +1,12 @@
 import * as THREE from 'three';
+import { AssetManager } from './AssetManager';
+import { DebugManager } from './DebugManager';
 import { BackgroundManager } from './BackgroundManager';
 import { LightManager } from './LightManager';
 import { ControlsManager } from './ControlsManager';
 import { LayoutManager } from './LayoutManager';
 import { ParameterManager } from './ParameterManager';
+import { SelectionManager } from './SelectionManager';
 import { Params } from '../Params';
 import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from '../types';
 
@@ -14,11 +17,14 @@ export class App {
   renderer: THREE.WebGLRenderer;
 
   // Managers
+  assets: AssetManager;
+  debug: DebugManager;
   backgrounds: BackgroundManager;
   lights: LightManager;
   controls: ControlsManager;
   layout: LayoutManager;
   params: ParameterManager;
+  selection: SelectionManager;
 
   // Object tracking
   private animatables: Animatable[] = [];
@@ -41,15 +47,25 @@ export class App {
     // Create and configure renderer
     this.renderer = this.createRenderer(options);
 
-    // Initialize managers
+    // Initialize foundation managers first
+    this.assets = new AssetManager();
+    this.debug = new DebugManager(this.scene, this.renderer);
+
+    // Initialize other managers
     this.backgrounds = new BackgroundManager(this.scene, this.renderer);
     this.lights = new LightManager(this.scene);
     this.controls = new ControlsManager(this.camera, this.renderer);
     this.layout = new LayoutManager(this.renderer, this.camera);
     this.params = new ParameterManager();
+    this.selection = new SelectionManager(this.scene, this.camera, this.renderer.domElement);
 
     // Default fullscreen layout
     this.layout.setFullscreen();
+
+    // Enable debug in development (can be disabled via options)
+    if (options.debug !== false) {
+      this.debug.enable();
+    }
   }
 
   /**
@@ -214,6 +230,9 @@ export class App {
     const delta = time - this.lastTime;
     this.lastTime = time;
 
+    // Update debug stats
+    this.debug.update();
+
     // Update controls
     this.controls.update();
 
@@ -325,6 +344,12 @@ export class App {
    * Clean up resources
    */
   dispose(): void {
+    // Dispose foundation managers
+    this.assets.dispose();
+    this.debug.disable();
+
+    // Dispose other managers
+    this.selection.dispose();
     this.renderer.dispose();
     this.backgrounds.dispose();
     this.lights.dispose();

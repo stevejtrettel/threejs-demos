@@ -7,13 +7,14 @@ import { ControlsManager } from './ControlsManager';
 import { LayoutManager } from './LayoutManager';
 import { ParameterManager } from './ParameterManager';
 import { SelectionManager } from './SelectionManager';
+import { TimelineManager } from './TimelineManager';
+import { CameraManager } from './CameraManager';
 import { Params } from '../Params';
 import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from '../types';
 
 export class App {
   // Three.js core
   scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
 
   // Managers
@@ -25,24 +26,24 @@ export class App {
   layout: LayoutManager;
   params: ParameterManager;
   selection: SelectionManager;
+  timeline: TimelineManager;
+  cameraManager: CameraManager;
 
   // Object tracking
   private animatables: Animatable[] = [];
   private disposables: Disposable[] = [];
   private animateCallbacks: AnimateCallback[] = [];
-  private lastTime = 0;
 
   constructor(options: AppOptions = {}) {
     // Create Three.js core
     this.scene = new THREE.Scene();
 
-    this.camera = new THREE.PerspectiveCamera(
-      options.fov || 75,
-      window.innerWidth / window.innerHeight,
-      options.near || 0.1,
-      options.far || 1000
-    );
-    this.camera.position.z = 5;
+    // Initialize Camera Manager
+    this.cameraManager = new CameraManager({
+      fov: options.fov,
+      near: options.near,
+      far: options.far
+    });
 
     // Create and configure renderer
     this.renderer = this.createRenderer(options);
@@ -50,14 +51,15 @@ export class App {
     // Initialize foundation managers first
     this.assets = new AssetManager();
     this.debug = new DebugManager(this.scene, this.renderer);
+    this.timeline = new TimelineManager();
 
     // Initialize other managers
     this.backgrounds = new BackgroundManager(this.scene, this.renderer);
     this.lights = new LightManager(this.scene);
-    this.controls = new ControlsManager(this.camera, this.renderer);
-    this.layout = new LayoutManager(this.renderer, this.camera);
+    this.controls = new ControlsManager(this.cameraManager.camera, this.renderer);
+    this.layout = new LayoutManager(this.renderer, this.cameraManager.camera);
     this.params = new ParameterManager();
-    this.selection = new SelectionManager(this.scene, this.camera, this.renderer.domElement);
+    this.selection = new SelectionManager(this.scene, this.cameraManager.camera, this.renderer.domElement);
 
     // Default fullscreen layout
     this.layout.setFullscreen();
@@ -66,6 +68,13 @@ export class App {
     if (options.debug !== false) {
       this.debug.enable();
     }
+  }
+
+  /**
+   * Get the main camera
+   */
+  get camera(): THREE.PerspectiveCamera {
+    return this.cameraManager.camera;
   }
 
   /**
@@ -81,6 +90,13 @@ export class App {
     // 2. Add to animation if animatable
     if (obj.animate && typeof obj.animate === 'function') {
       this.animatables.push(obj);
+    } else if (options?.animate) {
+      // Allow attaching animation callback via options
+      // We wrap the object to conform to Animatable interface
+      const wrapper = {
+        animate: options.animate
+      };
+      this.animatables.push(wrapper);
     }
 
     // 3. Track for disposal
@@ -179,6 +195,7 @@ export class App {
     this.animatables = [];
     this.disposables = [];
     this.animateCallbacks = [];
+    this.timeline.reset();
   }
 
   /**
@@ -224,11 +241,12 @@ export class App {
   /**
    * Main animation loop (private)
    */
-  private animate = (time: number) => {
+  private animate = (timestamp: number) => {
     requestAnimationFrame(this.animate);
 
-    const delta = time - this.lastTime;
-    this.lastTime = time;
+    // Update global time
+    this.timeline.update(timestamp);
+    const { time, delta } = this.timeline;
 
     // Update debug stats
     this.debug.update();
@@ -243,7 +261,7 @@ export class App {
     this.animateCallbacks.forEach(fn => fn(time, delta));
 
     // Render
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.cameraManager.camera);
   }
 
   /**
@@ -347,6 +365,8 @@ export class App {
     // Dispose foundation managers
     this.assets.dispose();
     this.debug.disable();
+    this.timeline.dispose();
+    this.cameraManager.dispose();
 
     // Dispose other managers
     this.selection.dispose();

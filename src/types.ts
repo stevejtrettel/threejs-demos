@@ -129,4 +129,5 @@ export interface ParamDefinition {
 export interface AddOptions {
   params?: boolean | string[] | Record<string, boolean | ParamOptions>;
   set?: Record<string, any>;
+  animate?: AnimateCallback;
 }

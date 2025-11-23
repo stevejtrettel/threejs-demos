@@ -1,4 +1,4 @@
-import { App, LevelCurve, LevelCurves, CoordinateAxes, Grid } from '@core';
+import { App, LevelCurve, LevelCurves, CoordinateAxes, Grid } from '@';
 
 const app = new App({
   fov: 60,

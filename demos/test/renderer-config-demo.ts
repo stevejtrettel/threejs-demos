@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { App, CoordinateAxes, Grid, Materials } from '@core';
+import { App, CoordinateAxes, Grid, Materials } from '@';
 
 // Demo 1: Default configuration (ACES tone mapping, no shadows)
 console.log('=== Renderer Configuration Demo ===');

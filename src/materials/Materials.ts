@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * You can always fall back to `new THREE.MeshPhysicalMaterial()` directly.
  *
  * Usage:
- *   import { Materials } from '@core/materials';
+ *   import { Materials } from '@/materials';
  *   const mat = Materials.plastic(0xff0000);
  */
 
@@ -163,7 +163,7 @@ function clone<T extends THREE.Material>(material: T, overrides: Partial<T> = {}
  * All functions return actual Three.js materials (no wrappers).
  *
  * @example
- *   import { Materials } from '@core/materials';
+ *   import { Materials } from '@/materials';
  *
  *   const plastic = Materials.plastic(0xff0000);
  *   const shiny = Materials.clone(plastic, { clearcoat: 1.0 });

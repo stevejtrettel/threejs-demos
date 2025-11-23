@@ -1,11 +1,14 @@
 {
   "name": "threejs-demos",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./App": "./src/App.ts",
+    "./types": "./src/types.ts"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

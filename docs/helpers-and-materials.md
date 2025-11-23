@@ -21,7 +21,7 @@ Creates RGB coordinate axes with arrowheads:
 
 **Usage:**
 ```typescript
-import { App, CoordinateAxes } from '@core';
+import { App, CoordinateAxes } from '@';
 
 const app = new App();
 
@@ -64,7 +64,7 @@ Flexible grid helper that supports multiple planes (XY, XZ, YZ).
 
 **Usage:**
 ```typescript
-import { App, Grid } from '@core';
+import { App, Grid } from '@';
 
 const app = new App();
 

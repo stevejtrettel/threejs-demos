@@ -5,7 +5,7 @@ import {
   Geodesic,
   CoordinateAxes,
   Materials
-} from '@core';
+} from '@';
 
 const app = new App({
   fov: 60,

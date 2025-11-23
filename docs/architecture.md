@@ -1278,7 +1278,7 @@ packages/
 **Importing shared assets:**
 
 ```typescript
-import studioHDR from '@core/assets/environments/studio.hdr';
+import studioHDR from '@/assets/environments/studio.hdr';
 ```
 
 **Importing demo assets:**
@@ -1294,7 +1294,7 @@ import spaceHDR from './assets/space.hdr';
 ### Pattern 1: Quick Prototype
 
 ```typescript
-import { App } from '@core/App';
+import { App } from '@/App';
 
 const app = new App();
 app.backgrounds.setColor(0x1a1a2e);
@@ -1320,7 +1320,7 @@ app.start();
 ### Pattern 2: Component-Based
 
 ```typescript
-import { App } from '@core/App';
+import { App } from '@/App';
 import { Geodesic } from '../shared/Geodesic';
 import studioHDR from './assets/studio.hdr';
 
@@ -1351,7 +1351,7 @@ app.start();
 ### Pattern 3: Multiple Components
 
 ```typescript
-import { App } from '@core/App';
+import { App } from '@/App';
 import { BlackHole } from '../shared/BlackHole';
 import { Geodesic } from '../shared/Geodesic';
 

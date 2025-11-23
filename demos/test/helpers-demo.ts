@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { App, CoordinateAxes, Grid, Materials } from '@core';
+import { App, CoordinateAxes, Grid, Materials } from '@';
 
 const app = new App();
 

@@ -22,10 +22,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@core": ["./packages/core/src"],
-      "@core/*": ["./packages/core/src/*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["packages/**/*", "demos/**/*"],
+  "include": ["src/**/*", "demos/**/*"],
   "exclude": ["node_modules", "dist"]
 }

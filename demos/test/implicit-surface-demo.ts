@@ -1,4 +1,4 @@
-import { App, ImplicitSurface, CoordinateAxes, Grid, Materials } from '@core';
+import { App, ImplicitSurface, CoordinateAxes, Grid, Materials } from '@';
 
 const app = new App({
   fov: 60,

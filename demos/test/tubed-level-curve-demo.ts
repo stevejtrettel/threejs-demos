@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { App, TubedLevelCurve, TubedLevelCurves, CoordinateAxes, Grid, Materials } from '@core';
+import { App, TubedLevelCurve, TubedLevelCurves, CoordinateAxes, Grid, Materials } from '@';
 
 const app = new App({
   fov: 60,

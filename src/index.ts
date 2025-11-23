@@ -10,7 +10,7 @@ export * from './core/riemannian';
 export * from './domains/diffgeo';
 
 // Helpers
-export * from './math/helpers';
+export * from './helpers';
 
 // Materials
 export * from './materials';

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Params } from '../../Params';
 import { MARCHING_SQUARES_EDGES } from './marchingSquaresTable';
-import { connectLineSegments, isPathClosed } from '../../utils/connectLineSegments';
+import { connectLineSegments, isPathClosed } from '../../algorithms/connectLineSegments';
 import type { LevelFunction, LevelCurveOptions } from './LevelCurve';
 
 export interface TubedLevelCurveOptions extends LevelCurveOptions {

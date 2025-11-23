@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Params } from '../../Params';
+import { Params } from '../Params';
 
 export interface ConeVectorOptions {
   origin?: THREE.Vector3 | [number, number, number];

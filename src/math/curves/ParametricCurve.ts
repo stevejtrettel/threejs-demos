@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import type { MathComponent } from '../../types';
 
 export interface ParametricFunction {
@@ -23,7 +23,7 @@ export interface ParametricCurveOptions {
  */
 export class ParametricCurve implements MathComponent {
   mesh: THREE.Line;
-  params: ComponentParams;
+  params: Params;
 
   private fn: ParametricFunction;
 
@@ -35,7 +35,7 @@ export class ParametricCurve implements MathComponent {
 
   constructor(fn: ParametricFunction, options: ParametricCurveOptions = {}) {
     this.fn = fn;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // STRUCTURAL PARAMETERS → rebuild
     this.params.define('tMin', options.tMin ?? 0, {

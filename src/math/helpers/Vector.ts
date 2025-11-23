@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 
 export interface VectorOptions {
   origin?: THREE.Vector3 | [number, number, number];
@@ -25,7 +25,7 @@ export interface VectorOptions {
  */
 export class Vector {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private arrow: THREE.ArrowHelper;
 
@@ -35,7 +35,7 @@ export class Vector {
   color!: number;
 
   constructor(options: VectorOptions = {}) {
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // Parse origin
     const origin = options.origin

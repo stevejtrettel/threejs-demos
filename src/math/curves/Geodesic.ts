@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import type { MathComponent } from '../../types';
 import type { DifferentialSurface } from '../diffgeo/types';
 import { TangentVector } from '../diffgeo/types';
@@ -35,7 +35,7 @@ export interface GeodesicOptions {
  */
 export class Geodesic implements MathComponent {
   mesh: THREE.Line | THREE.Mesh;
-  params: ComponentParams;
+  params: Params;
 
   private surface: DifferentialSurface;
   private geometry!: THREE.BufferGeometry;
@@ -55,7 +55,7 @@ export class Geodesic implements MathComponent {
   constructor(options: GeodesicOptions) {
     this.surface = options.surface;
     this.useThickLine = options.useThickLine ?? false;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // INTEGRATION PARAMETERS → rebuild
     this.params.define('u0', options.u0 ?? 0, {

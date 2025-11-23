@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import type { MathComponent } from '../../types';
 import type { DifferentialSurface, FirstFundamentalForm, ChristoffelSymbols } from '../diffgeo/types';
 
@@ -49,7 +49,7 @@ export interface RevolutionSurfaceOptions {
  */
 export class RevolutionSurface implements MathComponent, DifferentialSurface {
   mesh: THREE.Mesh;
-  params: ComponentParams;
+  params: Params;
 
   private derivatives: RevolutionDerivatives;
   private geometry!: THREE.BufferGeometry;
@@ -67,7 +67,7 @@ export class RevolutionSurface implements MathComponent, DifferentialSurface {
 
   constructor(derivatives: RevolutionDerivatives, options: RevolutionSurfaceOptions = {}) {
     this.derivatives = this.setupDerivatives(derivatives);
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // STRUCTURAL PARAMETERS → rebuild
     this.params.define('uMin', options.uMin ?? 0, {

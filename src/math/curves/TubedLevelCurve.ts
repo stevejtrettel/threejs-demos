@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import { MARCHING_SQUARES_EDGES } from './marchingSquaresTable';
 import { connectLineSegments, isPathClosed } from '../../utils/connectLineSegments';
 import type { LevelFunction, LevelCurveOptions } from './LevelCurve';
@@ -25,7 +25,7 @@ export interface TubedLevelCurveOptions extends LevelCurveOptions {
  */
 export class TubedLevelCurve {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private fn: LevelFunction;
   private bounds: {
@@ -45,7 +45,7 @@ export class TubedLevelCurve {
 
   constructor(fn: LevelFunction, options: TubedLevelCurveOptions = {}) {
     this.fn = fn;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // Set bounds
     this.bounds = {

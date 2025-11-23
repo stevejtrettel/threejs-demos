@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 
 export interface ConeVectorOptions {
   origin?: THREE.Vector3 | [number, number, number];
@@ -26,7 +26,7 @@ export interface ConeVectorOptions {
  */
 export class ConeVector {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private cone: THREE.Mesh;
 
@@ -38,7 +38,7 @@ export class ConeVector {
   lengthScale!: number;
 
   constructor(options: ConeVectorOptions = {}) {
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // Parse origin and direction
     const origin = options.origin

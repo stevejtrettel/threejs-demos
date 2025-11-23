@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import { MARCHING_SQUARES_EDGES } from './marchingSquaresTable';
 
 export interface LevelFunction {
@@ -34,7 +34,7 @@ export interface LevelCurveOptions {
  */
 export class LevelCurve {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private fn: LevelFunction;
   private bounds: {
@@ -52,7 +52,7 @@ export class LevelCurve {
 
   constructor(fn: LevelFunction, options: LevelCurveOptions = {}) {
     this.fn = fn;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // Set bounds
     this.bounds = {

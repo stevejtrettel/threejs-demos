@@ -1,5 +1,5 @@
-export { App } from './App';
-export { ComponentParams } from './components/ComponentParams';
+export * from './app';
+export { Params } from './Params';
 export * from './types';
 
 // Core objects

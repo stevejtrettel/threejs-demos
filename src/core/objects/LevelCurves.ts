@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import { LevelCurve } from './LevelCurve';
 import type { LevelFunction, LevelCurveOptions } from './LevelCurve';
 
@@ -25,7 +25,7 @@ export interface LevelCurvesOptions extends Omit<LevelCurveOptions, 'level'> {
  */
 export class LevelCurves {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private fn: LevelFunction;
   private curves: LevelCurve[];
@@ -34,7 +34,7 @@ export class LevelCurves {
   constructor(fn: LevelFunction, options: LevelCurvesOptions = {}) {
     this.fn = fn;
     this.options = options;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     this.mesh = new THREE.Group();
     this.curves = [];

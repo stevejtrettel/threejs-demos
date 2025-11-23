@@ -1,4 +1,4 @@
-import type { ParamOptions, ParamDefinition } from '../types';
+import type { ParamOptions, ParamDefinition } from './types';
 
 export class Params {
   private owner: any;

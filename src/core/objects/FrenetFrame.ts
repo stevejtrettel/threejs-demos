@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import type { ParametricFunction } from './ParametricCurve';
 
 export interface FrenetFrameOptions {
@@ -30,7 +30,7 @@ export interface FrenetFrameOptions {
  */
 export class FrenetFrame {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private fn: ParametricFunction;
   private tangentArrow: THREE.ArrowHelper;
@@ -42,7 +42,7 @@ export class FrenetFrame {
 
   constructor(fn: ParametricFunction, options: FrenetFrameOptions = {}) {
     this.fn = fn;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     const colors = {
       tangent: options.colors?.tangent ?? 0xff0000,    // Red

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import { MARCHING_CUBES_TRIANGLES } from './marchingCubesTable';
 
 export interface ImplicitFunction {
@@ -34,7 +34,7 @@ export interface ImplicitSurfaceOptions {
  */
 export class ImplicitSurface {
   mesh: THREE.Mesh;
-  params: ComponentParams;
+  params: Params;
 
   private fn: ImplicitFunction;
   private bounds: {
@@ -51,7 +51,7 @@ export class ImplicitSurface {
 
   constructor(fn: ImplicitFunction, options: ImplicitSurfaceOptions = {}) {
     this.fn = fn;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // Set bounds
     this.bounds = {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import type { MathComponent } from '../../types';
 import type { DifferentialSurface, FirstFundamentalForm, ChristoffelSymbols } from '../riemannian/types';
 import {
@@ -44,7 +44,7 @@ export interface ParametricSurfaceOptions {
  */
 export class ParametricSurface implements MathComponent, DifferentialSurface {
   mesh: THREE.Mesh;
-  params: ComponentParams;
+  params: Params;
 
   private fn: ParametricSurfaceFunction;
   private computeNormals: boolean;
@@ -63,7 +63,7 @@ export class ParametricSurface implements MathComponent, DifferentialSurface {
   constructor(fn: ParametricSurfaceFunction, options: ParametricSurfaceOptions = {}) {
     this.fn = fn;
     this.computeNormals = options.computeNormals ?? true;
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // STRUCTURAL PARAMETERS → rebuild
     this.params.define('uMin', options.uMin ?? 0, {

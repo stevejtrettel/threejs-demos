@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 
 export interface ArrowOptions {
   origin?: THREE.Vector3 | [number, number, number];
@@ -27,7 +27,7 @@ export interface ArrowOptions {
  */
 export class Arrow {
   mesh: THREE.Group;
-  params: ComponentParams;
+  params: Params;
 
   private baseSphere: THREE.Mesh;
   private shaft: THREE.Mesh;
@@ -39,7 +39,7 @@ export class Arrow {
   color!: number;
 
   constructor(options: ArrowOptions = {}) {
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // Parse origin and direction
     const origin = options.origin

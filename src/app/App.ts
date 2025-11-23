@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { BackgroundManager } from './managers/BackgroundManager';
-import { LightManager } from './managers/LightManager';
-import { ControlsManager } from './managers/ControlsManager';
-import { LayoutManager } from './managers/LayoutManager';
-import { ParameterManager } from './managers/ParameterManager';
-import { Params } from './components/Params';
-import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from './types';
+import { BackgroundManager } from './BackgroundManager';
+import { LightManager } from './LightManager';
+import { ControlsManager } from './ControlsManager';
+import { LayoutManager } from './LayoutManager';
+import { ParameterManager } from './ParameterManager';
+import { Params } from '../Params';
+import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from '../types';
 
 export class App {
   // Three.js core

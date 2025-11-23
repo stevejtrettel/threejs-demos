@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ComponentParams } from '../../components/ComponentParams';
+import { Params } from '../../Params';
 import type { MathComponent } from '../../types';
 import type { DifferentialSurface, FirstFundamentalForm, ChristoffelSymbols } from '../diffgeo/types';
 
@@ -46,7 +46,7 @@ export interface GraphSurfaceOptions {
  */
 export class GraphSurface implements MathComponent, DifferentialSurface {
   mesh: THREE.Mesh;
-  params: ComponentParams;
+  params: Params;
 
   readonly derivatives: GraphDerivatives;
   private geometry!: THREE.BufferGeometry;
@@ -66,7 +66,7 @@ export class GraphSurface implements MathComponent, DifferentialSurface {
 
   constructor(derivatives: GraphDerivatives, options: GraphSurfaceOptions = {}) {
     this.derivatives = this.setupDerivatives(derivatives);
-    this.params = new ComponentParams(this);
+    this.params = new Params(this);
 
     // STRUCTURAL PARAMETERS → rebuild
     this.params.define('xMin', options.xMin ?? -5, {

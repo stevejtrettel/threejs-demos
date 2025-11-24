@@ -85,6 +85,13 @@ export interface AppOptions {
   // Physically correct lighting
   physicallyCorrectLights?: boolean;
 
+  // Path tracer defaults
+  pathTracerDefaults?: {
+    bounces?: number;
+    samples?: number;
+    tiles?: { x: number; y: number };
+  };
+
   // Debug mode (enables keyboard shortcuts and performance monitoring)
   // Default: true
   debug?: boolean;

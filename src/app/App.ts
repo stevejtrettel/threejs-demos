@@ -12,13 +12,14 @@ import { CameraManager } from './CameraManager';
 import { ScreenshotManager } from './ScreenshotManager';
 import { VideoExportManager } from './VideoExportManager';
 import { ExportManager } from './ExportManager';
+import { RenderManager } from './RenderManager';
 import { Params } from '../Params';
 import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from '../types';
 
 export class App {
   // Three.js core
   scene: THREE.Scene;
-  renderer: THREE.WebGLRenderer;
+  renderManager: RenderManager;
 
   // Managers
   assets: AssetManager;
@@ -53,24 +54,31 @@ export class App {
       far: options.far
     });
 
-    // Create and configure renderer
-    this.renderer = this.createRenderer(options);
+    // Create render manager
+    this.renderManager = new RenderManager({
+      antialias: options.antialias ?? true,
+      alpha: options.alpha ?? false,
+      pathTracerDefaults: options.pathTracerDefaults
+    });
+
+    // Configure renderer
+    this.configureRenderer(options);
 
     // Initialize foundation managers first
     this.assets = new AssetManager();
-    this.debug = new DebugManager(this.scene, this.renderer);
+    this.debug = new DebugManager(this.scene, this.renderManager.renderer);
     this.timeline = new TimelineManager();
 
     // Initialize other managers
-    this.backgrounds = new BackgroundManager(this.scene, this.renderer);
+    this.backgrounds = new BackgroundManager(this.scene, this.renderManager.renderer);
     this.lights = new LightManager(this.scene);
-    this.controls = new ControlsManager(this.cameraManager.camera, this.renderer);
-    this.layout = new LayoutManager(this.renderer, this.cameraManager.camera);
+    this.controls = new ControlsManager(this.cameraManager.camera, this.renderManager.renderer);
+    this.layout = new LayoutManager(this.renderManager.renderer, this.cameraManager.camera);
     this.params = new ParameterManager();
-    this.selection = new SelectionManager(this.scene, this.cameraManager.camera, this.renderer.domElement);
+    this.selection = new SelectionManager(this.scene, this.cameraManager.camera, this.renderManager.renderer.domElement);
 
     // Initialize export managers
-    this.screenshots = new ScreenshotManager(this.renderer, this.scene, this.cameraManager.camera);
+    this.screenshots = new ScreenshotManager(this.renderManager.renderer, this.scene, this.cameraManager.camera);
     this.video = new VideoExportManager(this.timeline, this.screenshots);
     this.export = new ExportManager(this.scene);
 
@@ -249,7 +257,32 @@ export class App {
   }
 
   /**
-   * Main animation loop (private)
+   * Enable path tracing mode
+   */
+  enablePathTracing(options?: { bounces?: number; samples?: number }): void {
+    this.renderManager.switchToPathTracing(options);
+  }
+
+  /**
+   * Disable path tracing mode (switch back to WebGL)
+   */
+  disablePathTracing(): void {
+    this.renderManager.switchToWebGL();
+  }
+
+  /**
+   * Toggle path tracing on/off
+   */
+  togglePathTracing(): void {
+    if (this.renderManager.isPathTracing()) {
+      this.disablePathTracing();
+    } else {
+      this.enablePathTracing();
+    }
+  }
+
+  /**
+   * Main animation loop
    */
   private animate = (timestamp: number) => {
     requestAnimationFrame(this.animate);
@@ -265,43 +298,33 @@ export class App {
     this.controls.update();
 
     // Animate all registered objects
-    this.animatables.forEach(obj => obj.animate(time, delta));
+    this.animatables.forEach((m: Animatable) => m.animate(time, delta));
 
     // Execute callbacks
     this.animateCallbacks.forEach(fn => fn(time, delta));
 
     // Render
-    this.renderer.render(this.scene, this.cameraManager.camera);
+    this.renderManager.render(this.scene, this.cameraManager.camera);
   }
 
   /**
-   * Create and configure WebGL renderer
+   * Configure renderer settings
    */
-  private createRenderer(options: AppOptions): THREE.WebGLRenderer {
-    // Create renderer with WebGL context options
-    const renderer = new THREE.WebGLRenderer({
-      antialias: options.antialias ?? true,
-      alpha: options.alpha ?? false,
-      powerPreference: options.powerPreference ?? 'default',
-      preserveDrawingBuffer: true // Required for screenshots
-    });
-
+  private configureRenderer(options: AppOptions): void {
     // Configure shadows
-    this.configureShadows(renderer, options.shadows);
+    this.configureShadows(this.renderManager.renderer, options.shadows);
 
     // Configure tone mapping
-    renderer.toneMapping = this.getToneMappingType(options.toneMapping ?? 'aces');
-    renderer.toneMappingExposure = options.toneMappingExposure ?? 1;
+    this.renderManager.renderer.toneMapping = this.getToneMappingType(options.toneMapping ?? 'aces');
+    this.renderManager.renderer.toneMappingExposure = options.toneMappingExposure ?? 1;
 
     // Configure color space
-    renderer.outputColorSpace = this.getColorSpace(options.colorSpace ?? 'srgb');
+    this.renderManager.renderer.outputColorSpace = this.getColorSpace(options.colorSpace ?? 'srgb');
 
     // Physically correct lights (deprecated in newer Three.js but kept for compatibility)
     if (options.physicallyCorrectLights !== undefined) {
-      (renderer as any).physicallyCorrectLights = options.physicallyCorrectLights;
+      (this.renderManager.renderer as any).physicallyCorrectLights = options.physicallyCorrectLights;
     }
-
-    return renderer;
   }
 
   /**
@@ -386,7 +409,7 @@ export class App {
 
     // Dispose other managers
     this.selection.dispose();
-    this.renderer.dispose();
+    this.renderManager.dispose();
     this.backgrounds.dispose();
     this.lights.dispose();
     this.controls.dispose();

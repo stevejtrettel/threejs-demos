@@ -1,0 +1,49 @@
+.cr-window {
+    position: fixed;
+    background-color: var(--cr-bg-primary, #1a1a1a);
+    border: 1px solid var(--cr-border, #333);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cr-window-title {
+    padding: 8px 12px;
+    background-color: var(--cr-bg-secondary, #252525);
+    border-bottom: 1px solid var(--cr-border, #333);
+    cursor: move;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--cr-font-size-s, 11px);
+    font-weight: 600;
+    color: var(--cr-text-accent, #4da6ff);
+}
+
+.cr-window-title.non-draggable {
+    cursor: default;
+}
+
+.cr-window-close {
+    background: none;
+    border: none;
+    color: var(--cr-text-secondary, #aaa);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.cr-window-close:hover {
+    color: var(--cr-text-primary, #e0e0e0);
+}
+
+.cr-window-content {
+    flex-grow: 1;
+    padding: var(--cr-space-s, 8px);
+    overflow-y: auto;
+}

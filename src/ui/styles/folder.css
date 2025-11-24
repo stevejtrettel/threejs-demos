@@ -1,0 +1,36 @@
+.cr-folder {
+    margin-bottom: var(--cr-space-s, 8px);
+    background-color: var(--cr-bg-secondary, #252525);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.cr-folder-header {
+    padding: 6px 8px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    font-size: var(--cr-font-size-s, 11px);
+    font-weight: 600;
+    color: var(--cr-text-secondary, #aaa);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.cr-folder-header:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.cr-folder-icon {
+    font-size: 8px;
+    margin-right: 6px;
+    transition: transform 0.2s;
+}
+
+.cr-folder-icon.closed {
+    transform: rotate(-90deg);
+}
+
+.cr-folder-content {
+    padding: var(--cr-space-s, 8px);
+}

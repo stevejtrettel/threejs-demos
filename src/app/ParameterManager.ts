@@ -12,6 +12,38 @@ interface RegisteredParam {
 export class ParameterManager {
   private registeredParams: RegisteredParam[] = [];
 
+  private listeners: Map<string, ((data: any) => void)[]> = new Map();
+
+  /**
+   * Subscribe to parameter events
+   */
+  on(event: 'param-added' | 'param-removed', callback: (data: any) => void): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event)?.push(callback);
+  }
+
+  /**
+   * Unsubscribe from parameter events
+   */
+  off(event: 'param-added' | 'param-removed', callback: (data: any) => void): void {
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      const index = callbacks.indexOf(callback);
+      if (index !== -1) {
+        callbacks.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Emit an event
+   */
+  private emit(event: 'param-added' | 'param-removed', data: any): void {
+    this.listeners.get(event)?.forEach(cb => cb(data));
+  }
+
   /**
    * Register an ad-hoc parameter
    */
@@ -36,13 +68,16 @@ export class ParameterManager {
       configurable: true
     });
 
-    // Register
-    this.registeredParams.push({
+    const param: RegisteredParam = {
       object,
       property,
       options,
       type: 'adhoc'
-    });
+    };
+
+    // Register
+    this.registeredParams.push(param);
+    this.emit('param-added', param);
   }
 
   /**
@@ -62,13 +97,16 @@ export class ParameterManager {
       ...overrideOptions
     };
 
-    // Register
-    this.registeredParams.push({
+    const param: RegisteredParam = {
       object: (componentParams as any).owner,
       property: paramName,
       options: finalOptions,
       type: 'component'
-    });
+    };
+
+    // Register
+    this.registeredParams.push(param);
+    this.emit('param-added', param);
   }
 
   /**
@@ -91,6 +129,10 @@ export class ParameterManager {
    * Clear all parameters
    */
   clear(): void {
+    // Emit remove for all params
+    this.registeredParams.forEach(param => {
+      this.emit('param-removed', param);
+    });
     this.registeredParams = [];
   }
 

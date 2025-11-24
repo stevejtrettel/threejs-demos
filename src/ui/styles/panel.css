@@ -1,0 +1,20 @@
+.cr-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--cr-sidebar-width, 300px);
+  height: 100vh;
+  background-color: var(--cr-bg-primary, #1a1a1a);
+  border-left: 1px solid var(--cr-border, #333);
+  overflow-y: auto;
+  z-index: 1000;
+  padding: var(--cr-space-s, 8px);
+}
+
+.cr-panel-header {
+  padding: var(--cr-space-s, 8px);
+  font-weight: bold;
+  border-bottom: 1px solid var(--cr-border, #333);
+  margin-bottom: var(--cr-space-s, 8px);
+  color: var(--cr-text-accent, #4da6ff);
+}

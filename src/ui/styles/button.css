@@ -1,0 +1,21 @@
+.cr-button {
+    width: 100%;
+    padding: 6px 12px;
+    background-color: var(--cr-bg-hover, #333);
+    color: var(--cr-text-primary, #e0e0e0);
+    border: 1px solid var(--cr-border, #333);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: var(--cr-font-size-s, 11px);
+    font-family: inherit;
+    margin-bottom: 4px;
+    transition: background-color 0.1s;
+}
+
+.cr-button:hover {
+    background-color: var(--cr-bg-active, #404040);
+}
+
+.cr-button:active {
+    background-color: var(--cr-bg-active, #404040);
+}

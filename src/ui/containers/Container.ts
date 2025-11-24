@@ -1,9 +1,9 @@
 /**
- * Base Component class for all UI elements
+ * Base class for UI containers that can hold other components
  */
-export abstract class Component {
-    public domElement: HTMLElement;
-    protected parent?: Component | HTMLElement;
+export abstract class Container {
+    domElement: HTMLElement;
+    protected parent?: Container | HTMLElement;
 
     constructor(tagName: string = 'div', className?: string) {
         this.domElement = document.createElement(tagName);
@@ -13,21 +13,20 @@ export abstract class Component {
     }
 
     /**
-     * Mount this component to a parent
+     * Add a child component to this container
      */
-    mount(parent: Component | HTMLElement): void {
+    abstract add(component: Container | Input): void;
+
+    mount(parent: Container | HTMLElement): void {
         this.parent = parent;
 
-        if (parent instanceof Component) {
+        if (parent instanceof Container) {
             parent.domElement.appendChild(this.domElement);
         } else {
             parent.appendChild(this.domElement);
         }
     }
 
-    /**
-     * Unmount this component
-     */
     unmount(): void {
         if (this.domElement.parentElement) {
             this.domElement.parentElement.removeChild(this.domElement);
@@ -35,17 +34,10 @@ export abstract class Component {
         this.parent = undefined;
     }
 
-    /**
-     * Dispose resources
-     */
     dispose(): void {
         this.unmount();
     }
-
-    /**
-     * Update loop (optional)
-     */
-    update(): void {
-        // Override in subclasses
-    }
 }
+
+// Import Input for type checking
+import { Input } from '../inputs/Input';

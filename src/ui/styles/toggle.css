@@ -1,0 +1,16 @@
+.cr-toggle {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: var(--cr-font-size-s, 11px);
+}
+
+.cr-toggle-label {
+    width: 80px;
+    color: var(--cr-text-secondary, #aaa);
+    flex-shrink: 0;
+}
+
+.cr-toggle-checkbox {
+    cursor: pointer;
+}

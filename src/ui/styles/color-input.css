@@ -1,0 +1,25 @@
+.cr-color-input {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: var(--cr-font-size-s, 11px);
+}
+
+.cr-color-input-label {
+    width: 80px;
+    color: var(--cr-text-secondary, #aaa);
+    flex-shrink: 0;
+}
+
+.cr-color-input-container {
+    flex-grow: 1;
+}
+
+.cr-color-input-field {
+    width: 100%;
+    height: 20px;
+    border: none;
+    padding: 0;
+    background-color: transparent;
+    cursor: pointer;
+}

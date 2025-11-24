@@ -3,7 +3,7 @@
  */
 
 import { App } from '@/app/App';
-import { ParametricSurface } from '@/core/objects/ParametricSurface';
+import { ParametricSurface } from '@/math/orig/objects/ParametricSurface';
 import * as THREE from 'three';
 
 console.log('Creating app...');

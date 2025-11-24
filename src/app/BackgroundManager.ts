@@ -42,6 +42,7 @@ export interface SceneEnvironmentOptions {
   asBackground?: boolean;       // Use as background (default: true)
   asEnvironment?: boolean;      // Use for IBL (default: true)
   backgroundBlurriness?: number; // Background blur amount 0-1 (default: 0)
+  includeLights?: boolean;      // Clone lights from env scene to main scene (default: false)
 }
 
 export class BackgroundManager {
@@ -55,6 +56,9 @@ export class BackgroundManager {
   // Keep both texture formats for different renderers
   private pmremEnvMap?: THREE.Texture;      // For WebGL IBL (pre-filtered)
   private equirectEnvMap?: THREE.Texture;   // For pathtracer (original)
+
+  // Track lights added from environment scenes
+  private environmentLights: THREE.Light[] = [];
 
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
     this.scene = scene;
@@ -350,21 +354,30 @@ export class BackgroundManager {
    * This allows creating procedural environments without HDRI files.
    * Useful for stylized looks, geometric patterns, or matching scene aesthetics.
    *
+   * Optionally clones lights from the environment scene to your main scene,
+   * ensuring objects are lit consistently with the background.
+   *
    * @param environmentScene - Scene to render (can contain geometry, lights, etc.)
    * @param options - Configuration options
-   * @returns The generated cubemap texture
+   * @param options.includeLights - Clone lights from env scene to main scene (default: false)
+   * @returns The generated PMREM environment map
    *
    * @example
-   *   // Create a simple room environment
+   *   // Create a room environment with matching lights
    *   const envScene = new THREE.Scene();
    *   const room = new THREE.Mesh(
    *     new THREE.BoxGeometry(10, 10, 10),
    *     new THREE.MeshStandardMaterial({ color: 0x404040, side: THREE.BackSide })
    *   );
+   *   const light = new THREE.PointLight(0xffffff, 100);
+   *   light.position.set(0, 4, 0);
    *   envScene.add(room);
-   *   envScene.add(new THREE.PointLight(0xffffff, 100));
+   *   envScene.add(light);
    *
-   *   const cubemap = app.backgrounds.createEnvironmentFromScene(envScene);
+   *   // Light will be cloned to main scene, illuminating your objects
+   *   app.backgrounds.createEnvironmentFromScene(envScene, {
+   *     includeLights: true  // ← Light now affects main scene objects!
+   *   });
    */
   createEnvironmentFromScene(
     environmentScene: THREE.Scene,
@@ -378,7 +391,8 @@ export class BackgroundManager {
       intensity = 1,
       asBackground = true,
       asEnvironment = true,
-      backgroundBlurriness = 0
+      backgroundBlurriness = 0,
+      includeLights = false
     } = options;
 
     // Validate resolution (should be power of 2 for mipmaps)
@@ -423,6 +437,14 @@ export class BackgroundManager {
     }
 
     this.currentEnvMap = pmremMap;
+
+    // Clone lights from environment scene if requested
+    if (includeLights) {
+      // Clear old environment lights first (auto-cleanup)
+      this.clearEnvironmentLights();
+      // Clone lights from the environment scene to main scene
+      this.cloneLightsFromScene(environmentScene);
+    }
 
     // Clean up intermediate render target (we keep both PMREM and equirect results)
     cubeRenderTarget.dispose();
@@ -482,7 +504,52 @@ export class BackgroundManager {
     return this.equirectEnvMap;
   }
 
+  /**
+   * Clone lights from an environment scene to the main scene
+   * Useful for matching lighting between environment and scene objects
+   *
+   * @param environmentScene - Scene containing lights to clone
+   * @private
+   */
+  private cloneLightsFromScene(environmentScene: THREE.Scene): void {
+    environmentScene.traverse((obj) => {
+      if (obj.isLight) {
+        const clonedLight = obj.clone();
+        this.scene.add(clonedLight);
+        this.environmentLights.push(clonedLight);
+      }
+    });
+  }
+
+  /**
+   * Remove all lights that were added from environment scenes
+   * Called automatically when creating a new environment with includeLights
+   *
+   * @private
+   */
+  private clearEnvironmentLights(): void {
+    this.environmentLights.forEach(light => {
+      this.scene.remove(light);
+      // Dispose light resources if available
+      if ('dispose' in light && typeof light.dispose === 'function') {
+        light.dispose();
+      }
+    });
+    this.environmentLights = [];
+  }
+
+  /**
+   * Get all lights currently added from environment scenes
+   * Useful for querying or modifying environment lights
+   *
+   * @returns Array of lights from environment scenes
+   */
+  getEnvironmentLights(): THREE.Light[] {
+    return [...this.environmentLights];
+  }
+
   dispose(): void {
+    this.clearEnvironmentLights();
     this.currentEnvMap?.dispose();
     this.equirectEnvMap?.dispose();
     this.pmremEnvMap?.dispose();

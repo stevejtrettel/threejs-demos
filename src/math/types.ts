@@ -3,6 +3,24 @@
  *
  * This defines the interfaces that all math objects should implement.
  * Objects can compose these interfaces based on their capabilities.
+ *
+ * ## Three-Layer Architecture
+ *
+ * **Layer 1: Pure Functions**
+ * - Just functions: `evaluateSurface(u, v): Vector3`
+ * - No interfaces needed
+ * - Maximum performance, no state
+ *
+ * **Layer 2: Smart Geometries (SmartGeometry)**
+ * - Extend THREE.BufferGeometry
+ * - Parametric + Rebuildable
+ * - NOT SceneObjects (no Object3D)
+ * - Example: ParametricSurfaceGeometry extends THREE.BufferGeometry
+ *
+ * **Layer 3: Complete Components (MathObject)**
+ * - Full scene objects (wrap geometry in Mesh/Line/etc.)
+ * - SceneObject + Parametric + Rebuildable + Updatable
+ * - Example: ParametricSurface (contains Mesh with ParametricSurfaceGeometry)
  */
 
 import * as THREE from 'three';
@@ -73,10 +91,30 @@ export interface Animatable {
 }
 
 /**
- * MathObject - Standard mathematical visualization component
+ * SmartGeometry - Layer 2: Parametric THREE.BufferGeometry
  *
- * This is the standard interface for most math objects:
- * - Can be added to the scene (SceneObject)
+ * These are reactive geometries that can rebuild themselves when parameters change.
+ * They extend THREE.BufferGeometry but are NOT scene objects (no Object3D).
+ * They are typically wrapped in a Mesh/Line/Points by Layer 3 components.
+ *
+ * Examples: ParametricSurfaceGeometry, ParametricCurveGeometry
+ */
+export interface SmartGeometry extends
+  Parametric,
+  Rebuildable
+{
+  /** The underlying THREE.js geometry */
+  readonly geometry: THREE.BufferGeometry;
+
+  /** Clean up geometry resources */
+  dispose(): void;
+}
+
+/**
+ * MathObject - Layer 3: Complete mathematical visualization component
+ *
+ * This is the standard interface for complete scene objects:
+ * - Can be added to the scene (SceneObject) - wraps geometry in Mesh/Line/etc.
  * - Has configurable parameters (Parametric)
  * - Can rebuild when parameters change (Rebuildable)
  * - Can update appearance (Updatable)

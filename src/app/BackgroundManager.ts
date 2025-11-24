@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { simpleGradientSkyVertex, simpleGradientSkyFragment } from '../utils/shaders/sky/simple-gradient';
+import { cubemapToEquirect } from '../utils/cubemapToEquirect';
 
 export interface StarfieldOptions {
   count?: number;
@@ -140,7 +141,7 @@ export class BackgroundManager {
         this.scene.background = pmremMap;
       }
 
-      this.currentEnvMap = envMap;
+      this.currentEnvMap = pmremMap;
       texture.dispose();
 
       // Call the onLoad callback if provided
@@ -224,11 +225,18 @@ export class BackgroundManager {
 
   /**
    * Create a simple procedural gradient sky
-   * Simple gradient sky (ground color to sky color)
+   * Renders a gradient shader to environment maps for both visual background
+   * and image-based lighting (IBL).
+   *
+   * This is much better than adding a sky mesh to your scene because:
+   * - Provides proper IBL (environment lighting)
+   * - Works with pathtracer
+   * - No mesh cluttering your scene hierarchy
    *
    * @param options - Sky configuration
+   * @returns The generated PMREM environment map
    */
-  setSky(options: SkyOptions = {}): void {
+  setSky(options: SkyOptions = {}): THREE.Texture {
     const {
       topColor = 0x0077ff,
       bottomColor = 0xffffff,
@@ -243,6 +251,7 @@ export class BackgroundManager {
       exponent: { value: exponent }
     };
 
+    // Create sky sphere with shader
     const skyGeo = new THREE.SphereGeometry(500, 32, 15);
     const skyMat = new THREE.ShaderMaterial({
       uniforms: uniforms,
@@ -250,22 +259,39 @@ export class BackgroundManager {
       fragmentShader: simpleGradientSkyFragment,
       side: THREE.BackSide
     });
-
     const sky = new THREE.Mesh(skyGeo, skyMat);
-    this.scene.add(sky);
 
-    // Clear scene background (sky mesh will provide the background)
-    this.scene.background = null;
+    // Create temporary scene containing only the sky
+    const skyScene = new THREE.Scene();
+    skyScene.add(sky);
+
+    // Render to environment maps (creates both PMREM and equirect)
+    const envMap = this.createEnvironmentFromScene(skyScene, {
+      resolution: 512,  // Good balance of quality/performance for procedural sky
+      asEnvironment: true,
+      asBackground: true,
+      intensity: 1.0
+    });
+
+    // Cleanup
+    skyGeo.dispose();
+    skyMat.dispose();
+
+    return envMap;
   }
 
   /**
    * Create an atmospheric sky with physically-based scattering
-   * Uses Three.js Sky example for realistic day/night simulation
+   * Renders the Three.js Sky shader to environment maps for realistic
+   * day/night simulation with proper IBL.
+   *
+   * The Sky shader outputs HDR values (bright sun can be > 1.0) which
+   * provides realistic lighting when used as environment map.
    *
    * @param options - Atmospheric sky configuration
-   * @returns Sky object for further customization
+   * @returns The generated PMREM environment map
    */
-  setAtmosphericSky(options: AtmosphericSkyOptions = {}): Sky {
+  setAtmosphericSky(options: AtmosphericSkyOptions = {}): THREE.Texture {
     const {
       turbidity = 10,
       rayleigh = 3,
@@ -276,9 +302,9 @@ export class BackgroundManager {
       exposure = 0.5
     } = options;
 
+    // Create sky with physically-based atmospheric scattering
     const sky = new Sky();
     sky.scale.setScalar(450000);
-    this.scene.add(sky);
 
     const skyUniforms = sky.material.uniforms;
     skyUniforms['turbidity'].value = turbidity;
@@ -294,13 +320,27 @@ export class BackgroundManager {
     sun.setFromSphericalCoords(1, phi, theta);
     skyUniforms['sunPosition'].value.copy(sun);
 
-    // Set renderer exposure
+    // Create temporary scene containing only the sky
+    const skyScene = new THREE.Scene();
+    skyScene.add(sky);
+
+    // Render to environment maps (creates both PMREM and equirect)
+    // Use higher resolution for atmospheric sky since it has fine detail (sun, horizon)
+    const envMap = this.createEnvironmentFromScene(skyScene, {
+      resolution: 1024,  // Higher res to capture sun detail
+      asEnvironment: true,
+      asBackground: true,
+      intensity: 1.0
+    });
+
+    // Set renderer exposure (affects how the environment is displayed)
     this.renderer.toneMappingExposure = exposure;
 
-    // Clear scene background (sky mesh will provide it)
-    this.scene.background = null;
+    // Cleanup
+    sky.geometry.dispose();
+    sky.material.dispose();
 
-    return sky;
+    return envMap;
   }
 
   /**
@@ -346,8 +386,10 @@ export class BackgroundManager {
       console.warn(`BackgroundManager: Resolution ${resolution} is not a power of 2. Recommended: 128, 256, 512, 1024`);
     }
 
-    // Create cube render target
+    // Create HDR cube render target (FloatType preserves HDR values > 1.0)
     const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(resolution, {
+      type: THREE.FloatType,          // HDR support
+      format: THREE.RGBAFormat,
       generateMipmaps: true,
       minFilter: THREE.LinearMipmapLinearFilter
     });
@@ -359,25 +401,33 @@ export class BackgroundManager {
     // Render the environment scene to cubemap
     cubeCamera.update(this.renderer, environmentScene);
 
-    // Generate PMREM for proper IBL
-    const envMap = this.pmremGenerator.fromCubemap(cubeRenderTarget.texture).texture;
+    // Convert cubemap to equirectangular for pathtracer
+    this.equirectEnvMap = cubemapToEquirect(
+      this.renderer,
+      cubeRenderTarget.texture,
+      resolution
+    );
 
-    // Apply to scene
+    // Generate PMREM from cubemap for WebGL IBL
+    const pmremMap = this.pmremGenerator.fromCubemap(cubeRenderTarget.texture).texture;
+    this.pmremEnvMap = pmremMap;
+
+    // Apply to scene (default to PMREM for WebGL mode)
     if (asEnvironment) {
-      this.scene.environment = envMap;
+      this.scene.environment = pmremMap;
       this.setEnvironmentIntensity(intensity);
     }
     if (asBackground) {
-      this.scene.background = envMap;
+      this.scene.background = pmremMap;
       this.setBackgroundBlurriness(backgroundBlurriness);
     }
 
-    this.currentEnvMap = envMap;
+    this.currentEnvMap = pmremMap;
 
-    // Clean up intermediate render target (we keep the PMREM result)
+    // Clean up intermediate render target (we keep both PMREM and equirect results)
     cubeRenderTarget.dispose();
 
-    return envMap;
+    return pmremMap;
   }
 
   /**

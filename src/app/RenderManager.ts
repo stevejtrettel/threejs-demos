@@ -113,6 +113,7 @@ export class RenderManager {
 
     /**
      * Switch to path tracing mode
+     * @param options - Path tracer configuration options
      */
     switchToPathTracing(options?: PathTracerOptions): void {
         if (!this.pathTracer) {
@@ -140,9 +141,12 @@ export class RenderManager {
         // Update scene if available
         if (this.currentScene && this.currentCamera) {
             this.pathTracer.setScene(this.currentScene, this.currentCamera);
-            // Initial sync of materials and environment
+            // Initial sync of materials
             this.pathTracer.updateMaterials();
-            this.pathTracer.updateEnvironment();
+            // Initial sync of environment (only if one exists)
+            if (this.currentScene.environment) {
+                this.pathTracer.updateEnvironment();
+            }
             // Track current environment for auto-sync
             this.lastEnvironment = this.currentScene.environment;
         }
@@ -197,7 +201,10 @@ export class RenderManager {
     updatePathTracer(): void {
         if (this.pathTracer && this.currentScene && this.currentCamera) {
             this.pathTracer.updateMaterials();
-            this.pathTracer.updateEnvironment();
+            // Only update environment if one exists (avoid crash on null/undefined)
+            if (this.currentScene.environment) {
+                this.pathTracer.updateEnvironment();
+            }
             this.lastEnvironment = this.currentScene.environment;
             this.materialsNeedUpdate = false;
             this.resetAccumulation();

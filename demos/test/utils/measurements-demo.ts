@@ -10,8 +10,8 @@
  * - Interactive measurement mode
  */
 
-import { App } from '../src/app/App';
-import { MeasurementManager } from '../src/utils/MeasurementManager';
+import { App } from '@/app/App';
+import { MeasurementManager } from '@/scene/MeasurementManager';
 import * as THREE from 'three';
 
 console.log('=== Measurement & Annotation Demo ===\n');

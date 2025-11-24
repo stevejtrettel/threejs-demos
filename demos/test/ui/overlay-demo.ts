@@ -1,11 +1,11 @@
-import { App } from '../../src/app/App';
-import { Modal } from '../../src/ui/containers/Modal';
-import { Folder } from '../../src/ui/containers/Folder';
-import { Button } from '../../src/ui/inputs/Button';
-import { Slider } from '../../src/ui/inputs/Slider';
-import { Toggle } from '../../src/ui/inputs/Toggle';
-import { TextInput } from '../../src/ui/inputs/TextInput';
-import '../../src/ui/styles/index.css';
+import { App } from '@/app/App';
+import { Modal } from '@/ui/containers/Modal';
+import { Folder } from '@/ui/containers/Folder';
+import { Button } from '@/ui/inputs/Button';
+import { Slider } from '@/ui/inputs/Slider';
+import { Toggle } from '@/ui/inputs/Toggle';
+import { TextInput } from '@/ui/inputs/TextInput';
+import '@/ui/styles/index.css';
 import * as THREE from 'three';
 
 // Simple scene

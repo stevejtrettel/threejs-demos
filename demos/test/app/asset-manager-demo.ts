@@ -10,8 +10,8 @@
  * - Asset caching (loading same asset twice)
  */
 
-import { App } from '../src/app/App';
-import { ParametricSurface } from '../src/core/objects/ParametricSurface';
+import { App } from '@/app/App';
+import { ParametricSurface } from '@/math/orig/objects/ParametricSurface';
 import * as THREE from 'three';
 
 // Create app

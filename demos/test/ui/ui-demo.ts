@@ -1,11 +1,11 @@
-import { App } from '../../src/app/App';
-import { Params } from '../../src/Params';
-import { Panel } from '../../src/ui/containers/Panel';
-import { Folder } from '../../src/ui/containers/Folder';
-import { Slider } from '../../src/ui/inputs/Slider';
-import { ColorInput } from '../../src/ui/inputs/ColorInput';
-import { Toggle } from '../../src/ui/inputs/Toggle';
-import '../../src/ui/styles/index.css';
+import { App } from '@/app/App';
+import { Params } from '@/Params';
+import { Panel } from '@/ui/containers/Panel';
+import { Folder } from '@/ui/containers/Folder';
+import { Slider } from '@/ui/inputs/Slider';
+import { ColorInput } from '@/ui/inputs/ColorInput';
+import { Toggle } from '@/ui/inputs/Toggle';
+import '@/ui/styles/index.css';
 import * as THREE from 'three';
 
 // Simple rotating cube with parameters

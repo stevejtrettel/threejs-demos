@@ -11,7 +11,7 @@
  * - Object properties displayed in console
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('=== Selection System Demo ===\n');

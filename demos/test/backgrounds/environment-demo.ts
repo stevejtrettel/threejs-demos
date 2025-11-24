@@ -8,7 +8,7 @@
  * - Different material responses to IBL
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('=== Environment & Lighting Demo ===\n');

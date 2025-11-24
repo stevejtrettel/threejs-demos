@@ -9,7 +9,7 @@
  * - Adjust sun position and atmospheric parameters to see effects
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('=== Atmospheric Sky Demo ===\n');

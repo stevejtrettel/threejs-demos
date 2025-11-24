@@ -1,8 +1,8 @@
-import { App } from '../../src/app/App';
-import { Window } from '../../src/ui/containers/Window';
-import { Button } from '../../src/ui/inputs/Button';
-import { Slider } from '../../src/ui/inputs/Slider';
-import '../../src/ui/styles/index.css';
+import { App } from '@/app/App';
+import { Window } from '@/ui/containers/Window';
+import { Button } from '@/ui/inputs/Button';
+import { Slider } from '@/ui/inputs/Slider';
+import '@/ui/styles/index.css';
 import * as THREE from 'three';
 
 // Simple scene

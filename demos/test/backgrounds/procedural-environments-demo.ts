@@ -10,7 +10,7 @@
  * Demonstrates the flexibility of scene-based environment generation.
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('=== Procedural Environments Demo ===\n');

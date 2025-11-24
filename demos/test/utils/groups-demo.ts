@@ -15,7 +15,7 @@
  */
 
 import { App } from '@/app/App';
-import { GroupManager } from '@/utils/GroupManager';
+import { GroupManager } from '@/scene/GroupManager';
 import * as THREE from 'three';
 
 console.log('=== Group Management Demo ===\n');

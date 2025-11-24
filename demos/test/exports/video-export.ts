@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { App } from '@/app/App';
-import { Materials } from '@/materials/Materials';
+import { Materials } from '@/scene/Materials';
 
 /**
  * Video Export Demo

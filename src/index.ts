@@ -12,8 +12,8 @@ export * from './domains/diffgeo';
 // Helpers
 export * from './helpers';
 
-// Materials
-export * from './materials';
+// Scene tools
+export * from './scene';
 
 // Algorithms
 export * from './algorithms';

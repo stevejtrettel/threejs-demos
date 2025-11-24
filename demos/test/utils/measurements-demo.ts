@@ -11,7 +11,7 @@
  */
 
 import { App } from '@/app/App';
-import { MeasurementManager } from '@/utils/MeasurementManager';
+import { MeasurementManager } from '@/scene/MeasurementManager';
 import * as THREE from 'three';
 
 console.log('=== Measurement & Annotation Demo ===\n');

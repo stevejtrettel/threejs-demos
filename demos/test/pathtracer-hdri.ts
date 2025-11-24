@@ -21,6 +21,10 @@ app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
     asEnvironment: true,  // Use for image-based lighting
     asBackground: true,   // Use as background
     intensity: 1.0
+}, () => {
+    // Update pathtracer after HDRI loads (if already enabled)
+    app.renderManager.updatePathTracer();
+    console.log('✅ HDRI loaded and pathtracer updated');
 });
 
 // Create scene with various materials to showcase HDRI lighting
@@ -107,6 +111,8 @@ renderFolder.add(new Toggle(false, {
     onChange: (enabled) => {
         if (enabled) {
             app.enablePathTracing();
+            // Ensure environment is updated after enabling
+            app.renderManager.updatePathTracer();
             console.log('🎨 Path tracing with HDRI enabled');
             console.log('   Chrome sphere will reflect the studio!');
         } else {

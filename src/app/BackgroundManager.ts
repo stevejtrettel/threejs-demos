@@ -105,7 +105,7 @@ export class BackgroundManager {
     this.scene.background = texture;
   }
 
-  loadHDR(url: string, options: HDROptions = {}): void {
+  loadHDR(url: string, options: HDROptions = {}, onLoad?: () => void): void {
     const {
       asEnvironment = true,
       asBackground = true,
@@ -130,6 +130,11 @@ export class BackgroundManager {
 
       this.currentEnvMap = envMap;
       texture.dispose();
+
+      // Call the onLoad callback if provided
+      if (onLoad) {
+        onLoad();
+      }
     });
   }
 

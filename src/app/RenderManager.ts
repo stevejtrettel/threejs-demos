@@ -134,6 +134,19 @@ export class RenderManager {
     }
 
     /**
+     * Update path tracer materials and environment
+     * Call this after changing scene materials or environment
+     */
+    updatePathTracer(): void {
+        if (this.pathTracer && this.currentScene && this.currentCamera) {
+            this.pathTracer.setScene(this.currentScene, this.currentCamera);
+            this.pathTracer.updateMaterials();
+            this.pathTracer.updateEnvironment();
+            this.resetAccumulation();
+        }
+    }
+
+    /**
      * Set render size
      */
     setSize(width: number, height: number): void {

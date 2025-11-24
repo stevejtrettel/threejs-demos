@@ -282,6 +282,20 @@ export class App {
   }
 
   /**
+   * Notify that materials have changed (e.g., textures loaded)
+   * Call this after loading textures into materials to update the pathtracer
+   *
+   * @example
+   *   const texture = await app.assets.loadTexture('diffuse.png');
+   *   material.map = texture;
+   *   material.needsUpdate = true;
+   *   app.notifyMaterialsChanged(); // Update pathtracer
+   */
+  notifyMaterialsChanged(): void {
+    this.renderManager.notifyMaterialsChanged();
+  }
+
+  /**
    * Main animation loop
    */
   private animate = (timestamp: number) => {

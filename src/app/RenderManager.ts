@@ -15,10 +15,38 @@ export interface RenderManagerOptions {
 
 /**
  * RenderManager
- * 
+ *
  * Manages rendering with runtime-switchable modes:
  * - WebGL: Fast, interactive preview (default)
  * - Path Tracing: High-quality, photorealistic rendering
+ *
+ * ## Path Tracer Synchronization
+ *
+ * The pathtracer needs to be kept in sync with scene changes:
+ *
+ * ### Automatic (handled for you):
+ * - **Environment changes**: Automatically detected on every render
+ *   - Loading HDRI via BackgroundManager.loadHDR()
+ *   - Creating cubemap via BackgroundManager.createEnvironmentFromScene()
+ *   - Any change to scene.environment
+ *
+ * ### Manual (you must notify):
+ * - **Material changes**: Call app.notifyMaterialsChanged() after:
+ *   - Loading textures into materials (diffuse, normal, roughness maps, etc.)
+ *   - Changing material properties that affect pathtracing
+ *   - Adding/removing materials from the scene
+ *
+ * @example
+ * // Environment - automatic sync
+ * app.backgrounds.loadHDR('/assets/studio.hdr');  // No callback needed!
+ * app.backgrounds.createEnvironmentFromScene(skyScene);  // Works automatically!
+ *
+ * @example
+ * // Materials - manual notify
+ * const texture = await app.assets.loadTexture('diffuse.png');
+ * material.map = texture;
+ * material.needsUpdate = true;
+ * app.notifyMaterialsChanged();  // Tell pathtracer to update
  */
 export class RenderManager {
     readonly renderer: THREE.WebGLRenderer;
@@ -31,6 +59,10 @@ export class RenderManager {
     // Track scene/camera for PT updates
     private currentScene?: THREE.Scene;
     private currentCamera?: THREE.Camera;
+
+    // Auto-sync tracking
+    private lastEnvironment?: THREE.Texture | null;
+    private materialsNeedUpdate = false;
 
     constructor(options: RenderManagerOptions = {}) {
         // Create single WebGL renderer
@@ -59,6 +91,20 @@ export class RenderManager {
         this.currentCamera = camera;
 
         if (this.mode === 'pathtracing' && this.pathTracer) {
+            // Auto-sync: detect environment changes
+            if (this.lastEnvironment !== scene.environment) {
+                this.pathTracer.updateEnvironment();
+                this.lastEnvironment = scene.environment;
+                this.resetAccumulation();
+            }
+
+            // Manual sync: materials changed (called via notifyMaterialsChanged)
+            if (this.materialsNeedUpdate) {
+                this.pathTracer.updateMaterials();
+                this.materialsNeedUpdate = false;
+                this.resetAccumulation();
+            }
+
             this.pathTracer.renderSample();
         } else {
             this.renderer.render(scene, camera);
@@ -94,9 +140,11 @@ export class RenderManager {
         // Update scene if available
         if (this.currentScene && this.currentCamera) {
             this.pathTracer.setScene(this.currentScene, this.currentCamera);
-            // Update materials and environment after setting the scene
+            // Initial sync of materials and environment
             this.pathTracer.updateMaterials();
             this.pathTracer.updateEnvironment();
+            // Track current environment for auto-sync
+            this.lastEnvironment = this.currentScene.environment;
         }
     }
 
@@ -130,6 +178,29 @@ export class RenderManager {
     resetAccumulation(): void {
         if (this.pathTracer) {
             this.pathTracer.reset();
+        }
+    }
+
+    /**
+     * Notify that materials have changed (e.g., textures loaded)
+     * This will trigger updateMaterials() on the next render
+     */
+    notifyMaterialsChanged(): void {
+        this.materialsNeedUpdate = true;
+    }
+
+    /**
+     * Force immediate update of pathtracer (for migration/legacy code)
+     * Generally not needed - environment updates are automatic,
+     * and material updates should use notifyMaterialsChanged()
+     */
+    updatePathTracer(): void {
+        if (this.pathTracer && this.currentScene && this.currentCamera) {
+            this.pathTracer.updateMaterials();
+            this.pathTracer.updateEnvironment();
+            this.lastEnvironment = this.currentScene.environment;
+            this.materialsNeedUpdate = false;
+            this.resetAccumulation();
         }
     }
 

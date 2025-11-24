@@ -5,6 +5,9 @@
  * Only reusable, well-tested primitives belong here.
  */
 
+// Core type system
+export * from './types';
+
 // Points
 export * from './points';
 

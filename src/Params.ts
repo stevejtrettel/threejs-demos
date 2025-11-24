@@ -6,6 +6,9 @@ import type { ParamOptions, ParamDefinition } from './types';
  * Creates reactive properties on owner object with automatic lifecycle hooks.
  * When a parameter changes, it can automatically trigger rebuild() or update().
  *
+ * Also supports dependency tracking: objects can register as dependents to be
+ * notified when parameters change.
+ *
  * @example
  *   class MyCurve {
  *     constructor() {
@@ -14,13 +17,51 @@ import type { ParamOptions, ParamDefinition } from './types';
  *       this.params.define('color', 0xff0000, { triggers: 'update' });
  *     }
  *   }
+ *
+ * @example Dependency tracking
+ *   class Geodesic {
+ *     constructor(surface: ParametricSurface) {
+ *       this.surface = surface;
+ *       // When surface parameters change, geodesic rebuilds automatically
+ *       surface.params.addDependent(this);
+ *     }
+ *   }
  */
 export class Params {
   private owner: any;
   private params = new Map<string, ParamDefinition>();
+  private dependents = new Set<any>();
 
   constructor(owner: any) {
     this.owner = owner;
+  }
+
+  /**
+   * Register a dependent object to be notified when parameters change
+   *
+   * When any parameter changes, the dependent's rebuild() or update() method
+   * will be called based on the parameter's trigger setting.
+   *
+   * @param dependent - Object with rebuild() and/or update() methods
+   */
+  addDependent(dependent: any): void {
+    this.dependents.add(dependent);
+  }
+
+  /**
+   * Unregister a dependent object
+   *
+   * @param dependent - Previously registered dependent
+   */
+  removeDependent(dependent: any): void {
+    this.dependents.delete(dependent);
+  }
+
+  /**
+   * Get all registered dependents
+   */
+  getDependents(): Set<any> {
+    return new Set(this.dependents);
   }
 
   /**
@@ -58,9 +99,21 @@ export class Params {
           if (typeof owner.rebuild === 'function') {
             owner.rebuild();
           }
+          // Notify all dependents
+          for (const dependent of this.dependents) {
+            if (typeof dependent.rebuild === 'function') {
+              dependent.rebuild();
+            }
+          }
         } else if (options.triggers === 'update') {
           if (typeof owner.update === 'function') {
             owner.update();
+          }
+          // Notify all dependents
+          for (const dependent of this.dependents) {
+            if (typeof dependent.update === 'function') {
+              dependent.update();
+            }
           }
         }
         // If triggers === 'none' or undefined, do nothing (manual control via onChange)

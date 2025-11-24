@@ -1,6 +1,6 @@
-import { App } from '../../src/app/App';
+import { App } from '../../../src/app/App';
 import * as THREE from 'three';
-import { viridis } from '../../src/utils/colormaps';
+import { viridis } from '../../../src/utils/colormaps';
 
 const app = new App({
     debug: true,

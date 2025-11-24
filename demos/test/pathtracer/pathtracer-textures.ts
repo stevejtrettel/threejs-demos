@@ -1,7 +1,7 @@
-import { App } from '../../src/app/App';
-import { Panel } from '../../src/ui/containers/Panel';
-import { Folder } from '../../src/ui/containers/Folder';
-import { Toggle } from '../../src/ui/inputs/Toggle';
+import { App } from '../../../src/app/App';
+import { Panel } from '../../../src/ui/containers/Panel';
+import { Folder } from '../../../src/ui/containers/Folder';
+import { Toggle } from '../../../src/ui/inputs/Toggle';
 import '../../src/ui/styles/index.css';
 import * as THREE from 'three';
 

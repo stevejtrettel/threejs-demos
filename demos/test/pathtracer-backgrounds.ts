@@ -3,7 +3,6 @@ import { Panel } from '../../src/ui/containers/Panel';
 import { Folder } from '../../src/ui/containers/Folder';
 import { Toggle } from '../../src/ui/inputs/Toggle';
 import { Button } from '../../src/ui/inputs/Button';
-import { Select } from '../../src/ui/inputs/Select';
 import '../../src/ui/styles/index.css';
 import * as THREE from 'three';
 
@@ -178,18 +177,12 @@ panel.add(renderFolder);
 
 // Background type folder
 const backgroundFolder = new Folder('Background Type');
-backgroundFolder.add(new Select('none', [
-    { value: 'none', label: 'None' },
-    { value: 'hdri', label: 'HDRI (studio.hdr)' },
-    { value: 'procedural-scene', label: 'Procedural Scene (room)' },
-    { value: 'gradient-sky', label: 'Gradient Sky (shader)' },
-    { value: 'atmospheric-sky', label: 'Atmospheric Sky (physically based)' }
-], {
-    label: 'Type',
-    onChange: (value) => {
-        setBackground(value);
-    }
-}));
+
+backgroundFolder.add(new Button('None', () => setBackground('none')));
+backgroundFolder.add(new Button('HDRI (studio.hdr)', () => setBackground('hdri')));
+backgroundFolder.add(new Button('Procedural Scene (room)', () => setBackground('procedural-scene')));
+backgroundFolder.add(new Button('Gradient Sky (shader)', () => setBackground('gradient-sky')));
+backgroundFolder.add(new Button('Atmospheric Sky', () => setBackground('atmospheric-sky')));
 
 panel.add(backgroundFolder);
 

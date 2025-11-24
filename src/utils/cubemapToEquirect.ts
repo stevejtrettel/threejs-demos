@@ -25,16 +25,18 @@ varying vec2 vUv;
 
 void main() {
   // Convert equirectangular UV to spherical coordinates
-  float phi = vUv.x * 2.0 * PI;      // Longitude: 0 to 2π
-  float theta = vUv.y * PI;          // Latitude: 0 to π
+  // Flip V to match expected orientation (origin at top)
+  // Offset phi by +90° to correct rotation
+  float phi = vUv.x * 2.0 * PI + PI * 0.5;  // Longitude: π/2 to 5π/2 (rotated 90° CW)
+  float theta = (1.0 - vUv.y) * PI;         // Latitude: 0 to π (top to bottom)
 
   // Convert spherical to Cartesian direction vector
   // theta=0 is +Y (top), theta=π is -Y (bottom)
-  // phi=0 is +Z, phi=π/2 is +X, phi=π is -Z, phi=3π/2 is -X
+  // Adjust direction to match Three.js cubemap orientation
   vec3 dir = vec3(
-    sin(theta) * sin(phi),  // X
-    cos(theta),             // Y
-    sin(theta) * cos(phi)   // Z
+    -sin(theta) * sin(phi),  // X - negated to fix left/right flip
+    cos(theta),              // Y
+    sin(theta) * cos(phi)    // Z
   );
 
   // Sample the cubemap using the direction vector
@@ -107,10 +109,33 @@ export function cubemapToEquirect(
   renderer.render(scene, camera);
   renderer.setRenderTarget(oldRenderTarget);
 
+  // Read back pixel data from GPU for pathtracer
+  // Pathtracer needs access to pixel data for importance sampling
+  const pixelBuffer = new Float32Array(width * height * 4);
+  renderer.readRenderTargetPixels(
+    renderTarget,
+    0, 0, width, height,
+    pixelBuffer
+  );
+
+  // Create DataTexture with the pixel data
+  const dataTexture = new THREE.DataTexture(
+    pixelBuffer,
+    width,
+    height,
+    THREE.RGBAFormat,
+    THREE.FloatType
+  );
+  dataTexture.needsUpdate = true;
+  dataTexture.mapping = THREE.EquirectangularReflectionMapping;
+  dataTexture.minFilter = THREE.LinearFilter;
+  dataTexture.magFilter = THREE.LinearFilter;
+
   // Cleanup
   material.dispose();
   quad.geometry.dispose();
+  renderTarget.dispose();
 
-  // Return the converted texture
-  return renderTarget.texture;
+  // Return the DataTexture (has pixel data for pathtracer)
+  return dataTexture;
 }

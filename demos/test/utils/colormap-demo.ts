@@ -7,9 +7,9 @@
  * - Right: Different GLSL colormap
  */
 
-import { App } from '../src/app/App';
-import { viridis, plasma, applyColormap } from '../src/utils/colormaps';
-import { glslColormaps } from '../src/utils/colormaps';
+import { App } from '@/app/App';
+import { viridis, plasma, applyColormap } from '@/utils/colormaps';
+import { glslColormaps } from '@/utils/colormaps';
 import * as THREE from 'three';
 
 console.log('=== Colormap System Demo ===\n');

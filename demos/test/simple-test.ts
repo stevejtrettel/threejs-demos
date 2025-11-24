@@ -3,7 +3,7 @@
  * Just a spinning cube - if this doesn't work, something is fundamentally wrong
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('Creating app...');

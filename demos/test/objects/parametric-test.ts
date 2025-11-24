@@ -2,8 +2,8 @@
  * Test ParametricSurface rendering
  */
 
-import { App } from '../src/app/App';
-import { ParametricSurface } from '../src/core/objects/ParametricSurface';
+import { App } from '@/app/App';
+import { ParametricSurface } from '@/core/objects/ParametricSurface';
 import * as THREE from 'three';
 
 console.log('Creating app...');

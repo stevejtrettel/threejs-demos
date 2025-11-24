@@ -13,7 +13,7 @@
  * Similar to the classic "BoxWithLights" pattern but modernized.
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('=== Scene-Based Environment Demo ===\n');

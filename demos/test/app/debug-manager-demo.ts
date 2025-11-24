@@ -10,8 +10,8 @@
  * - A: Toggle axes helper
  */
 
-import { App } from '../src/app/App';
-import { ParametricSurface } from '../src/core/objects/ParametricSurface';
+import { App } from '@/app/App';
+import { ParametricSurface } from '@/core/objects/ParametricSurface';
 import * as THREE from 'three';
 
 // Create app with debug enabled (default)

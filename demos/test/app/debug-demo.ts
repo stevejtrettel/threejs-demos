@@ -11,7 +11,7 @@
  * - Scene inspection
  */
 
-import { App } from '../src/app/App';
+import { App } from '@/app/App';
 import * as THREE from 'three';
 
 console.log('=== Debug System Demo ===\n');

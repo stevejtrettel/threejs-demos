@@ -14,8 +14,8 @@
  * - Scene inspection
  */
 
-import { App } from '../src/app/App';
-import { GroupManager } from '../src/utils/GroupManager';
+import { App } from '@/app/App';
+import { GroupManager } from '@/utils/GroupManager';
 import * as THREE from 'three';
 
 console.log('=== Group Management Demo ===\n');

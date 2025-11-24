@@ -93,12 +93,9 @@ export class RenderManager {
         if (this.mode === 'pathtracing' && this.pathTracer) {
             // Auto-sync: detect environment changes
             if (this.lastEnvironment !== scene.environment) {
-                // Only update if we have an environment (pathtracer crashes on null/undefined)
-                if (scene.environment) {
-                    this.pathTracer.updateEnvironment();
-                    this.resetAccumulation();
-                }
+                this.pathTracer.updateEnvironment();
                 this.lastEnvironment = scene.environment;
+                this.resetAccumulation();
             }
 
             // Manual sync: materials changed (called via notifyMaterialsChanged)

@@ -140,7 +140,8 @@ export class BackgroundManager {
         this.scene.background = pmremMap;
       }
 
-      this.currentEnvMap = pmremMap;
+      this.currentEnvMap = envMap;
+      texture.dispose();
 
       // Call the onLoad callback if provided
       if (onLoad) {

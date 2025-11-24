@@ -296,14 +296,26 @@ export class App {
   }
 
   /**
-   * Notify that materials have changed (e.g., textures loaded)
-   * Call this after loading textures into materials to update the pathtracer
+   * Notify that materials have changed while pathtracing is active
+   *
+   * NOTE: You usually DON'T need to call this!
+   * Materials are automatically synced when you call enablePathTracing().
+   *
+   * Only use this if you change materials WHILE pathtracing is running (rare).
    *
    * @example
-   *   const texture = await app.assets.loadTexture('diffuse.png');
-   *   material.map = texture;
-   *   material.needsUpdate = true;
-   *   app.notifyMaterialsChanged(); // Update pathtracer
+   * // Common workflow (no manual call needed!):
+   * const texture = await app.assets.loadTexture('diffuse.png');
+   * material.map = texture;
+   * material.needsUpdate = true;
+   * // Later...
+   * app.enablePathTracing();  // ← Materials auto-synced!
+   *
+   * @example
+   * // Rare case - changing materials during PT:
+   * material.roughness = 0.5;
+   * material.needsUpdate = true;
+   * app.notifyMaterialsChanged();  // Only needed if PT is already active
    */
   notifyMaterialsChanged(): void {
     this.renderManager.notifyMaterialsChanged();

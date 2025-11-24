@@ -25,28 +25,30 @@ export interface RenderManagerOptions {
  * The pathtracer needs to be kept in sync with scene changes:
  *
  * ### Automatic (handled for you):
- * - **Environment changes**: Automatically detected on every render
- *   - Loading HDRI via BackgroundManager.loadHDR()
- *   - Creating cubemap via BackgroundManager.createEnvironmentFromScene()
- *   - Any change to scene.environment
+ * - **Environment changes**: Detected every frame
+ *   - Loading HDRI, creating cubemaps, changing scene.environment
+ * - **Material changes on PT switch**: Synced when enabling pathtracing
+ *   - Load all your textures/materials in WebGL mode
+ *   - Then call app.enablePathTracing() - materials auto-synced!
  *
- * ### Manual (you must notify):
- * - **Material changes**: Call app.notifyMaterialsChanged() after:
- *   - Loading textures into materials (diffuse, normal, roughness maps, etc.)
- *   - Changing material properties that affect pathtracing
- *   - Adding/removing materials from the scene
- *
- * @example
- * // Environment - automatic sync
- * app.backgrounds.loadHDR('/assets/studio.hdr');  // No callback needed!
- * app.backgrounds.createEnvironmentFromScene(skyScene);  // Works automatically!
+ * ### Manual (only if needed):
+ * - **Changing materials WHILE pathtracing is active**:
+ *   - Call app.renderManager.resetAccumulation() to see changes
+ *   - Or toggle PT off and on (will re-sync everything)
  *
  * @example
- * // Materials - manual notify
+ * // Common workflow (no manual sync needed!):
  * const texture = await app.assets.loadTexture('diffuse.png');
  * material.map = texture;
  * material.needsUpdate = true;
- * app.notifyMaterialsChanged();  // Tell pathtracer to update
+ * // Later...
+ * app.enablePathTracing();  // ← Materials automatically synced!
+ *
+ * @example
+ * // Changing materials while PT is active (rare):
+ * material.roughness = 0.8;
+ * material.needsUpdate = true;
+ * app.renderManager.resetAccumulation();  // Restart with new material
  */
 export class RenderManager {
     readonly renderer: THREE.WebGLRenderer;
@@ -186,8 +188,19 @@ export class RenderManager {
     }
 
     /**
-     * Notify that materials have changed (e.g., textures loaded)
-     * This will trigger updateMaterials() on the next render
+     * Notify that materials have changed while pathtracing is active
+     *
+     * NOTE: You usually DON'T need to call this!
+     * - Materials are automatically synced when switching to PT mode
+     * - Only call this if you change materials WHILE pathtracing is running
+     *
+     * Common workflow (no manual call needed):
+     *   1. Load textures/modify materials in WebGL mode
+     *   2. Call app.enablePathTracing()
+     *   3. Materials are automatically synced ✓
+     *
+     * Only use this method for the rare case of changing materials
+     * during active pathtracing.
      */
     notifyMaterialsChanged(): void {
         this.materialsNeedUpdate = true;

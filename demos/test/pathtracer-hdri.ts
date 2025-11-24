@@ -17,6 +17,7 @@ const app = new App({
 });
 
 // Load HDRI for environment lighting and background
+// Environment changes are automatically detected by the pathtracer!
 app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
     asEnvironment: true,  // Use for image-based lighting
     asBackground: true,   // Use as background
@@ -109,6 +110,7 @@ renderFolder.add(new Toggle(false, {
             app.enablePathTracing();
             console.log('🎨 Path tracing with HDRI enabled');
             console.log('   Chrome sphere will reflect the studio!');
+            console.log('   Environment is auto-synced! ✨');
         } else {
             app.disablePathTracing();
             console.log('⚡ WebGL rendering enabled');

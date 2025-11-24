@@ -260,6 +260,13 @@ export class App {
    * Enable path tracing mode
    */
   enablePathTracing(options?: { bounces?: number; samples?: number }): void {
+    // Swap to equirectangular textures for pathtracer
+    const equirect = this.backgrounds.getEquirectEnvironment();
+    if (equirect) {
+      this.scene.environment = equirect;  // Pathtracer needs equirect for IBL
+      this.scene.background = equirect;   // Pathtracer needs equirect for background
+    }
+
     this.renderManager.switchToPathTracing(options);
   }
 
@@ -267,6 +274,13 @@ export class App {
    * Disable path tracing mode (switch back to WebGL)
    */
   disablePathTracing(): void {
+    // Swap back to PMREM textures for WebGL
+    const pmrem = this.backgrounds.getPMREMEnvironment();
+    if (pmrem) {
+      this.scene.environment = pmrem;  // WebGL needs PMREM for IBL
+      this.scene.background = pmrem;   // WebGL uses PMREM for background too
+    }
+
     this.renderManager.switchToWebGL();
   }
 
@@ -279,6 +293,20 @@ export class App {
     } else {
       this.enablePathTracing();
     }
+  }
+
+  /**
+   * Notify that materials have changed (e.g., textures loaded)
+   * Call this after loading textures into materials to update the pathtracer
+   *
+   * @example
+   *   const texture = await app.assets.loadTexture('diffuse.png');
+   *   material.map = texture;
+   *   material.needsUpdate = true;
+   *   app.notifyMaterialsChanged(); // Update pathtracer
+   */
+  notifyMaterialsChanged(): void {
+    this.renderManager.notifyMaterialsChanged();
   }
 
   /**

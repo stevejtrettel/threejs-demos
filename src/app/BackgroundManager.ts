@@ -51,6 +51,10 @@ export class BackgroundManager {
   private currentEnvMap?: THREE.Texture;
   private envRotation: number = 0;
 
+  // Keep both texture formats for different renderers
+  private pmremEnvMap?: THREE.Texture;      // For WebGL IBL (pre-filtered)
+  private equirectEnvMap?: THREE.Texture;   // For pathtracer (original)
+
   constructor(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
     this.scene = scene;
     this.renderer = renderer;
@@ -105,7 +109,7 @@ export class BackgroundManager {
     this.scene.background = texture;
   }
 
-  loadHDR(url: string, options: HDROptions = {}): void {
+  loadHDR(url: string, options: HDROptions = {}, onLoad?: () => void): void {
     const {
       asEnvironment = true,
       asBackground = true,
@@ -114,22 +118,34 @@ export class BackgroundManager {
     } = options;
 
     this.hdrLoader.load(url, (texture) => {
-      const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+      // Keep original equirectangular texture (needed for pathtracer)
+      this.equirectEnvMap = texture;
+
+      // Generate PMREM for WebGL IBL (better quality reflections)
+      const pmremMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+      this.pmremEnvMap = pmremMap;
 
       if (rotation !== 0) {
         this.setEnvironmentRotation(rotation);
       }
 
       if (asEnvironment) {
-        this.scene.environment = envMap;
+        // Use PMREM for environment (WebGL needs this for IBL)
+        // Pathtracer will swap this out when enabled
+        this.scene.environment = pmremMap;
         this.setEnvironmentIntensity(intensity);
       }
       if (asBackground) {
-        this.scene.background = envMap;
+        // Use PMREM for background (smoother, better quality)
+        this.scene.background = pmremMap;
       }
 
-      this.currentEnvMap = envMap;
-      texture.dispose();
+      this.currentEnvMap = pmremMap;
+
+      // Call the onLoad callback if provided
+      if (onLoad) {
+        onLoad();
+      }
     });
   }
 
@@ -142,24 +158,32 @@ export class BackgroundManager {
     } = options;
 
     const texture = await this.hdrLoader.loadAsync(url);
-    const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+
+    // Keep original equirectangular texture (needed for pathtracer)
+    this.equirectEnvMap = texture;
+
+    // Generate PMREM for WebGL IBL (better quality reflections)
+    const pmremMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+    this.pmremEnvMap = pmremMap;
 
     if (rotation !== 0) {
       this.setEnvironmentRotation(rotation);
     }
 
     if (asEnvironment) {
-      this.scene.environment = envMap;
+      // Use PMREM for environment (WebGL needs this for IBL)
+      // Pathtracer will swap this out when enabled
+      this.scene.environment = pmremMap;
       this.setEnvironmentIntensity(intensity);
     }
     if (asBackground) {
-      this.scene.background = envMap;
+      // Use PMREM for background (smoother, better quality)
+      this.scene.background = pmremMap;
     }
 
-    this.currentEnvMap = envMap;
-    texture.dispose();
+    this.currentEnvMap = pmremMap;
 
-    return envMap;
+    return texture;
   }
 
   /**
@@ -393,8 +417,24 @@ export class BackgroundManager {
     this.scene.backgroundBlurriness = Math.max(0, Math.min(1, blurriness));
   }
 
+  /**
+   * Get the PMREM environment map (for WebGL IBL)
+   */
+  getPMREMEnvironment(): THREE.Texture | undefined {
+    return this.pmremEnvMap;
+  }
+
+  /**
+   * Get the equirectangular environment map (for pathtracer)
+   */
+  getEquirectEnvironment(): THREE.Texture | undefined {
+    return this.equirectEnvMap;
+  }
+
   dispose(): void {
     this.currentEnvMap?.dispose();
+    this.equirectEnvMap?.dispose();
+    this.pmremEnvMap?.dispose();
     this.pmremGenerator.dispose();
   }
 }

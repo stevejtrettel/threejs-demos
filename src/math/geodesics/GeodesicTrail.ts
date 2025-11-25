@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Params, subscribeTo, unsubscribeFrom } from '@/Params';
+import { Params } from '@/Params';
 import type { DifferentialSurface } from '@/math/surfaces/types';
 import type { TangentVector } from './types';
 import { GeodesicIntegrator } from './GeodesicIntegrator';
@@ -149,19 +149,12 @@ export class GeodesicTrail extends THREE.Line {
       stepSize: options.stepSize ?? 0.01
     });
 
-    // Define parameters
-    this.params.define('color', options.color ?? 0xff0000, {
-      triggers: 'update'
-    });
-    this.params.define('lineWidth', options.lineWidth ?? 1, {
-      triggers: 'update'
-    });
-    this.params.define('maxPoints', options.maxPoints ?? 500, {
-      triggers: 'rebuild'
-    });
-
-    // Subscribe to surface parameter changes for reactive recomputation
-    subscribeTo(surface, this);
+    // Define parameters and dependencies
+    this.params
+      .define('color', options.color ?? 0xff0000, { triggers: 'update' })
+      .define('lineWidth', options.lineWidth ?? 1, { triggers: 'update' })
+      .define('maxPoints', options.maxPoints ?? 500, { triggers: 'rebuild' })
+      .dependOn(surface);
 
     // Create material
     this.material = new THREE.LineBasicMaterial();
@@ -379,7 +372,7 @@ export class GeodesicTrail extends THREE.Line {
       (this.material as THREE.Material).dispose();
     }
 
-    // Unsubscribe from surface parameter changes
-    unsubscribeFrom(this.surface, this);
+    // Clean up subscriptions
+    this.params.dispose();
   }
 }

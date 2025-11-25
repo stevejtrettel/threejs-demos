@@ -1,4 +1,4 @@
-import { Params, subscribeTo } from '@/Params';
+import { Params } from '@/Params';
 import type { Parametric } from '@/math/types';
 import type { DifferentialSurface } from '@/math/surfaces/types';
 import type { TangentVector, ChristoffelSymbols } from './types';
@@ -55,10 +55,10 @@ export class GeodesicIntegrator implements Parametric {
   ) {
     this.surface = surface;
 
-    this.params.define('stepSize', options.stepSize ?? 0.01);
-
-    // Subscribe to surface parameter changes
-    subscribeTo(surface, this);
+    // Define parameters and dependencies
+    this.params
+      .define('stepSize', options.stepSize ?? 0.01)
+      .dependOn(surface);
   }
 
   /**

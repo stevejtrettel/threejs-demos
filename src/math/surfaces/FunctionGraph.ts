@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Params, subscribeTo } from '@/Params';
+import { Params } from '@/Params';
 import type { Parametric } from '@/math/types';
 import type {
   DifferentialSurface,
@@ -52,11 +52,11 @@ export class FunctionGraph implements DifferentialSurface, Parametric {
   ) {
     this.field = field;
 
-    this.params.define('xyScale', options.xyScale ?? 1, { triggers: 'rebuild' });
-    this.params.define('zScale', options.zScale ?? 1, { triggers: 'rebuild' });
-
-    // Subscribe to field parameter changes
-    subscribeTo(field, this);
+    // Define parameters and dependencies
+    this.params
+      .define('xyScale', options.xyScale ?? 1, { triggers: 'rebuild' })
+      .define('zScale', options.zScale ?? 1, { triggers: 'rebuild' })
+      .dependOn(field);
   }
 
   evaluate(u: number, v: number): THREE.Vector3 {

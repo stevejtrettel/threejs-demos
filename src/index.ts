@@ -1,5 +1,5 @@
 export * from './app';
-export { Params } from './Params';
+export { Params, subscribeTo, unsubscribeFrom, isParametric } from './Params';
 export * from './types';
 
 // Math library (includes orig/ exports temporarily)

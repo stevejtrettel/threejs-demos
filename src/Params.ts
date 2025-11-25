@@ -151,3 +151,59 @@ export class Params {
     return this.params;
   }
 }
+
+/**
+ * Helper to check if an object has the Params system
+ *
+ * @param obj - Any object
+ * @returns true if object has a params property that is a Params instance
+ */
+export function isParametric(obj: unknown): obj is { params: Params } {
+  return obj !== null &&
+    typeof obj === 'object' &&
+    'params' in obj &&
+    (obj as any).params instanceof Params;
+}
+
+/**
+ * Subscribe a dependent object to a source's parameter changes
+ *
+ * This is a convenience helper for the common pattern of subscribing
+ * to another object's params for cascade updates.
+ *
+ * @param source - Object that may have params (safe to call if it doesn't)
+ * @param dependent - Object to register as dependent (should have rebuild/update methods)
+ *
+ * @example
+ *   class SurfaceMesh {
+ *     constructor(surface: Surface) {
+ *       this.surface = surface;
+ *       subscribeTo(surface, this);  // React to surface param changes
+ *     }
+ *   }
+ */
+export function subscribeTo(source: unknown, dependent: unknown): void {
+  if (isParametric(source)) {
+    source.params.addDependent(dependent);
+  }
+}
+
+/**
+ * Unsubscribe a dependent object from a source's parameter changes
+ *
+ * Call this in dispose() to clean up subscriptions.
+ *
+ * @param source - Object that may have params (safe to call if it doesn't)
+ * @param dependent - Object to unregister
+ *
+ * @example
+ *   dispose(): void {
+ *     unsubscribeFrom(this.surface, this);
+ *     // ... other cleanup
+ *   }
+ */
+export function unsubscribeFrom(source: unknown, dependent: unknown): void {
+  if (isParametric(source)) {
+    source.params.removeDependent(dependent);
+  }
+}

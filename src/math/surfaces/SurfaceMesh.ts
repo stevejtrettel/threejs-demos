@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { Params } from '@/Params';
-import type { Parametric } from '@/math/types';
+import { Params, subscribeTo, unsubscribeFrom } from '@/Params';
 import type { Surface } from './types';
 import { buildGeometry } from './buildGeometry';
 
@@ -153,9 +152,7 @@ export class SurfaceMesh extends THREE.Mesh {
     });
 
     // Subscribe to surface parameter changes
-    if ('params' in surface) {
-      (surface as Parametric).params.addDependent(this);
-    }
+    subscribeTo(surface, this);
 
     // Create initial material
     this.material = new THREE.MeshPhysicalMaterial({
@@ -233,8 +230,6 @@ export class SurfaceMesh extends THREE.Mesh {
     }
 
     // Unsubscribe from surface parameter changes
-    if ('params' in this.surface) {
-      (this.surface as Parametric).params.removeDependent(this);
-    }
+    unsubscribeFrom(this.surface, this);
   }
 }

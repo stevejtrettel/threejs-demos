@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Params } from '@/Params';
+import { Params, subscribeTo, unsubscribeFrom } from '@/Params';
 import type { DifferentialSurface } from '@/math/surfaces/types';
 import type { TangentVector } from './types';
 import { GeodesicIntegrator } from './GeodesicIntegrator';
@@ -96,8 +96,12 @@ export class GeodesicTrail extends THREE.Line {
   private integrator: GeodesicIntegrator;
   private state: TangentVector;
   private readonly initialState: TangentVector;
-  private points: THREE.Vector3[] = [];
   private readonly fixedSteps?: number;
+
+  // Pre-allocated buffer for trail points (avoids per-frame allocation)
+  private positionBuffer!: Float32Array;
+  private pointCount = 0;
+  private headIndex = 0;  // Ring buffer head for maxPoints limit
 
   /**
    * Trail color
@@ -157,13 +161,13 @@ export class GeodesicTrail extends THREE.Line {
     });
 
     // Subscribe to surface parameter changes for reactive recomputation
-    if ('params' in surface) {
-      (surface as Parametric).params.addDependent(this);
-    }
+    subscribeTo(surface, this);
 
-    // Create material and geometry
+    // Create material
     this.material = new THREE.LineBasicMaterial();
-    this.geometry = new THREE.BufferGeometry();
+
+    // Create geometry with pre-allocated buffer
+    this.initializeGeometry(this.maxPoints);
 
     // Initial update
     this.update();
@@ -172,6 +176,23 @@ export class GeodesicTrail extends THREE.Line {
     if (this.fixedSteps !== undefined) {
       this.recompute();
     }
+  }
+
+  /**
+   * Initialize geometry with pre-allocated buffer
+   */
+  private initializeGeometry(maxPoints: number): void {
+    // Allocate buffer for maxPoints * 3 floats (x, y, z per point)
+    this.positionBuffer = new Float32Array(maxPoints * 3);
+    this.pointCount = 0;
+    this.headIndex = 0;
+
+    // Create geometry with buffer attribute
+    this.geometry = new THREE.BufferGeometry();
+    const positionAttr = new THREE.BufferAttribute(this.positionBuffer, 3);
+    positionAttr.setUsage(THREE.DynamicDrawUsage);  // Hint for frequent updates
+    this.geometry.setAttribute('position', positionAttr);
+    this.geometry.setDrawRange(0, 0);
   }
 
   /**
@@ -184,6 +205,11 @@ export class GeodesicTrail extends THREE.Line {
    * @param delta - Time step since last frame
    */
   animate(time: number, delta: number): void {
+    // Skip if in fixedSteps mode (geodesic is pre-computed)
+    if (this.fixedSteps !== undefined) {
+      return;
+    }
+
     // Integrate one step forward
     this.state = this.integrator.integrate(this.state, delta);
 
@@ -193,18 +219,36 @@ export class GeodesicTrail extends THREE.Line {
       this.state.position[1]
     );
 
-    // Add to trail
-    this.points.push(point.clone());
+    // Add point to pre-allocated buffer (ring buffer behavior when full)
+    this.addPoint(point);
+  }
 
-    // Limit trail length
-    if (this.points.length > this.maxPoints) {
-      this.points.shift();
+  /**
+   * Add a point to the trail buffer
+   *
+   * Uses ring buffer approach when maxPoints is reached - overwrites oldest points.
+   */
+  private addPoint(point: THREE.Vector3): void {
+    const posAttr = this.geometry.getAttribute('position') as THREE.BufferAttribute;
+
+    if (this.pointCount < this.maxPoints) {
+      // Buffer not full yet - append at end
+      const idx = this.pointCount * 3;
+      this.positionBuffer[idx] = point.x;
+      this.positionBuffer[idx + 1] = point.y;
+      this.positionBuffer[idx + 2] = point.z;
+      this.pointCount++;
+      this.geometry.setDrawRange(0, this.pointCount);
+    } else {
+      // Buffer full - overwrite oldest point (ring buffer)
+      const idx = this.headIndex * 3;
+      this.positionBuffer[idx] = point.x;
+      this.positionBuffer[idx + 1] = point.y;
+      this.positionBuffer[idx + 2] = point.z;
+      this.headIndex = (this.headIndex + 1) % this.maxPoints;
     }
 
-    // Update geometry - dispose and recreate to avoid buffer size issues
-    this.geometry.dispose();
-    this.geometry = new THREE.BufferGeometry();
-    this.geometry.setFromPoints(this.points);
+    posAttr.needsUpdate = true;
   }
 
   /**
@@ -218,17 +262,18 @@ export class GeodesicTrail extends THREE.Line {
       position: [...this.initialState.position] as [number, number],
       velocity: [...this.initialState.velocity] as [number, number]
     };
-    this.points = [];
-    this.geometry.dispose();
-    this.geometry = new THREE.BufferGeometry();
-    this.geometry.setFromPoints([]);
+
+    // Clear buffer without reallocating
+    this.pointCount = 0;
+    this.headIndex = 0;
+    this.geometry.setDrawRange(0, 0);
   }
 
   /**
    * Rebuild geometry
    *
    * Called when:
-   * - maxPoints changes (trims the trail if it's too long)
+   * - maxPoints changes (reallocates buffer)
    * - Surface parameters change (recomputes geodesic in fixedSteps mode)
    */
   rebuild(): void {
@@ -238,13 +283,12 @@ export class GeodesicTrail extends THREE.Line {
       return;
     }
 
-    // Otherwise, just trim points if maxPoints decreased
-    if (this.points.length > this.maxPoints) {
-      this.points = this.points.slice(-this.maxPoints);
+    // maxPoints changed - need to reallocate buffer
+    // Dispose old geometry and create new one with new size
+    if (this.geometry) {
       this.geometry.dispose();
-      this.geometry = new THREE.BufferGeometry();
-      this.geometry.setFromPoints(this.points);
     }
+    this.initializeGeometry(this.maxPoints);
   }
 
   /**
@@ -262,26 +306,44 @@ export class GeodesicTrail extends THREE.Line {
       position: [...this.initialState.position] as [number, number],
       velocity: [...this.initialState.velocity] as [number, number]
     };
-    this.points = [];
+
+    // Clear buffer
+    this.pointCount = 0;
+    this.headIndex = 0;
+
+    // Ensure buffer is large enough for fixedSteps
+    const steps = this.fixedSteps ?? 0;
+    if (steps > this.maxPoints) {
+      // Reallocate if needed
+      if (this.geometry) {
+        this.geometry.dispose();
+      }
+      this.initializeGeometry(steps);
+    }
 
     // Integrate for fixed number of steps
-    const steps = this.fixedSteps ?? 0;
     for (let i = 0; i < steps; i++) {
       // Convert current position to 3D point
       const point = this.surface.evaluate(
         this.state.position[0],
         this.state.position[1]
       );
-      this.points.push(point.clone());
+
+      // Add to buffer directly (faster than using addPoint for bulk operations)
+      const idx = this.pointCount * 3;
+      this.positionBuffer[idx] = point.x;
+      this.positionBuffer[idx + 1] = point.y;
+      this.positionBuffer[idx + 2] = point.z;
+      this.pointCount++;
 
       // Integrate one step
       this.state = this.integrator.integrate(this.state, 1.0);
     }
 
     // Update geometry
-    this.geometry.dispose();
-    this.geometry = new THREE.BufferGeometry();
-    this.geometry.setFromPoints(this.points);
+    const posAttr = this.geometry.getAttribute('position') as THREE.BufferAttribute;
+    posAttr.needsUpdate = true;
+    this.geometry.setDrawRange(0, this.pointCount);
   }
 
   /**
@@ -318,8 +380,6 @@ export class GeodesicTrail extends THREE.Line {
     }
 
     // Unsubscribe from surface parameter changes
-    if ('params' in this.surface) {
-      (this.surface as Parametric).params.removeDependent(this);
-    }
+    unsubscribeFrom(this.surface, this);
   }
 }

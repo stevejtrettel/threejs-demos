@@ -45,29 +45,23 @@ export class ParameterManager {
   }
 
   /**
-   * Register an ad-hoc parameter
+   * Register an ad-hoc parameter for UI exposure
+   *
+   * This registers an existing property on any object (e.g., THREE.js materials)
+   * for UI controls. It does NOT create reactive properties - it just registers
+   * the property so UI can bind to it.
+   *
+   * For reactive parameters with lifecycle hooks (rebuild/update), use the
+   * Params class on math components instead.
+   *
+   * @example
+   *   // Expose THREE.js material property to UI
+   *   app.params.add(material, 'roughness', {
+   *     min: 0, max: 1,
+   *     label: 'Roughness'
+   *   });
    */
   add(object: any, property: string, options: ParamOptions): void {
-    const originalValue = object[property];
-    let currentValue = originalValue;
-
-    // Create reactive property
-    Object.defineProperty(object, property, {
-      get() {
-        return currentValue;
-      },
-      set(value) {
-        const oldValue = currentValue;
-        currentValue = value;
-
-        if (options.onChange && oldValue !== value) {
-          options.onChange(value);
-        }
-      },
-      enumerable: true,
-      configurable: true
-    });
-
     const param: RegisteredParam = {
       object,
       property,
@@ -113,7 +107,7 @@ export class ParameterManager {
    * Expose all component parameters
    */
   exposeAll(componentParams: Params): void {
-    componentParams.getAllDefinitions().forEach((def, name) => {
+    componentParams.getAllDefinitions().forEach((_, name) => {
       this.expose(componentParams, name);
     });
   }

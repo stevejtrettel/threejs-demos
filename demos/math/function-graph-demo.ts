@@ -11,6 +11,7 @@
 import { App } from '@/app/App';
 import { RippleFunction, FunctionGraph, SurfaceMesh } from '@/math';
 import { GeodesicTrail } from '@/math/geodesics/GeodesicTrail';
+import { Lights } from '@/scene';
 import * as THREE from 'three';
 
 console.log('=== Function Graph with Geodesics Demo ===\n');
@@ -24,7 +25,7 @@ const app = new App({
 // Setup scene
 app.camera.position.set(6, 8, 6);
 app.controls.target.set(0, 0, 0);
-app.lights.set('three-point');
+app.scene.add(Lights.threePoint());
 app.backgrounds.setColor(0x0a0a1a);
 
 // Create ripple function with reactive parameters

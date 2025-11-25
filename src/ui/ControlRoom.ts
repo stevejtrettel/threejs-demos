@@ -139,9 +139,13 @@ export class ControlRoom {
     }
 
     private createControlForParam(param: any): void {
-        const { object, property, options } = param;
+        const { object, property, options, type } = param;
         const initialValue = object[property];
         const folder = this.folders.scene;
+
+        // For component params, the Params setter already handles onChange.
+        // Only call onChange manually for adhoc params.
+        const isAdhoc = type === 'adhoc';
 
         let component: any;
 
@@ -151,7 +155,7 @@ export class ControlRoom {
                 label: options.label || property,
                 onChange: (v) => {
                     object[property] = v;
-                    if (options.onChange) options.onChange(v);
+                    if (isAdhoc && options.onChange) options.onChange(v);
                 }
             });
         } else if (typeof initialValue === 'boolean' || options.type === 'boolean') {
@@ -159,7 +163,7 @@ export class ControlRoom {
                 label: options.label || property,
                 onChange: (v) => {
                     object[property] = v;
-                    if (options.onChange) options.onChange(v);
+                    if (isAdhoc && options.onChange) options.onChange(v);
                 }
             });
         } else if (typeof initialValue === 'number' || options.type === 'number') {
@@ -170,7 +174,7 @@ export class ControlRoom {
                 label: options.label || property,
                 onChange: (v) => {
                     object[property] = v;
-                    if (options.onChange) options.onChange(v);
+                    if (isAdhoc && options.onChange) options.onChange(v);
                 }
             });
         } else if (typeof initialValue === 'string') {
@@ -178,7 +182,7 @@ export class ControlRoom {
                 label: options.label || property,
                 onChange: (v) => {
                     object[property] = v;
-                    if (options.onChange) options.onChange(v);
+                    if (isAdhoc && options.onChange) options.onChange(v);
                 }
             });
         }

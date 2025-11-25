@@ -3,7 +3,8 @@
 ## Basic Setup
 
 ```typescript
-import { App } from '../src/app/App';
+import { App } from '@/app';
+import { Lights } from '@/scene';
 
 // Create app with default options
 const app = new App();
@@ -25,7 +26,7 @@ app.controls.target.set(0, 0, 0);
 app.backgrounds.setColor(0x2a2a2a);
 
 // Add lights
-app.lights.set('three-point');
+app.scene.add(Lights.threePoint());
 
 // Add objects
 const sphere = new ParametricSurface(...);
@@ -107,17 +108,21 @@ app.backgrounds.setStarfield({ count: 2000, size: 2 });
 app.backgrounds.loadHDR('/path/to/env.hdr', true, true);
 ```
 
-### LightManager (`app.lights`)
-Quick lighting presets.
+### Lights Factory (`@/scene`)
+Quick lighting presets via factory functions.
 
 ```typescript
-app.lights.set('three-point');  // Key, fill, back lights
-app.lights.set('ambient');      // Ambient light only
-app.lights.set('directional');  // Single directional light
-app.lights.set('none');         // No lights
+import { Lights } from '@/scene';
 
-// Or add custom lights
-app.lights.add(new THREE.DirectionalLight(0xffffff, 1));
+app.scene.add(Lights.threePoint());   // Key, fill, back lights
+app.scene.add(Lights.studio());       // Soft studio lighting
+app.scene.add(Lights.ambient());      // Ambient light only
+app.scene.add(Lights.directional());  // Single directional light
+app.scene.add(Lights.dramatic());     // High contrast
+app.scene.add(Lights.hemisphere());   // Sky/ground gradient
+
+// Or add custom lights directly
+app.scene.add(new THREE.DirectionalLight(0xffffff, 1));
 ```
 
 ### ControlsManager (`app.controls`)

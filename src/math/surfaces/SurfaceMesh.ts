@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { Params } from '@/Params';
-import type { Parametric } from '@/math/types';
 import type { Surface } from './types';
 import { buildGeometry } from './buildGeometry';
 
@@ -127,35 +126,16 @@ export class SurfaceMesh extends THREE.Mesh {
     // Store surface reference
     this.surface = surface;
 
-    // Define geometry parameters (trigger rebuild)
-    this.params.define('uSegments', options.uSegments ?? 32, {
-      triggers: 'rebuild'
-    });
-    this.params.define('vSegments', options.vSegments ?? 32, {
-      triggers: 'rebuild'
-    });
-
-    // Define material parameters (trigger update)
-    this.params.define('color', options.color ?? 0x4488ff, {
-      triggers: 'update'
-    });
-    this.params.define('roughness', options.roughness ?? 0.3, {
-      triggers: 'update'
-    });
-    this.params.define('metalness', options.metalness ?? 0.1, {
-      triggers: 'update'
-    });
-    this.params.define('transmission', options.transmission ?? 0, {
-      triggers: 'update'
-    });
-    this.params.define('wireframe', options.wireframe ?? false, {
-      triggers: 'update'
-    });
-
-    // Subscribe to surface parameter changes
-    if ('params' in surface) {
-      (surface as Parametric).params.addDependent(this);
-    }
+    // Define parameters and dependencies
+    this.params
+      .define('uSegments', options.uSegments ?? 32, { triggers: 'rebuild' })
+      .define('vSegments', options.vSegments ?? 32, { triggers: 'rebuild' })
+      .define('color', options.color ?? 0x4488ff, { triggers: 'update' })
+      .define('roughness', options.roughness ?? 0.3, { triggers: 'update' })
+      .define('metalness', options.metalness ?? 0.1, { triggers: 'update' })
+      .define('transmission', options.transmission ?? 0, { triggers: 'update' })
+      .define('wireframe', options.wireframe ?? false, { triggers: 'update' })
+      .dependOn(surface);
 
     // Create initial material
     this.material = new THREE.MeshPhysicalMaterial({
@@ -232,9 +212,7 @@ export class SurfaceMesh extends THREE.Mesh {
       (this.material as THREE.Material).dispose();
     }
 
-    // Unsubscribe from surface parameter changes
-    if ('params' in this.surface) {
-      (this.surface as Parametric).params.removeDependent(this);
-    }
+    // Clean up subscriptions
+    this.params.dispose();
   }
 }

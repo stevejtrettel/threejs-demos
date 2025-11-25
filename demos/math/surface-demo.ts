@@ -9,6 +9,7 @@
 
 import { App } from '@/app/App';
 import { Torus, SurfaceMesh } from '@/math';
+import { Lights } from '@/scene';
 import * as THREE from 'three';
 
 console.log('=== Parametric Surface Demo ===\n');
@@ -22,7 +23,7 @@ const app = new App({
 // Setup scene
 app.camera.position.set(0, 3, 8);
 app.controls.target.set(0, 0, 0);
-app.lights.set('three-point');
+app.scene.add(Lights.threePoint());
 app.backgrounds.setColor(0x1a1a2e);
 
 // Create torus primitive with reactive parameters

@@ -55,12 +55,10 @@ export class GeodesicIntegrator implements Parametric {
   ) {
     this.surface = surface;
 
-    this.params.define('stepSize', options.stepSize ?? 0.01);
-
-    // Subscribe to surface parameter changes
-    if ('params' in surface) {
-      (surface as Parametric).params.addDependent(this);
-    }
+    // Define parameters and dependencies
+    this.params
+      .define('stepSize', options.stepSize ?? 0.01)
+      .dependOn(surface);
   }
 
   /**

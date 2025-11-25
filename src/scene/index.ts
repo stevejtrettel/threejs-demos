@@ -1,9 +1,10 @@
 /**
  * Scene tools - Working with scene content
  *
- * Tools for organizing, measuring, and creating scene objects
+ * Factories and utilities for building scenes
  */
 
-export { GroupManager } from './GroupManager';
-export { MeasurementManager } from './MeasurementManager';
 export { Materials } from './Materials';
+export { Lights } from './Lights';
+export { Labels } from './Labels';
+export { Helpers } from './Helpers';

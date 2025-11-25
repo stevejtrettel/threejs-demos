@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { AssetManager } from './AssetManager';
 import { DebugManager } from './DebugManager';
 import { BackgroundManager } from './BackgroundManager';
-import { LightManager } from './LightManager';
 import { ControlsManager } from './ControlsManager';
 import { LayoutManager } from './LayoutManager';
 import { ParameterManager } from './ParameterManager';
@@ -25,7 +24,6 @@ export class App {
   assets: AssetManager;
   debug: DebugManager;
   backgrounds: BackgroundManager;
-  lights: LightManager;
   controls: ControlsManager;
   layout: LayoutManager;
   params: ParameterManager;
@@ -71,7 +69,6 @@ export class App {
 
     // Initialize other managers
     this.backgrounds = new BackgroundManager(this.scene, this.renderManager.renderer);
-    this.lights = new LightManager(this.scene);
     this.controls = new ControlsManager(this.cameraManager.camera, this.renderManager.renderer);
     this.layout = new LayoutManager(this.renderManager.renderer, this.cameraManager.camera);
     this.params = new ParameterManager();
@@ -451,7 +448,6 @@ export class App {
     this.selection.dispose();
     this.renderManager.dispose();
     this.backgrounds.dispose();
-    this.lights.dispose();
     this.controls.dispose();
     this.layout.dispose();
   }

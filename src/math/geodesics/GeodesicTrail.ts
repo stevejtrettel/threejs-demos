@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Params } from '@/Params';
-import type { DifferentialSurface } from '@/math/surfaces/types';
-import type { TangentVector } from './types';
+import type { DifferentialSurface, SurfaceDomain } from '@/math/surfaces/types';
+import type { TangentVector, BoundaryEdge } from './types';
 import { GeodesicIntegrator } from './GeodesicIntegrator';
 
 /**
@@ -48,6 +48,13 @@ export interface GeodesicTrailOptions {
    * If not specified, geodesic continues growing via animate() calls.
    */
   fixedSteps?: number;
+
+  /**
+   * Enable domain boundary checking (default: false)
+   * When true, geodesic will stop when it hits the surface domain boundary.
+   * Uses bisection to find the exact boundary intersection point.
+   */
+  bounded?: boolean;
 }
 
 /**
@@ -97,11 +104,16 @@ export class GeodesicTrail extends THREE.Line {
   private state: TangentVector;
   private readonly initialState: TangentVector;
   private readonly fixedSteps?: number;
+  private readonly bounded: boolean;
 
   // Pre-allocated buffer for trail points (avoids per-frame allocation)
   private positionBuffer!: Float32Array;
   private pointCount = 0;
   private headIndex = 0;  // Ring buffer head for maxPoints limit
+
+  // Boundary tracking
+  private _stopped = false;
+  private _stoppedAtBoundary?: BoundaryEdge;
 
   /**
    * Trail color
@@ -121,6 +133,20 @@ export class GeodesicTrail extends THREE.Line {
    */
   declare maxPoints: number;
 
+  /**
+   * Whether the geodesic has stopped (hit a boundary or completed fixedSteps)
+   */
+  get stopped(): boolean {
+    return this._stopped;
+  }
+
+  /**
+   * Which boundary edge the geodesic hit (if any)
+   */
+  get stoppedAtBoundary(): BoundaryEdge | undefined {
+    return this._stoppedAtBoundary;
+  }
+
   constructor(
     surface: DifferentialSurface,
     options: GeodesicTrailOptions
@@ -131,8 +157,9 @@ export class GeodesicTrail extends THREE.Line {
     // Store surface reference
     this.surface = surface;
 
-    // Store fixed steps mode
+    // Store mode options
     this.fixedSteps = options.fixedSteps;
+    this.bounded = options.bounded ?? false;
 
     // Store initial state
     this.initialState = {
@@ -192,19 +219,40 @@ export class GeodesicTrail extends THREE.Line {
    * Animate geodesic forward in time
    *
    * Call this in your render loop to integrate the geodesic equation
-   * and update the visual trail.
+   * and update the visual trail. Each call advances by one `stepSize`.
    *
-   * @param time - Current time (not used, but standard animation signature)
-   * @param delta - Time step since last frame
+   * Note: The delta/time parameters are for Animatable interface compatibility
+   * but the geodesic integration uses fixed stepSize, not frame time.
+   *
+   * @param _time - Current time (unused, for interface compatibility)
+   * @param _delta - Frame delta (unused, integration uses stepSize)
    */
-  animate(time: number, delta: number): void {
+  animate(_time: number, _delta: number): void {
     // Skip if in fixedSteps mode (geodesic is pre-computed)
     if (this.fixedSteps !== undefined) {
       return;
     }
 
-    // Integrate one step forward
-    this.state = this.integrator.integrate(this.state, delta);
+    // Skip if already stopped (hit boundary)
+    if (this._stopped) {
+      return;
+    }
+
+    // Integrate one step forward (uses stepSize, not frame delta)
+    if (this.bounded) {
+      // Use bounded integration with boundary checking
+      const domain = this.surface.getDomain();
+      const result = this.integrator.integrateBounded(this.state, domain);
+      this.state = result.state;
+
+      if (result.hitBoundary) {
+        this._stopped = true;
+        this._stoppedAtBoundary = result.boundaryEdge;
+      }
+    } else {
+      // Standard unbounded integration
+      this.state = this.integrator.integrate(this.state);
+    }
 
     // Convert parameter coordinates to 3D point on surface
     const point = this.surface.evaluate(
@@ -256,6 +304,10 @@ export class GeodesicTrail extends THREE.Line {
       velocity: [...this.initialState.velocity] as [number, number]
     };
 
+    // Clear stopped state
+    this._stopped = false;
+    this._stoppedAtBoundary = undefined;
+
     // Clear buffer without reallocating
     this.pointCount = 0;
     this.headIndex = 0;
@@ -300,6 +352,10 @@ export class GeodesicTrail extends THREE.Line {
       velocity: [...this.initialState.velocity] as [number, number]
     };
 
+    // Clear stopped state
+    this._stopped = false;
+    this._stoppedAtBoundary = undefined;
+
     // Clear buffer
     this.pointCount = 0;
     this.headIndex = 0;
@@ -313,6 +369,9 @@ export class GeodesicTrail extends THREE.Line {
       }
       this.initializeGeometry(steps);
     }
+
+    // Get domain if bounded mode
+    const domain = this.bounded ? this.surface.getDomain() : null;
 
     // Integrate for fixed number of steps
     for (let i = 0; i < steps; i++) {
@@ -330,7 +389,18 @@ export class GeodesicTrail extends THREE.Line {
       this.pointCount++;
 
       // Integrate one step
-      this.state = this.integrator.integrate(this.state, 1.0);
+      if (this.bounded && domain) {
+        const result = this.integrator.integrateBounded(this.state, domain);
+        this.state = result.state;
+
+        if (result.hitBoundary) {
+          this._stopped = true;
+          this._stoppedAtBoundary = result.boundaryEdge;
+          break;  // Stop integration
+        }
+      } else {
+        this.state = this.integrator.integrate(this.state);
+      }
     }
 
     // Update geometry

@@ -203,10 +203,10 @@ surface.params.set('R', 3);  // mesh.rebuild() called automatically
 Currently implemented:
 - ✅ Folder structure and types
 - ✅ Documentation
-- ⬜ Surface primitives (Torus, Helicoid, Sphere)
-- ⬜ Surface builders (buildGeometry, buildMesh)
-- ⬜ Surface components (SurfaceMesh)
-- ⬜ Geodesic integration
-- ⬜ Geodesic visualization
+- ✅ Surface primitives (Torus, FunctionGraph)
+- ✅ Surface builders (buildGeometry)
+- ✅ Surface components (SurfaceMesh, SurfaceMesh.fromFunction)
+- ✅ Geodesic integration (GeodesicIntegrator with bounded support)
+- ✅ Geodesic visualization (GeodesicTrail)
 
 See [design document](../../docs/math-type-design.md) for full architecture details.

@@ -1,7 +1,18 @@
 import * as THREE from 'three';
 import { Params } from '@/Params';
-import type { Surface } from './types';
+import type { Surface, DifferentialSurface, SurfaceDomain, SurfacePartials, FirstFundamentalForm } from './types';
 import { buildGeometry } from './buildGeometry';
+
+/**
+ * Options for SurfaceMesh.fromFunction() static factory
+ */
+export interface FromFunctionOptions extends SurfaceMeshOptions {
+  /**
+   * Domain bounds [xMin, xMax, yMin, yMax]
+   * Default: [-2, 2, -2, 2]
+   */
+  domain?: [number, number, number, number];
+}
 
 /**
  * Options for SurfaceMesh component
@@ -214,5 +225,96 @@ export class SurfaceMesh extends THREE.Mesh {
 
     // Clean up subscriptions
     this.params.dispose();
+  }
+
+  // =========================================================================
+  // Static Factory Methods
+  // =========================================================================
+
+  /**
+   * Create a SurfaceMesh directly from a z = f(x, y) function
+   *
+   * This is a convenience factory for quickly visualizing functions without
+   * needing to create separate scalar field and FunctionGraph objects.
+   *
+   * Internally creates a DifferentialSurface that:
+   * - Evaluates to (x, y, f(x, y))
+   * - Computes normals analytically using numerical derivatives
+   * - Computes the metric tensor for geodesic support
+   *
+   * @param fn - Function (x, y) => z height
+   * @param options - Surface mesh options plus domain bounds
+   * @returns SurfaceMesh ready to add to scene
+   *
+   * @example Simple usage
+   *   const mesh = SurfaceMesh.fromFunction(
+   *     (x, y) => Math.sin(x) * Math.cos(y)
+   *   );
+   *   scene.add(mesh);
+   *
+   * @example With options
+   *   const mesh = SurfaceMesh.fromFunction(
+   *     (x, y) => x*x - y*y,  // Saddle surface
+   *     {
+   *       domain: [-3, 3, -3, 3],
+   *       uSegments: 64,
+   *       color: 0xff4444
+   *     }
+   *   );
+   *
+   * @example Ripple function
+   *   const mesh = SurfaceMesh.fromFunction(
+   *     (x, y) => Math.sin(Math.sqrt(x*x + y*y) * 3) * 0.5,
+   *     { domain: [-4, 4, -4, 4], uSegments: 80, vSegments: 80 }
+   *   );
+   */
+  static fromFunction(
+    fn: (x: number, y: number) => number,
+    options: FromFunctionOptions = {}
+  ): SurfaceMesh {
+    const { domain = [-2, 2, -2, 2], ...meshOptions } = options;
+    const [xMin, xMax, yMin, yMax] = domain;
+
+    // Create an inline DifferentialSurface from the function
+    const surface: DifferentialSurface = {
+      evaluate(u: number, v: number): THREE.Vector3 {
+        return new THREE.Vector3(u, v, fn(u, v));
+      },
+
+      getDomain(): SurfaceDomain {
+        return { uMin: xMin, uMax: xMax, vMin: yMin, vMax: yMax };
+      },
+
+      computePartials(u: number, v: number): SurfacePartials {
+        // Numerical derivatives for the surface partials
+        const h = 0.0001;
+        const fu = (fn(u + h, v) - fn(u - h, v)) / (2 * h);
+        const fv = (fn(u, v + h) - fn(u, v - h)) / (2 * h);
+
+        // For graph (u, v, f(u,v)):
+        // ∂/∂u = (1, 0, ∂f/∂u)
+        // ∂/∂v = (0, 1, ∂f/∂v)
+        return {
+          du: new THREE.Vector3(1, 0, fu),
+          dv: new THREE.Vector3(0, 1, fv)
+        };
+      },
+
+      computeNormal(u: number, v: number): THREE.Vector3 {
+        const { du, dv } = this.computePartials(u, v);
+        return du.cross(dv).normalize();
+      },
+
+      computeMetric(u: number, v: number): FirstFundamentalForm {
+        const { du, dv } = this.computePartials(u, v);
+        return {
+          E: du.dot(du),
+          F: du.dot(dv),
+          G: dv.dot(dv)
+        };
+      }
+    };
+
+    return new SurfaceMesh(surface, meshOptions);
   }
 }

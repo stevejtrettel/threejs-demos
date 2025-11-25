@@ -1,6 +1,43 @@
 # Getting Started with the Framework
 
-## Basic Setup
+## Quick Start (Recommended)
+
+For rapid prototyping, use the `quick()` factory which sets up everything you need:
+
+```typescript
+import { quick } from '@/app';
+import { SurfaceMesh, Torus } from '@/math';
+
+// One line setup with sensible defaults
+const app = quick();
+app.add(new SurfaceMesh(new Torus()));
+```
+
+Or visualize a function directly:
+
+```typescript
+import { quickSurface } from '@/app';
+
+// One-liner surface visualization
+quickSurface((x, y) => Math.sin(x) * Math.cos(y));
+```
+
+### Quick Options
+
+```typescript
+const app = quick({
+  lights: 'studio',           // 'studio' | 'threePoint' | 'dramatic' | 'ambient' | 'none'
+  background: 'dark',         // 'dark' | 'light' | 'sky' | number (hex color)
+  cameraPosition: [0, 3, 8],  // [x, y, z]
+  cameraTarget: [0, 0, 0],    // Orbit center
+  debug: true,                // Enable debug shortcuts
+  autoStart: true             // Auto-start animation loop
+});
+```
+
+## Manual Setup
+
+For full control, create an App directly:
 
 ```typescript
 import { App } from '@/app';
@@ -29,8 +66,8 @@ app.backgrounds.setColor(0x2a2a2a);
 app.scene.add(Lights.threePoint());
 
 // Add objects
-const sphere = new ParametricSurface(...);
-app.add(sphere);
+const torus = new Torus({ R: 2, r: 1 });
+app.add(new SurfaceMesh(torus));
 
 // Start rendering
 app.start();
@@ -163,6 +200,54 @@ app.add(myObject, { set: { radius: 2, color: 0xff0000 } });
 app.addAnimateCallback((time, delta) => {
   mesh.rotation.y = time * 0.001;
 });
+```
+
+## Export API
+
+Unified export functionality via `app.export`:
+
+### Screenshots
+
+```typescript
+// Quick screenshot (downloads screenshot.png)
+app.screenshot();
+app.screenshot('my-render.png');
+
+// With options
+app.export.screenshot({
+  filename: 'render.png',
+  format: 'png'  // 'png' | 'jpeg' | 'webp'
+});
+
+// High-resolution screenshot (higher than screen resolution)
+app.export.screenshotHiRes({
+  width: 4096,
+  height: 4096,
+  filename: 'hi-res.png'
+});
+
+// Get as blob (for upload or processing)
+const blob = await app.export.screenshotToBlob({ format: 'png' });
+```
+
+### Video Sequences
+
+```typescript
+// Export PNG sequence for video editing
+await app.export.videoSequence({
+  duration: 5,        // seconds
+  fps: 30,
+  filenamePattern: 'frame-{frame}.png'
+});
+```
+
+### Geometry Export
+
+```typescript
+// Export scene geometry
+app.export.gltf({ filename: 'model.glb' });  // GLB binary
+app.export.obj({ filename: 'model.obj' });   // OBJ format
+app.export.stl({ filename: 'model.stl' });   // STL format
 ```
 
 ## Cleanup

@@ -5,4 +5,5 @@
  */
 
 export { Materials } from './Materials';
+export { Lights } from './Lights';
 export { Labels } from './Labels';

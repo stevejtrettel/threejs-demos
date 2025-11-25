@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { App, TubedLevelCurves, CoordinateAxes, Grid, Materials } from '@';
+import { App, TubedLevelCurves, CoordinateAxes, Grid, Materials, Lights } from '@';
 
 const app = new App({
   fov: 60,
@@ -7,7 +7,7 @@ const app = new App({
 });
 
 app.backgrounds.setGradient('#0a0a1a', '#1a1a3a');
-app.lights.set('three-point');
+app.scene.add(Lights.threePoint());
 app.controls.setOrbit({
   enableDamping: true,
   autoRotate: false

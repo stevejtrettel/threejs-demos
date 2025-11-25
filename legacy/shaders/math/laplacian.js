@@ -1,9 +1,0 @@
-
-
-
-const glslLaplacian = `
-
-`;
-
-
-export { glslLaplacian };

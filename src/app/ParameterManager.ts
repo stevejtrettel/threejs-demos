@@ -120,6 +120,43 @@ export class ParameterManager {
   }
 
   /**
+   * Remove a specific parameter
+   *
+   * @param object - The object the parameter is on
+   * @param property - The property name
+   * @returns true if removed, false if not found
+   */
+  remove(object: any, property: string): boolean {
+    const index = this.registeredParams.findIndex(
+      p => p.object === object && p.property === property
+    );
+    if (index !== -1) {
+      const [removed] = this.registeredParams.splice(index, 1);
+      this.emit('param-removed', removed);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Remove all parameters for a specific object
+   *
+   * @param object - The object whose parameters should be removed
+   * @returns Number of parameters removed
+   */
+  removeAll(object: any): number {
+    const toRemove = this.registeredParams.filter(p => p.object === object);
+    toRemove.forEach(param => {
+      const index = this.registeredParams.indexOf(param);
+      if (index !== -1) {
+        this.registeredParams.splice(index, 1);
+        this.emit('param-removed', param);
+      }
+    });
+    return toRemove.length;
+  }
+
+  /**
    * Clear all parameters
    */
   clear(): void {

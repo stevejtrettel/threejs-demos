@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 
+// ============================================================================
+// LIFECYCLE INTERFACES
+// ============================================================================
+
 export interface Animatable {
   animate(time: number, delta: number): void;
 }
@@ -10,6 +14,26 @@ export interface Disposable {
 
 export interface Renderable {
   mesh?: THREE.Object3D;
+}
+
+/**
+ * Objects that can rebuild their geometry
+ *
+ * rebuild() is called when structural parameters change (domain, segments, topology).
+ * This is EXPENSIVE - allocates new geometry, rebuilds vertex/index buffers.
+ */
+export interface Rebuildable {
+  rebuild(): void;
+}
+
+/**
+ * Objects that can update their appearance
+ *
+ * update() is called when visual parameters change (colors, materials, visibility).
+ * This is CHEAP - modifies existing properties without reallocating geometry.
+ */
+export interface Updatable {
+  update(): void;
 }
 
 /**
@@ -24,31 +48,99 @@ export interface Renderable {
 export interface MathComponent extends
   Partial<Animatable>,
   Partial<Disposable>,
-  Partial<Renderable> {
+  Partial<Renderable>,
+  Partial<Rebuildable>,
+  Partial<Updatable> {}
+
+// ============================================================================
+// PARAMS SYSTEM TYPES
+// ============================================================================
+
+/**
+ * Objects with reactive parameters
+ *
+ * Mathematical primitives can have parameters that change over time.
+ * The Params system provides reactivity and dependency tracking.
+ */
+export interface Parametric {
+  readonly params: import('./Params').Params;
+}
+
+/**
+ * Trigger type for parameter changes
+ *
+ * Declares what a parameter affects when changed:
+ * - 'rebuild': Expensive geometry rebuild
+ * - 'update': Cheap visual update
+ * - 'none': No automatic action
+ */
+export type ParamTrigger = 'rebuild' | 'update' | 'none';
+
+/**
+ * Options for Params.define() - lifecycle and reactivity behavior
+ *
+ * These options control what happens when a parameter value changes.
+ */
+export interface DefineOptions {
   /**
-   * Rebuild geometry from scratch
+   * What lifecycle method to trigger when this parameter changes
    *
-   * Called when structural parameters change (domain bounds, segment counts, etc.)
-   * This is EXPENSIVE - allocates new BufferGeometry, rebuilds vertex/index buffers
-   *
-   * @example
-   *   // Changing segments requires rebuild
-   *   curve.segments = 200; // triggers rebuild()
+   * - 'rebuild': Calls owner.rebuild() and dependent.rebuild()
+   * - 'update': Calls owner.update() and dependent.update()
+   * - 'none': No automatic action (use onChange for custom behavior)
    */
-  rebuild?(): void;
+  triggers?: ParamTrigger;
 
   /**
-   * Update existing geometry in place
-   *
-   * Called when visual parameters change (colors, materials, etc.)
-   * This is CHEAP - modifies existing Float32Array values
-   *
-   * @example
-   *   // Changing color is just an update
-   *   curve.color = 0xff0000; // triggers update()
+   * Custom callback when value changes (called before lifecycle hooks)
    */
-  update?(): void;
+  onChange?: (value: any) => void;
 }
+
+/**
+ * Options for UI presentation of parameters
+ *
+ * These options control how parameters appear in UI controls.
+ */
+export interface UIOptions {
+  /** Minimum value (for sliders) */
+  min?: number;
+
+  /** Maximum value (for sliders) */
+  max?: number;
+
+  /** Step increment (for sliders) */
+  step?: number;
+
+  /** Explicit type hint for UI control selection */
+  type?: 'number' | 'boolean' | 'color' | 'string';
+
+  /** Display label in UI */
+  label?: string;
+
+  /** Folder/group name in UI */
+  folder?: string;
+}
+
+/**
+ * Combined options for parameter definition
+ *
+ * Includes both lifecycle behavior (DefineOptions) and UI presentation (UIOptions).
+ */
+export interface ParamOptions extends DefineOptions, UIOptions {}
+
+/**
+ * Stored parameter definition
+ */
+export interface ParamDefinition {
+  name: string;
+  defaultValue: any;
+  options: ParamOptions;
+}
+
+// ============================================================================
+// APP TYPES
+// ============================================================================
 
 export type AnimateCallback = (time: number, delta: number) => void;
 
@@ -95,42 +187,6 @@ export interface AppOptions {
   // Debug mode (enables keyboard shortcuts and performance monitoring)
   // Default: true
   debug?: boolean;
-}
-
-export interface ParamOptions {
-  min?: number;
-  max?: number;
-  step?: number;
-  type?: 'number' | 'boolean' | 'color' | 'string';
-  label?: string;
-  folder?: string;
-  onChange?: (value: any) => void;
-
-  /**
-   * Declares what this parameter affects when changed
-   *
-   * - 'rebuild': Triggers expensive geometry rebuild (domain, segments, topology)
-   * - 'update': Triggers cheap in-place update (colors, materials)
-   * - 'none': No automatic action (use onChange for custom behavior)
-   *
-   * Params will automatically call owner.rebuild() or owner.update()
-   *
-   * @example
-   *   this.params.define('segments', 32, {
-   *     triggers: 'rebuild'  // Changing segments needs new geometry
-   *   });
-   *
-   *   this.params.define('color', 0xff0000, {
-   *     triggers: 'update'   // Changing color just updates material
-   *   });
-   */
-  triggers?: 'rebuild' | 'update' | 'none';
-}
-
-export interface ParamDefinition {
-  name: string;
-  defaultValue: any;
-  options: ParamOptions;
 }
 
 export interface AddOptions {

@@ -75,6 +75,7 @@ export class Params {
     // Create reactive property on owner
     let currentValue = defaultValue;
     const owner = this.owner;
+    const paramsInstance = this; // Capture Params instance for closure
 
     Object.defineProperty(this.owner, name, {
       get() {
@@ -100,7 +101,7 @@ export class Params {
             owner.rebuild();
           }
           // Notify all dependents
-          for (const dependent of this.dependents) {
+          for (const dependent of paramsInstance.dependents) {
             if (typeof dependent.rebuild === 'function') {
               dependent.rebuild();
             }
@@ -110,7 +111,7 @@ export class Params {
             owner.update();
           }
           // Notify all dependents
-          for (const dependent of this.dependents) {
+          for (const dependent of paramsInstance.dependents) {
             if (typeof dependent.update === 'function') {
               dependent.update();
             }

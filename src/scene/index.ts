@@ -1,9 +1,10 @@
 /**
  * Scene tools - Working with scene content
  *
- * Tools for creating and labeling scene objects
+ * Factories and utilities for building scenes
  */
 
 export { Materials } from './Materials';
 export { Lights } from './Lights';
 export { Labels } from './Labels';
+export { Helpers } from './Helpers';

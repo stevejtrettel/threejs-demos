@@ -63,3 +63,37 @@ export interface GeodesicState {
    */
   arcLength?: number;
 }
+
+/**
+ * Which boundary edge was hit
+ */
+export type BoundaryEdge = 'uMin' | 'uMax' | 'vMin' | 'vMax';
+
+/**
+ * Result of bounded geodesic integration
+ *
+ * Indicates whether the geodesic is still within the domain
+ * and provides the exact boundary intersection if it exited.
+ */
+export interface BoundedIntegrationResult {
+  /**
+   * New state after integration
+   */
+  state: TangentVector;
+
+  /**
+   * Whether the geodesic hit a domain boundary
+   */
+  hitBoundary: boolean;
+
+  /**
+   * Which boundary edge was hit (if any)
+   */
+  boundaryEdge?: BoundaryEdge;
+
+  /**
+   * Fraction of step completed before hitting boundary (0-1)
+   * Only set if hitBoundary is true
+   */
+  stepFraction?: number;
+}

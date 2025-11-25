@@ -109,9 +109,40 @@ let state: TangentVector = {
 
 // Integrate manually
 for (let i = 0; i < 1000; i++) {
-  state = integrator.integrate(state, 0.016);
+  state = integrator.integrate(state);
   const point = torus.evaluate(state.position[0], state.position[1]);
   // Do something with point...
+}
+```
+
+### Bounded Integration (Domain Boundaries)
+```typescript
+// For surfaces with finite domains (e.g., FunctionGraph)
+const surface = SurfaceMesh.fromFunction((x, y) => Math.sin(x) * Math.cos(y));
+const integrator = new GeodesicIntegrator(surface, { stepSize: 0.01 });
+const domain = surface.getDomain();
+
+let state: TangentVector = { position: [0, 0], velocity: [1, 0.5] };
+
+// Integrate with boundary detection
+const result = integrator.integrateBounded(state, domain);
+if (result.hitBoundary) {
+  console.log(`Hit ${result.boundaryEdge} boundary`);
+}
+```
+
+### Geodesic Trail with Boundaries
+```typescript
+// GeodesicTrail automatically handles boundaries when bounded: true
+const geodesic = new GeodesicTrail(surface, {
+  initialPosition: [0, 0],
+  initialVelocity: [1, 0.3],
+  bounded: true  // Stop at domain boundaries
+});
+
+// Check if stopped
+if (geodesic.stopped) {
+  console.log(`Stopped at: ${geodesic.stoppedAtBoundary}`);
 }
 ```
 

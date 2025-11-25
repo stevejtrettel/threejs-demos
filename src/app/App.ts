@@ -8,8 +8,6 @@ import { ParameterManager } from './ParameterManager';
 import { SelectionManager } from './SelectionManager';
 import { TimelineManager } from './TimelineManager';
 import { CameraManager } from './CameraManager';
-import { ScreenshotManager } from './ScreenshotManager';
-import { VideoExportManager } from './VideoExportManager';
 import { ExportManager } from './ExportManager';
 import { RenderManager } from './RenderManager';
 import { Params } from '../Params';
@@ -31,9 +29,7 @@ export class App {
   timeline: TimelineManager;
   cameraManager: CameraManager;
 
-  // Export Managers
-  screenshots: ScreenshotManager;
-  video: VideoExportManager;
+  // Export (unified API for screenshots, video, geometry)
   export: ExportManager;
 
   // Object tracking
@@ -74,10 +70,13 @@ export class App {
     this.params = new ParameterManager();
     this.selection = new SelectionManager(this.scene, this.cameraManager.camera, this.renderManager.renderer.domElement);
 
-    // Initialize export managers
-    this.screenshots = new ScreenshotManager(this.renderManager.renderer, this.scene, this.cameraManager.camera);
-    this.video = new VideoExportManager(this.timeline, this.screenshots);
-    this.export = new ExportManager(this.scene);
+    // Initialize export manager (unified API)
+    this.export = new ExportManager(
+      this.renderManager.renderer,
+      this.scene,
+      this.cameraManager.camera,
+      this.timeline
+    );
 
     // Default fullscreen layout
     this.layout.setFullscreen();
@@ -430,6 +429,17 @@ export class App {
   }
 
   /**
+   * Convenience method for quick screenshot
+   *
+   * @example
+   *   app.screenshot();  // Downloads screenshot.png
+   *   app.screenshot('my-render.png');
+   */
+  screenshot(filename?: string): void {
+    this.export.screenshot({ filename });
+  }
+
+  /**
    * Clean up resources
    */
   dispose(): void {
@@ -439,9 +449,7 @@ export class App {
     this.timeline.dispose();
     this.cameraManager.dispose();
 
-    // Dispose export managers
-    this.screenshots.dispose();
-    this.video.dispose();
+    // Dispose export manager
     this.export.dispose();
 
     // Dispose other managers

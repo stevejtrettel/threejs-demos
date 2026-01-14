@@ -103,12 +103,10 @@ createRoomEnvironment();
 // ===================================
 
 const floorGeo = new THREE.PlaneGeometry(20, 20);
-const floorMat = new THREE.MeshPhysicalMaterial({
-  color: 0x1a1a1a,
-  roughness: 0.15,
-  metalness: 0.8,
-  clearcoat: 0.3,
-  clearcoatRoughness: 0.2
+const floorMat = new THREE.MeshStandardMaterial({
+  color: 0xe8e4df,  // Light warm gray to match walls
+  roughness: 0.85,
+  metalness: 0.0
 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
@@ -162,10 +160,10 @@ function showMesh(parsed: ParsedMesh): void {
       tubeRadius: vizOptions.tubeRadius,
       sphereSegments: 12,
       tubeSegments: 8,
-      vertexColor: 0x222222,
-      edgeColor: 0x3366aa,
-      faceColor: 0xddaa66,
-      faceOpacity: 0.95,
+      vertexColor: 0x444444,
+      edgeColor: 0x5588cc,
+      faceColor: 0xeecc88,
+      faceOpacity: 1.0,
       showVertices: vizOptions.showVertices,
       showEdges: vizOptions.showEdges,
       showFaces: vizOptions.showFaces,

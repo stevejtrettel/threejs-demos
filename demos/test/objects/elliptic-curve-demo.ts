@@ -1,4 +1,4 @@
-import { App, EllipticCurveMesh, CoordinateAxes, Grid } from '@';
+import { App, EllipticCurveMesh, Helpers } from '@';
 
 const app = new App({
   fov: 60,
@@ -15,17 +15,8 @@ app.controls.setOrbit({
 });
 
 // Add helpers
-const axes = new CoordinateAxes({ size: 3 });
-app.add(axes);
-
-const grid = new Grid({
-  size: 6,
-  divisions: 12,
-  plane: 'xz',
-  colorCenterLine: 0x444444,
-  colorGrid: 0x222222
-});
-app.add(grid);
+app.add(Helpers.axes(3));
+app.add(Helpers.grid({ size: 6, divisions: 12 }));
 
 // Create elliptic curve mesh
 // Uses Weierstrass P function to map fundamental domain to (P(z), P'(z)) in C^2

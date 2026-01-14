@@ -97,18 +97,21 @@ export class MeshVisualizer extends Group {
     // Build vertex spheres
     if (this.options.showVertices && vertices.length > 0) {
       this.vertexMesh = this.buildVertexMesh(vertices, options.vertexMaterial);
+      this.vertexMesh.frustumCulled = false; // Merged geometry can have wrong bounds
       this.add(this.vertexMesh);
     }
 
     // Build edge tubes
     if (this.options.showEdges && edges.length > 0) {
       this.edgeMesh = this.buildEdgeMesh(vertices, edges, options.edgeMaterial);
+      this.edgeMesh.frustumCulled = false;
       this.add(this.edgeMesh);
     }
 
     // Build face mesh
     if (this.options.showFaces && faces.length > 0) {
       this.faceMesh = this.buildFaceMesh(vertices, faces, options.faceMaterial);
+      this.faceMesh.frustumCulled = false;
       this.add(this.faceMesh);
     }
   }

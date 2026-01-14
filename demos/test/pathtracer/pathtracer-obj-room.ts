@@ -110,7 +110,8 @@ const floorMat = new THREE.MeshStandardMaterial({
 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.01;
+floor.position.y = 0;
+floor.frustumCulled = false;
 app.scene.add(floor);
 
 // ===================================

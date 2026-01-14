@@ -1,4 +1,4 @@
-import { App, EllipticCurveMesh, Helpers } from '@';
+import { App, EllipticCurveMesh, Helpers, Lights } from '@';
 
 const app = new App({
   fov: 60,
@@ -7,7 +7,7 @@ const app = new App({
 });
 
 app.backgrounds.setGradient('#0a0a1a', '#1a1a3a');
-app.lights.set('three-point');
+app.add(Lights.threePoint());
 app.controls.setOrbit({
   enableDamping: true,
   autoRotate: true,

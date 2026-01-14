@@ -96,3 +96,57 @@ export function extractEdges(faces: number[][]): [number, number][] {
 
   return edges;
 }
+
+/**
+ * Open a file picker dialog and load an OBJ file
+ *
+ * @returns Promise that resolves with ParsedMesh, or null if cancelled
+ *
+ * @example
+ * const mesh = await loadOBJFile();
+ * if (mesh) {
+ *   console.log(`Loaded ${mesh.vertices.length} vertices`);
+ *   const viz = new MeshVisualizer(mesh);
+ *   scene.add(viz);
+ * }
+ */
+export function loadOBJFile(): Promise<ParsedMesh | null> {
+  return new Promise((resolve) => {
+    // Create hidden file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.obj';
+    input.style.display = 'none';
+
+    // Handle file selection
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) {
+        resolve(null);
+        input.remove();
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        const parsed = parseOBJ(text);
+        resolve(parsed);
+      } catch (error) {
+        console.error('Failed to load OBJ file:', error);
+        resolve(null);
+      }
+
+      input.remove();
+    });
+
+    // Handle cancel (user closes dialog without selecting)
+    input.addEventListener('cancel', () => {
+      resolve(null);
+      input.remove();
+    });
+
+    // Trigger file picker
+    document.body.appendChild(input);
+    input.click();
+  });
+}

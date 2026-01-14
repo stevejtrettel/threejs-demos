@@ -15,7 +15,7 @@ import { Folder } from '@/ui/containers/Folder';
 import { Toggle } from '@/ui/inputs/Toggle';
 import { Button } from '@/ui/inputs/Button';
 import '@/ui/styles/index.css';
-import { parseOBJ } from '@/mesh/parseOBJ';
+import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/mesh/parseOBJ';
 import { MeshVisualizer } from '@/mesh/MeshVisualizer';
 
 // Create app
@@ -38,8 +38,8 @@ app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
 // Current visualizer
 let visualizer: MeshVisualizer | null = null;
 
-// Load OBJ and create visualizer
-async function loadMesh(url: string): Promise<void> {
+// Create visualizer from parsed mesh
+function showMesh(parsed: ParsedMesh): void {
   // Remove existing visualizer
   if (visualizer) {
     app.scene.remove(visualizer);
@@ -47,33 +47,45 @@ async function loadMesh(url: string): Promise<void> {
     visualizer = null;
   }
 
+  console.log(`Loaded: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
+
+  visualizer = new MeshVisualizer(parsed, {
+    sphereRadius: 0.08,
+    tubeRadius: 0.03,
+    vertexColor: 0x333333,
+    edgeColor: 0x4488cc,
+    faceColor: 0xffcc88,
+    faceOpacity: 0.9,
+    showVertices: true,
+    showEdges: true,
+    showFaces: true,
+  });
+
+  app.scene.add(visualizer);
+
+  // Reset path tracer if active
+  if (app.renderManager.isPathTracing()) {
+    app.renderManager.resetAccumulation();
+  }
+}
+
+// Load OBJ from URL
+async function loadMeshFromURL(url: string): Promise<void> {
   try {
     const response = await fetch(url);
     const text = await response.text();
     const parsed = parseOBJ(text);
-
-    console.log(`Loaded: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
-
-    visualizer = new MeshVisualizer(parsed, {
-      sphereRadius: 0.08,
-      tubeRadius: 0.03,
-      vertexColor: 0x333333,
-      edgeColor: 0x4488cc,
-      faceColor: 0xffcc88,
-      faceOpacity: 0.9,
-      showVertices: true,
-      showEdges: true,
-      showFaces: true,
-    });
-
-    app.scene.add(visualizer);
-
-    // Reset path tracer if active
-    if (app.renderManager.isPathTracing()) {
-      app.renderManager.resetAccumulation();
-    }
+    showMesh(parsed);
   } catch (error) {
     console.error('Failed to load OBJ:', error);
+  }
+}
+
+// Load OBJ from file picker
+async function loadMeshFromFile(): Promise<void> {
+  const parsed = await loadOBJFile();
+  if (parsed) {
+    showMesh(parsed);
   }
 }
 
@@ -82,15 +94,16 @@ app.camera.position.set(4, 3, 5);
 app.camera.lookAt(0, 0, 0);
 
 // Load default mesh
-loadMesh('/assets/models/icosahedron.obj');
+loadMeshFromURL('/assets/models/icosahedron.obj');
 
 // Create UI
 const panel = new Panel('OBJ Viewer');
 
 // Model selection
 const modelFolder = new Folder('Model');
-modelFolder.add(new Button('Cube', () => loadMesh('/assets/models/cube.obj')));
-modelFolder.add(new Button('Icosahedron', () => loadMesh('/assets/models/icosahedron.obj')));
+modelFolder.add(new Button('Load File...', loadMeshFromFile));
+modelFolder.add(new Button('Cube', () => loadMeshFromURL('/assets/models/cube.obj')));
+modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL('/assets/models/icosahedron.obj')));
 panel.add(modelFolder);
 
 // Visibility toggles

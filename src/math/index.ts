@@ -41,6 +41,8 @@ export { buildGeometry } from './surfaces/buildGeometry';
 export type { BuildGeometryOptions } from './surfaces/buildGeometry';
 export { SurfaceMesh } from './surfaces/SurfaceMesh';
 export type { SurfaceMeshOptions, FromFunctionOptions } from './surfaces/SurfaceMesh';
+export { EllipticCurveMesh } from './surfaces/EllipticCurveMesh';
+export type { EllipticCurveMeshOptions } from './surfaces/EllipticCurveMesh';
 
 // Functions (scalar fields)
 export * from './functions/types';

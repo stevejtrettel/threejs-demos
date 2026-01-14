@@ -42,44 +42,20 @@ function createRoomEnvironment() {
   const roomHeight = 8;
   const roomDepth = 12;
 
+  // Off-white matte walls
+  const wallColor = 0xf5f2ed;
+
   // Main room (inverted box)
   const roomGeo = new THREE.BoxGeometry(roomWidth, roomHeight, roomDepth);
   const roomMat = new THREE.MeshStandardMaterial({
-    color: 0x404040,
+    color: wallColor,
     side: THREE.BackSide,
-    roughness: 0.9,
+    roughness: 0.95,
     metalness: 0.0
   });
   const room = new THREE.Mesh(roomGeo, roomMat);
   room.position.y = roomHeight / 2;
   envScene.add(room);
-
-  // Back wall - soft warm accent
-  const backWall = new THREE.Mesh(
-    new THREE.PlaneGeometry(roomWidth * 0.95, roomHeight * 0.95),
-    new THREE.MeshStandardMaterial({
-      color: 0x555555,
-      side: THREE.DoubleSide,
-      emissive: 0x332211,
-      emissiveIntensity: 0.15
-    })
-  );
-  backWall.position.set(0, roomHeight / 2, -roomDepth / 2 + 0.1);
-  envScene.add(backWall);
-
-  // Left wall - cool accent
-  const leftWall = new THREE.Mesh(
-    new THREE.PlaneGeometry(roomDepth * 0.95, roomHeight * 0.95),
-    new THREE.MeshStandardMaterial({
-      color: 0x555555,
-      side: THREE.DoubleSide,
-      emissive: 0x112233,
-      emissiveIntensity: 0.1
-    })
-  );
-  leftWall.position.set(-roomWidth / 2 + 0.1, roomHeight / 2, 0);
-  leftWall.rotation.y = Math.PI / 2;
-  envScene.add(leftWall);
 
   // Ceiling light panel (soft box)
   const lightPanel = new THREE.Mesh(
@@ -87,7 +63,7 @@ function createRoomEnvironment() {
     new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
-      emissiveIntensity: 2.0,
+      emissiveIntensity: 2.5,
       side: THREE.DoubleSide
     })
   );
@@ -96,17 +72,17 @@ function createRoomEnvironment() {
   envScene.add(lightPanel);
 
   // Key light (main)
-  const keyLight = new THREE.PointLight(0xffffff, 200);
+  const keyLight = new THREE.PointLight(0xffffff, 150);
   keyLight.position.set(3, 5, 3);
   envScene.add(keyLight);
 
   // Fill light (softer, from left)
-  const fillLight = new THREE.PointLight(0x8899ff, 80);
+  const fillLight = new THREE.PointLight(0xffffff, 60);
   fillLight.position.set(-4, 3, 2);
   envScene.add(fillLight);
 
   // Rim light (from behind)
-  const rimLight = new THREE.PointLight(0xffaa66, 60);
+  const rimLight = new THREE.PointLight(0xffffff, 40);
   rimLight.position.set(0, 4, -4);
   envScene.add(rimLight);
 

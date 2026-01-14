@@ -302,10 +302,10 @@ export class EllipticCurveMesh extends THREE.Mesh {
 
         // Project to R³
         const v = projectToR3(p, dp, projectionMode);
-        v.multiplyScalar(outputScale);
 
-        // Check bounds (sphere only)
+        // Check bounds BEFORE scaling (in natural coordinates)
         if (inBoundingSphere(v, boundingSize)) {
+          v.multiplyScalar(outputScale);
           vertices.push(v);
         } else {
           vertices.push(null);

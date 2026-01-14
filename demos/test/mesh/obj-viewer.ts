@@ -15,8 +15,8 @@ import { Folder } from '@/ui/containers/Folder';
 import { Toggle } from '@/ui/inputs/Toggle';
 import { Button } from '@/ui/inputs/Button';
 import '@/ui/styles/index.css';
-import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/mesh/parseOBJ';
-import { MeshVisualizer } from '@/mesh/MeshVisualizer';
+import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
+import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
 
 // Create app
 const app = new App({

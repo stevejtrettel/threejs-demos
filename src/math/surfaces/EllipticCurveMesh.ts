@@ -83,9 +83,10 @@ function weierstrass(z: Complex, tau: Complex, N: number = 10): WeierstrassResul
 
 // === Projection from ℂ² to ℝ³ ===
 
-function projectToR3(p: Complex, dp: Complex, mode: number = 0): THREE.Vector3 {
+function projectToR3(p: Complex, dp: Complex, mode: number = 0, dpScale: number = 1): THREE.Vector3 {
   //
   // Project (℘, ℘') ∈ ℂ² ≅ ℝ⁴ down to ℝ³.
+  // dpScale controls relative scaling of ℘' vs ℘ (since |℘'| >> |℘| near poles)
   //
   // Modes:
   //   0: (Re ℘, Im ℘, Re ℘')  — drop Im ℘'
@@ -94,12 +95,14 @@ function projectToR3(p: Complex, dp: Complex, mode: number = 0): THREE.Vector3 {
   //   3: (Im ℘, Re ℘', Im ℘') — drop Re ℘
   //
 
+  const sdp: Complex = [dp[0] * dpScale, dp[1] * dpScale];
+
   switch (mode) {
-    case 0: return new THREE.Vector3(p[0], p[1], dp[0]);
-    case 1: return new THREE.Vector3(p[0], p[1], dp[1]);
-    case 2: return new THREE.Vector3(p[0], dp[0], dp[1]);
-    case 3: return new THREE.Vector3(p[1], dp[0], dp[1]);
-    default: return new THREE.Vector3(p[0], p[1], dp[0]);
+    case 0: return new THREE.Vector3(p[0], p[1], sdp[0]);
+    case 1: return new THREE.Vector3(p[0], p[1], sdp[1]);
+    case 2: return new THREE.Vector3(p[0], sdp[0], sdp[1]);
+    case 3: return new THREE.Vector3(p[1], sdp[0], sdp[1]);
+    default: return new THREE.Vector3(p[0], p[1], sdp[0]);
   }
 }
 
@@ -126,6 +129,8 @@ export interface EllipticCurveMeshOptions {
   projectionMode?: number;
   /** Bounding sphere radius for clipping (default: 5) */
   boundingSize?: number;
+  /** Scale for ℘' relative to ℘, since |℘'| >> |℘| near poles (default: 0.05) */
+  dpScale?: number;
   /** Scale factor for output geometry (default: 0.1) */
   outputScale?: number;
   /** Surface color (default: 0x4488ff) */
@@ -180,6 +185,9 @@ export class EllipticCurveMesh extends THREE.Mesh {
   /** Bounding sphere radius for clipping */
   declare boundingSize: number;
 
+  /** Scale for ℘' relative to ℘ */
+  declare dpScale: number;
+
   /** Scale factor applied to output geometry */
   declare outputScale: number;
 
@@ -205,6 +213,7 @@ export class EllipticCurveMesh extends THREE.Mesh {
       .define('latticeTerms', options.latticeTerms ?? 10, { triggers: 'rebuild' })
       .define('projectionMode', options.projectionMode ?? 0, { triggers: 'rebuild' })
       .define('boundingSize', options.boundingSize ?? 5, { triggers: 'rebuild' })
+      .define('dpScale', options.dpScale ?? 0.05, { triggers: 'rebuild' })
       .define('outputScale', options.outputScale ?? 0.1, { triggers: 'rebuild' })
       // Material parameters (trigger update)
       .define('color', options.color ?? 0x4488ff, { triggers: 'update' })
@@ -275,6 +284,7 @@ export class EllipticCurveMesh extends THREE.Mesh {
     const latticeTerms = this.latticeTerms;
     const projectionMode = this.projectionMode;
     const boundingSize = this.boundingSize;
+    const dpScale = this.dpScale;
     const outputScale = this.outputScale;
 
     // Compute vertex positions on a grid in (a, b) ∈ [-0.5, 0.5]²
@@ -301,7 +311,7 @@ export class EllipticCurveMesh extends THREE.Mesh {
         const { p, dp } = weierstrass(z, tau, latticeTerms);
 
         // Project to R³
-        const v = projectToR3(p, dp, projectionMode);
+        const v = projectToR3(p, dp, projectionMode, dpScale);
 
         // Check bounds BEFORE scaling (in natural coordinates)
         if (inBoundingSphere(v, boundingSize)) {

@@ -422,6 +422,61 @@ app.camera.position.set(0, 4, 6);
 app.camera.lookAt(0, 2.5, 0);
 
 // ===================================
+// FOCUS PLANE HELPER
+// ===================================
+
+// Visual indicator showing where the focus plane is
+const focusPlaneSettings = {
+    visible: false,
+    distance: 5.0
+};
+
+// Create a ring/disc to show the focal plane
+const focusPlaneGeometry = new THREE.RingGeometry(0.3, 2.5, 64);
+const focusPlaneMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.3,
+    side: THREE.DoubleSide,
+    depthWrite: false
+});
+const focusPlaneHelper = new THREE.Mesh(focusPlaneGeometry, focusPlaneMaterial);
+focusPlaneHelper.visible = false;
+app.scene.add(focusPlaneHelper);
+
+// Update focus plane position to be at focusDistance from camera
+function updateFocusPlane() {
+    if (!focusPlaneSettings.visible) {
+        focusPlaneHelper.visible = false;
+        return;
+    }
+
+    // Hide during path tracing (it would render in the image)
+    if (app.renderManager.isPathTracing()) {
+        focusPlaneHelper.visible = false;
+        return;
+    }
+
+    focusPlaneHelper.visible = true;
+
+    // Get camera direction
+    const direction = new THREE.Vector3();
+    app.camera.getWorldDirection(direction);
+
+    // Position at focus distance from camera
+    focusPlaneHelper.position.copy(app.camera.position);
+    focusPlaneHelper.position.addScaledVector(direction, focusPlaneSettings.distance);
+
+    // Orient perpendicular to camera view (face the camera)
+    focusPlaneHelper.quaternion.copy(app.camera.quaternion);
+}
+
+// Update focus plane on each frame
+app.onRender(() => {
+    updateFocusPlane();
+});
+
+// ===================================
 // FILE INPUT FOR OBJ LOADING
 // ===================================
 
@@ -447,16 +502,28 @@ const actionsFolder = new Folder('Actions');
 
 actionsFolder.add(new Button('Load OBJ File', loadFromFilePicker));
 
-actionsFolder.add(new Toggle(false, {
-    label: 'Path Tracing',
-    onChange: (enabled) => {
-        if (enabled) {
-            app.enablePathTracing();
-        } else {
-            app.disablePathTracing();
-        }
+// Prominent Path Tracing button with color state
+let isPathTracing = false;
+const pathTraceButton = new Button('▶ Start Path Trace', () => {
+    isPathTracing = !isPathTracing;
+    if (isPathTracing) {
+        app.enablePathTracing();
+        pathTraceButton.setLabel('■ Stop Path Trace');
+        pathTraceButton.domElement.style.backgroundColor = '#c94444';
+        pathTraceButton.domElement.style.color = '#ffffff';
+    } else {
+        app.disablePathTracing();
+        pathTraceButton.setLabel('▶ Start Path Trace');
+        pathTraceButton.domElement.style.backgroundColor = '#44aa44';
+        pathTraceButton.domElement.style.color = '#ffffff';
     }
-}));
+});
+// Initial green styling
+pathTraceButton.domElement.style.backgroundColor = '#44aa44';
+pathTraceButton.domElement.style.color = '#ffffff';
+pathTraceButton.domElement.style.fontWeight = 'bold';
+pathTraceButton.domElement.style.padding = '8px 12px';
+actionsFolder.add(pathTraceButton);
 
 actionsFolder.add(new Button('Download Image', () => {
     app.renderManager.render(app.scene, app.camera);
@@ -483,6 +550,14 @@ cameraFolder.add(new Toggle(false, {
     }
 }));
 
+cameraFolder.add(new Toggle(false, {
+    label: 'Show Focus Plane',
+    onChange: (visible) => {
+        focusPlaneSettings.visible = visible;
+        updateFocusPlane();
+    }
+}));
+
 cameraFolder.add(new Slider(5.0, {
     label: 'Focus Distance',
     min: 0.5,
@@ -490,6 +565,8 @@ cameraFolder.add(new Slider(5.0, {
     step: 0.1,
     onChange: (value) => {
         app.renderManager.setFocusDistance(value);
+        focusPlaneSettings.distance = value;
+        updateFocusPlane();
     }
 }));
 

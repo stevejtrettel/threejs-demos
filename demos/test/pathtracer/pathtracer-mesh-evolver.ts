@@ -350,7 +350,7 @@ const physicalCamera = new PhysicalCamera(
     1000  // far
 );
 physicalCamera.position.set(0, 2.5, 5);
-physicalCamera.lookAt(0, 1.2, 0);
+physicalCamera.lookAt(0, 1.6, 0);
 
 // Replace app's camera with PhysicalCamera
 (app.cameraManager as any).camera = physicalCamera;

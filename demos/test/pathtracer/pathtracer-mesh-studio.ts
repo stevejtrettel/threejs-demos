@@ -43,12 +43,16 @@ const app = new App({
 // GRADIENT ENVIRONMENT
 // ===================================
 
-const gradientTexture = new GradientEquirectTexture();
-gradientTexture.topColor.set(0x555566);  // Medium gray-blue sky
-gradientTexture.bottomColor.set(0x888888);  // Lighter at horizon
-gradientTexture.update();
-app.scene.environment = gradientTexture;
-app.scene.background = gradientTexture;
+// Environment for lighting (doesn't need to match background)
+const envTexture = new GradientEquirectTexture();
+envTexture.topColor.set(0x555566);  // Medium gray-blue
+envTexture.bottomColor.set(0x888888);
+envTexture.update();
+app.scene.environment = envTexture;
+
+// Background color (separate from lighting environment)
+let bgColor = new THREE.Color(0xffffff);
+app.scene.background = bgColor;
 
 // ===================================
 // STUDIO FLOOR
@@ -446,6 +450,11 @@ panel.add(lightingFolder);
 
 // Floor & Wall
 const floorFolder = new Folder('Floor & Wall');
+floorFolder.add(new Toggle(true, { label: 'Show Floor & Wall', onChange: v => {
+    floor.visible = v;
+    backWall.visible = v;
+    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+}}));
 floorFolder.add(new Slider(0, { label: 'Floor Height', min: -3, max: 3, step: 0.1, onChange: v => {
     floor.position.y = v;
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
@@ -467,14 +476,19 @@ floorFolder.close();
 
 // Environment
 const envFolder = new Folder('Environment');
-envFolder.add(new ColorInput('#555566', { label: 'Sky Color', onChange: c => {
-    gradientTexture.topColor.set(c);
-    gradientTexture.update();
+envFolder.add(new ColorInput('#ffffff', { label: 'Background', onChange: c => {
+    bgColor.set(c);
+    app.scene.background = bgColor;
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-envFolder.add(new ColorInput('#888888', { label: 'Horizon Color', onChange: c => {
-    gradientTexture.bottomColor.set(c);
-    gradientTexture.update();
+envFolder.add(new ColorInput('#555566', { label: 'Env Light Top', onChange: c => {
+    envTexture.topColor.set(c);
+    envTexture.update();
+    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+}}));
+envFolder.add(new ColorInput('#888888', { label: 'Env Light Bottom', onChange: c => {
+    envTexture.bottomColor.set(c);
+    envTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
 panel.add(envFolder);

@@ -43,14 +43,13 @@ const app = new App({
 // GRADIENT ENVIRONMENT
 // ===================================
 
-// Environment/Background texture (path tracer uses same for both)
-// Use a light gray that won't overwhelm - spotlights provide main lighting
+// Environment texture (used for both lighting and background)
 const envTexture = new GradientEquirectTexture();
-envTexture.topColor.set(0xdddddd);
-envTexture.bottomColor.set(0xeeeeee);
+envTexture.topColor.set(0x555566);  // Medium gray-blue sky
+envTexture.bottomColor.set(0x888888);  // Lighter at horizon
 envTexture.update();
 app.scene.environment = envTexture;
-app.scene.background = envTexture;  // Same texture for both
+app.scene.background = envTexture;
 
 // ===================================
 // STUDIO FLOOR
@@ -472,14 +471,14 @@ floorFolder.add(new Slider(0.2, { label: 'Clearcoat', min: 0, max: 1, step: 0.05
 panel.add(floorFolder);
 floorFolder.close();
 
-// Environment (same texture used for background and lighting)
+// Environment
 const envFolder = new Folder('Environment');
-envFolder.add(new ColorInput('#dddddd', { label: 'Sky Color', onChange: c => {
+envFolder.add(new ColorInput('#555566', { label: 'Sky Color', onChange: c => {
     envTexture.topColor.set(c);
     envTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-envFolder.add(new ColorInput('#eeeeee', { label: 'Ground Color', onChange: c => {
+envFolder.add(new ColorInput('#888888', { label: 'Horizon Color', onChange: c => {
     envTexture.bottomColor.set(c);
     envTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }

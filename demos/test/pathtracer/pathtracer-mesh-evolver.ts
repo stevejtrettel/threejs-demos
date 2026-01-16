@@ -193,7 +193,7 @@ function reloadCurrentMesh() {
 const meshSettings = {
     // Transform
     scale: 1.0,
-    positionY: 2.5,  // Object sits on a pedestal height
+    positionY: 1.2,  // Mesh center height
     rotationX: 0,
     rotationY: 0,
     rotationZ: 0,
@@ -349,8 +349,8 @@ const physicalCamera = new PhysicalCamera(
     0.1,  // near
     1000  // far
 );
-physicalCamera.position.set(0, 4, 6);
-physicalCamera.lookAt(0, 2.5, 0);
+physicalCamera.position.set(0, 1.5, 5);
+physicalCamera.lookAt(0, 1.2, 0);
 
 // Replace app's camera with PhysicalCamera
 (app.cameraManager as any).camera = physicalCamera;

@@ -100,7 +100,7 @@ function createSpotlight(color: number, intensity: number, position: THREE.Vecto
     light.shadow.camera.far = 30.0;
     light.castShadow = true;
 
-    light.target.position.set(0, 2, 0);
+    light.target.position.set(0, 1.2, 0);
 
     return light;
 }
@@ -173,7 +173,7 @@ let currentParsedMesh: ParsedMesh | null = null;
 
 const meshSettings = {
     scale: 1.0,
-    positionY: 2.0,
+    positionY: 1.2,
     rotationX: 0,
     rotationY: 0,
     rotationZ: 0,
@@ -283,8 +283,8 @@ showMesh(parseOBJ(createTorus()));
 // ===================================
 
 const physicalCamera = new PhysicalCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-physicalCamera.position.set(0, 3.5, 7);
-physicalCamera.lookAt(0, 2, 0);
+physicalCamera.position.set(0, 1.5, 5);
+physicalCamera.lookAt(0, 1.2, 0);
 
 (app.cameraManager as any).camera = physicalCamera;
 (app.controls.controls as any).object = physicalCamera;

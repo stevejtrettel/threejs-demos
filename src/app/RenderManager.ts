@@ -247,16 +247,9 @@ export class RenderManager {
             uniforms.bokehSize = bokehSize;
             uniforms.focusDistance = focusDistance;
             uniforms.apertureBlades = apertureBlades;
-
-            console.log('DOF uniforms set directly:', {
-                bokehSize,
-                focusDistance,
-                apertureBlades,
-                focalLength
-            });
-        } else {
-            console.warn('Could not access path tracer uniforms');
         }
+        // Note: If uniforms not accessible, DOF silently won't work
+        // See docs/FIX-DOF.md for details on this temporary hack
     }
 
     /**

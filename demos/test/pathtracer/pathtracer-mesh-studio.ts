@@ -43,19 +43,14 @@ const app = new App({
 // GRADIENT ENVIRONMENT
 // ===================================
 
-// Environment for lighting (doesn't need to match background)
+// Environment/Background texture (path tracer uses same for both)
+// Use a light gray that won't overwhelm - spotlights provide main lighting
 const envTexture = new GradientEquirectTexture();
-envTexture.topColor.set(0x555566);  // Medium gray-blue
-envTexture.bottomColor.set(0x888888);
+envTexture.topColor.set(0xdddddd);
+envTexture.bottomColor.set(0xeeeeee);
 envTexture.update();
 app.scene.environment = envTexture;
-
-// Background texture (path tracer needs a texture, not just a color)
-const bgTexture = new GradientEquirectTexture();
-bgTexture.topColor.set(0xffffff);
-bgTexture.bottomColor.set(0xffffff);
-bgTexture.update();
-app.scene.background = bgTexture;
+app.scene.background = envTexture;  // Same texture for both
 
 // ===================================
 // STUDIO FLOOR
@@ -477,20 +472,14 @@ floorFolder.add(new Slider(0.2, { label: 'Clearcoat', min: 0, max: 1, step: 0.05
 panel.add(floorFolder);
 floorFolder.close();
 
-// Environment
+// Environment (same texture used for background and lighting)
 const envFolder = new Folder('Environment');
-envFolder.add(new ColorInput('#ffffff', { label: 'Background', onChange: c => {
-    bgTexture.topColor.set(c);
-    bgTexture.bottomColor.set(c);
-    bgTexture.update();
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
-}}));
-envFolder.add(new ColorInput('#555566', { label: 'Env Light Top', onChange: c => {
+envFolder.add(new ColorInput('#dddddd', { label: 'Sky Color', onChange: c => {
     envTexture.topColor.set(c);
     envTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-envFolder.add(new ColorInput('#888888', { label: 'Env Light Bottom', onChange: c => {
+envFolder.add(new ColorInput('#eeeeee', { label: 'Ground Color', onChange: c => {
     envTexture.bottomColor.set(c);
     envTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }

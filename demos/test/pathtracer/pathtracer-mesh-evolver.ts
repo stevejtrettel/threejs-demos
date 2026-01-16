@@ -19,6 +19,10 @@ import { Button } from '@/ui/inputs/Button';
 import { Slider } from '@/ui/inputs/Slider';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+
+// Initialize RectAreaLight support for WebGL
+RectAreaLightUniformsLib.init();
 
 // Import mesh evolver visualization classes
 // @ts-ignore - Legacy JS module without type declarations
@@ -52,71 +56,68 @@ const boxDepth = 6;
 function createCornellBox() {
     const group = new THREE.Group();
 
+    // Common material settings
+    const wallSettings = {
+        roughness: 0.9,
+        metalness: 0.0,
+        side: THREE.DoubleSide  // Visible from both sides
+    };
+
     // Floor (white)
     const floorGeo = new THREE.PlaneGeometry(boxWidth, boxDepth);
     const floorMat = new THREE.MeshStandardMaterial({
         color: 0xeeeeee,
-        roughness: 0.9,
-        metalness: 0.0
+        ...wallSettings
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = 0;
-    floor.receiveShadow = true;
     group.add(floor);
 
-    // Ceiling (white) - with hole for light
+    // Ceiling (white)
     const ceilingGeo = new THREE.PlaneGeometry(boxWidth, boxDepth);
     const ceilingMat = new THREE.MeshStandardMaterial({
         color: 0xeeeeee,
-        roughness: 0.9,
-        metalness: 0.0
+        ...wallSettings
     });
     const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.y = boxHeight;
-    ceiling.receiveShadow = true;
     group.add(ceiling);
 
     // Back wall (white)
     const backWallGeo = new THREE.PlaneGeometry(boxWidth, boxHeight);
     const backWallMat = new THREE.MeshStandardMaterial({
         color: 0xeeeeee,
-        roughness: 0.9,
-        metalness: 0.0
+        ...wallSettings
     });
     const backWall = new THREE.Mesh(backWallGeo, backWallMat);
     backWall.position.z = -boxDepth / 2;
     backWall.position.y = boxHeight / 2;
-    backWall.receiveShadow = true;
     group.add(backWall);
 
     // Left wall (red)
     const leftWallGeo = new THREE.PlaneGeometry(boxDepth, boxHeight);
     const leftWallMat = new THREE.MeshStandardMaterial({
         color: 0xcc3333,
-        roughness: 0.9,
-        metalness: 0.0
+        ...wallSettings
     });
     const leftWall = new THREE.Mesh(leftWallGeo, leftWallMat);
     leftWall.rotation.y = Math.PI / 2;
     leftWall.position.x = -boxWidth / 2;
     leftWall.position.y = boxHeight / 2;
-    leftWall.receiveShadow = true;
     group.add(leftWall);
 
     // Right wall (green)
     const rightWallGeo = new THREE.PlaneGeometry(boxDepth, boxHeight);
     const rightWallMat = new THREE.MeshStandardMaterial({
         color: 0x33cc33,
-        roughness: 0.9,
-        metalness: 0.0
+        ...wallSettings
     });
     const rightWall = new THREE.Mesh(rightWallGeo, rightWallMat);
     rightWall.rotation.y = -Math.PI / 2;
     rightWall.position.x = boxWidth / 2;
     rightWall.position.y = boxHeight / 2;
-    rightWall.receiveShadow = true;
     group.add(rightWall);
 
     return group;
@@ -150,6 +151,10 @@ const lightPanel = new THREE.Mesh(lightPanelGeo, lightPanelMat);
 lightPanel.position.copy(rectLight.position);
 lightPanel.rotation.x = -Math.PI / 2;
 app.scene.add(lightPanel);
+
+// Add subtle ambient light for WebGL preview (path tracer ignores this for GI)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+app.scene.add(ambientLight);
 
 // ===================================
 // MESH EVOLVER VISUALIZATION

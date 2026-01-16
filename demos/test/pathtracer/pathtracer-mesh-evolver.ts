@@ -385,7 +385,9 @@ renderFolder.add(new Button('Reset Accumulation', () => {
 }));
 
 renderFolder.add(new Button('Download Image', () => {
-    // Capture canvas directly without re-rendering (preserves path tracer result)
+    // Force a render to ensure canvas has content, then capture
+    app.renderManager.render(app.scene, app.camera);
+
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
     app.renderManager.renderer.domElement.toBlob((blob) => {
         if (blob) {

@@ -21,6 +21,7 @@ import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { PhysicalCamera } from 'three-gpu-pathtracer';
 import { saveAs } from 'file-saver';
 
 // Initialize RectAreaLight support for WebGL
@@ -414,12 +415,30 @@ function createTorus(majorRadius: number = 1.0, minorRadius: number = 0.4, major
 loadAndDisplayOBJ(createTorus());
 
 // ===================================
-// CAMERA SETUP
+// CAMERA SETUP (using PhysicalCamera for DOF support)
 // ===================================
 
-// Camera inside the studio, looking at the object
-app.camera.position.set(0, 4, 6);
-app.camera.lookAt(0, 2.5, 0);
+// Create a PhysicalCamera for DOF support in path tracing
+// PhysicalCamera extends PerspectiveCamera with fStop, focusDistance, etc.
+const physicalCamera = new PhysicalCamera(
+    50,  // fov
+    window.innerWidth / window.innerHeight,  // aspect
+    0.1,  // near
+    1000  // far
+);
+physicalCamera.position.set(0, 4, 6);
+physicalCamera.lookAt(0, 2.5, 0);
+
+// Default DOF settings (DOF disabled by default - very high fStop)
+physicalCamera.focusDistance = 5;
+physicalCamera.fStop = 10000;  // Effectively disabled until DOF toggle is enabled
+physicalCamera.apertureBlades = 0;
+
+// Replace the app's camera with our PhysicalCamera
+// This is needed for the path tracer to recognize DOF settings
+(app.cameraManager as any).camera = physicalCamera;
+app.controls.object = physicalCamera;
+(app.layout as any).camera = physicalCamera;
 
 // ===================================
 // FOCUS PLANE HELPER
@@ -543,10 +562,21 @@ panel.add(actionsFolder);
 
 const cameraFolder = new Folder('Camera');
 
+// Track if DOF is enabled (we'll set fStop to Infinity to disable)
+let dofEnabled = false;
+let savedFStop = 2.8;
+
 cameraFolder.add(new Toggle(false, {
     label: 'Depth of Field',
     onChange: (enabled) => {
-        app.renderManager.setDOFEnabled(enabled);
+        dofEnabled = enabled;
+        if (enabled) {
+            physicalCamera.fStop = savedFStop;
+        } else {
+            // Very high fStop = effectively no DOF (everything in focus)
+            physicalCamera.fStop = 10000;
+        }
+        app.renderManager.resetAccumulation();
     }
 }));
 
@@ -564,9 +594,10 @@ cameraFolder.add(new Slider(5.0, {
     max: 15,
     step: 0.1,
     onChange: (value) => {
-        app.renderManager.setFocusDistance(value);
+        physicalCamera.focusDistance = value;
         focusPlaneSettings.distance = value;
         updateFocusPlane();
+        app.renderManager.resetAccumulation();
     }
 }));
 
@@ -576,7 +607,11 @@ cameraFolder.add(new Slider(2.8, {
     max: 16,
     step: 0.1,
     onChange: (value) => {
-        app.renderManager.setFStop(value);
+        savedFStop = value;
+        if (dofEnabled) {
+            physicalCamera.fStop = value;
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 
@@ -586,7 +621,8 @@ cameraFolder.add(new Slider(0, {
     max: 8,
     step: 1,
     onChange: (value) => {
-        app.renderManager.setApertureBlades(value);
+        physicalCamera.apertureBlades = value;
+        app.renderManager.resetAccumulation();
     }
 }));
 

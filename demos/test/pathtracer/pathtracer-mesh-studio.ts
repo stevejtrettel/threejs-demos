@@ -50,9 +50,12 @@ envTexture.bottomColor.set(0x888888);
 envTexture.update();
 app.scene.environment = envTexture;
 
-// Background color (separate from lighting environment)
-let bgColor = new THREE.Color(0xffffff);
-app.scene.background = bgColor;
+// Background texture (path tracer needs a texture, not just a color)
+const bgTexture = new GradientEquirectTexture();
+bgTexture.topColor.set(0xffffff);
+bgTexture.bottomColor.set(0xffffff);
+bgTexture.update();
+app.scene.background = bgTexture;
 
 // ===================================
 // STUDIO FLOOR
@@ -477,8 +480,9 @@ floorFolder.close();
 // Environment
 const envFolder = new Folder('Environment');
 envFolder.add(new ColorInput('#ffffff', { label: 'Background', onChange: c => {
-    bgColor.set(c);
-    app.scene.background = bgColor;
+    bgTexture.topColor.set(c);
+    bgTexture.bottomColor.set(c);
+    bgTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
 envFolder.add(new ColorInput('#555566', { label: 'Env Light Top', onChange: c => {

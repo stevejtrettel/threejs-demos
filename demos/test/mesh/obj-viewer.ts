@@ -18,6 +18,11 @@ import '@/ui/styles/index.css';
 import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
 import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
 
+// Import assets directly - Vite will only bundle what's imported
+import studioHdr from '@assets/hdri/studio.hdr';
+import cubeObj from '@assets/models/cube.obj';
+import icosahedronObj from '@assets/models/icosahedron.obj';
+
 // Create app
 const app = new App({
   debug: true,
@@ -29,7 +34,7 @@ const app = new App({
 });
 
 // Load HDRI for nice lighting
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHdr, {
   asEnvironment: true,
   asBackground: true,
   intensity: 1.0
@@ -94,7 +99,7 @@ app.camera.position.set(4, 3, 5);
 app.camera.lookAt(0, 0, 0);
 
 // Load default mesh
-loadMeshFromURL('/assets/models/icosahedron.obj');
+loadMeshFromURL(icosahedronObj);
 
 // Create UI
 const panel = new Panel('OBJ Viewer');
@@ -102,8 +107,8 @@ const panel = new Panel('OBJ Viewer');
 // Model selection
 const modelFolder = new Folder('Model');
 modelFolder.add(new Button('Load File...', loadMeshFromFile));
-modelFolder.add(new Button('Cube', () => loadMeshFromURL('/assets/models/cube.obj')));
-modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL('/assets/models/icosahedron.obj')));
+modelFolder.add(new Button('Cube', () => loadMeshFromURL(cubeObj)));
+modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL(icosahedronObj)));
 panel.add(modelFolder);
 
 // Visibility toggles

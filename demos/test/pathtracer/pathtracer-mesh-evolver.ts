@@ -21,7 +21,6 @@ import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { PhysicalCamera } from 'three-gpu-pathtracer';
 import { saveAs } from 'file-saver';
 
 // Initialize RectAreaLight support for WebGL
@@ -415,30 +414,13 @@ function createTorus(majorRadius: number = 1.0, minorRadius: number = 0.4, major
 loadAndDisplayOBJ(createTorus());
 
 // ===================================
-// CAMERA SETUP (using PhysicalCamera for DOF support)
+// CAMERA SETUP
 // ===================================
 
-// Create a PhysicalCamera for DOF support in path tracing
-// PhysicalCamera extends PerspectiveCamera with fStop, focusDistance, etc.
-const physicalCamera = new PhysicalCamera(
-    50,  // fov
-    window.innerWidth / window.innerHeight,  // aspect
-    0.1,  // near
-    1000  // far
-);
-physicalCamera.position.set(0, 4, 6);
-physicalCamera.lookAt(0, 2.5, 0);
-
-// Default DOF settings (DOF disabled by default - very high fStop)
-physicalCamera.focusDistance = 5;
-physicalCamera.fStop = 10000;  // Effectively disabled until DOF toggle is enabled
-physicalCamera.apertureBlades = 0;
-
-// Replace the app's camera with our PhysicalCamera
-// This is needed for the path tracer to recognize DOF settings
-(app.cameraManager as any).camera = physicalCamera;
-(app.controls.controls as any).object = physicalCamera;  // OrbitControls.object
-(app.layout as any).camera = physicalCamera;
+// Use the app's default camera - DOF is handled entirely by RenderManager
+// (no need for PhysicalCamera since we set shader uniforms directly)
+app.camera.position.set(0, 4, 6);
+app.camera.lookAt(0, 2.5, 0);
 
 // ===================================
 // FOCUS PLANE HELPER
@@ -512,9 +494,10 @@ async function loadFromFilePicker() {
 // ===================================
 
 // Calculate focal length from camera FOV and set it in RenderManager
-const fov = physicalCamera.fov;
-const filmGauge = physicalCamera.filmGauge || 35; // mm
-const focalLength = filmGauge / (2 * Math.tan(fov * Math.PI / 360));
+// This affects the strength of the DOF blur effect
+const cameraFov = app.camera.fov;
+const filmGauge = 35; // mm (standard 35mm film)
+const focalLength = filmGauge / (2 * Math.tan(cameraFov * Math.PI / 360));
 app.renderManager.setFocalLength(focalLength);
 
 // ===================================

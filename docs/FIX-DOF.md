@@ -1,6 +1,8 @@
 # DOF Implementation - Technical Debt
 
-## Current Status: HACK (Working)
+**Priority: Medium** - Works but uses internal APIs that could break on library updates.
+
+## Current Status: HACK (Working but needs proper fix)
 
 The Depth of Field implementation in `RenderManager.ts` currently uses a hack to directly manipulate internal path tracer uniforms.
 

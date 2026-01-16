@@ -815,27 +815,6 @@ pathTracerFolder.add(new Button('Reset Accumulation', () => {
 panel.add(pathTracerFolder);
 pathTracerFolder.close();
 
-// ─────────────────────────────────────
-// SAMPLE MESHES
-// ─────────────────────────────────────
-
-const samplesFolder = new Folder('Sample Meshes');
-
-samplesFolder.add(new Button('Torus', () => {
-    loadAndDisplayOBJ(createTorus());
-}));
-
-samplesFolder.add(new Button('Icosahedron', () => {
-    loadAndDisplayOBJ(createSampleMesh());
-}));
-
-samplesFolder.add(new Button('Subdivided Sphere', () => {
-    loadAndDisplayOBJ(createSubdividedIcosahedron(2));
-}));
-
-panel.add(samplesFolder);
-samplesFolder.close();
-
 panel.mount(document.body);
 
 // ===================================

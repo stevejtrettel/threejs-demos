@@ -678,6 +678,39 @@ appearanceFolder.add(new ColorInput(meshSettings.faceColor, {
     }
 }));
 
+appearanceFolder.add(new Toggle(false, {
+    label: 'Glass Surface',
+    onChange: (isGlass) => {
+        if (visualizer?.faceMesh) {
+            const mat = visualizer.faceMesh.material as THREE.MeshPhysicalMaterial;
+            if (isGlass) {
+                // Glass properties
+                mat.transmission = 1.0;
+                mat.ior = 1.5;
+                mat.thickness = 0.5;
+                mat.roughness = 0.0;
+                mat.metalness = 0.0;
+                mat.transparent = true;
+                mat.opacity = 1.0;
+            } else {
+                // Regular dielectric
+                mat.transmission = 0.0;
+                mat.ior = 1.5;
+                mat.thickness = 0;
+                mat.roughness = 0.5;
+                mat.metalness = 0.0;
+                mat.transparent = false;
+                mat.opacity = 1.0;
+            }
+            mat.needsUpdate = true;
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.notifyMaterialsChanged();
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
+
 panel.add(appearanceFolder);
 appearanceFolder.close();
 

@@ -16,6 +16,9 @@
 import { App } from '@/app/App';
 import * as THREE from 'three';
 
+// Import assets directly - Vite will only bundle what's imported
+import studioHdr from '@assets/hdri/studio.hdr';
+
 console.log('=== HDRI Environment Mapping Demo ===\n');
 
 const app = new App({
@@ -119,13 +122,13 @@ console.log('  });\n');
 
 // === Attempt to load HDRI ===
 
-const hdriPath = '/assets/hdri/studio.hdr';
+const hdriPath = studioHdr;
 
 console.log(`Attempting to load HDRI: ${hdriPath}`);
 console.log('(If file not found, demo will use fallback lighting)\n');
 
 // Try to load HDRI
-app.backgrounds.loadHDR(hdriPath, {
+app.backgrounds.loadHDR(studioHdr, {
   asEnvironment: true,
   asBackground: true,
   intensity: 1.2

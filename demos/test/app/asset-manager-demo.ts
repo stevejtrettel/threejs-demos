@@ -14,6 +14,10 @@ import { App } from '@/app/App';
 import { ParametricSurface } from '@/math/orig/objects/ParametricSurface';
 import * as THREE from 'three';
 
+// Import assets directly - Vite will only bundle what's imported
+import uvTestTexture from '@assets/textures/uv-test.jpg';
+import studioHdr from '@assets/hdri/studio.hdr';
+
 // Create app
 const app = new App({
   antialias: true,
@@ -35,7 +39,7 @@ async function loadAssets() {
 
   // === 1. Load a texture ===
   console.log('\n1. Loading texture...');
-  const texture = await app.assets.loadTexture('/assets/textures/uv-test.png');
+  const texture = await app.assets.loadTexture(uvTestTexture);
 
   if (texture) {
     console.log('✓ Texture loaded!', texture);
@@ -57,12 +61,12 @@ async function loadAssets() {
 
   // === 2. Load texture AGAIN (from cache) ===
   console.log('\n2. Loading same texture again (should use cache)...');
-  const cachedTexture = await app.assets.loadTexture('/assets/textures/uv-test.png');
+  const cachedTexture = await app.assets.loadTexture(uvTestTexture);
   console.log('✓ Got texture from cache:', cachedTexture === texture ? 'YES' : 'NO');
 
   // === 3. Load HDRI environment map ===
   console.log('\n3. Loading HDRI environment map...');
-  const hdri = await app.assets.loadHDRI('/assets/hdri/studio.hdr');
+  const hdri = await app.assets.loadHDRI(studioHdr);
 
   if (hdri) {
     console.log('✓ HDRI loaded!');
@@ -153,8 +157,8 @@ async function loadAssets() {
   // === 5. Check cache ===
   console.log('\n5. Asset cache status:');
   console.log(`   Total cached assets: ${app.assets.getCacheSize()}`);
-  console.log(`   Is texture cached? ${app.assets.isCached('/assets/textures/uv-test.png')}`);
-  console.log(`   Is HDRI cached? ${app.assets.isCached('/assets/hdri/studio.hdr')}`);
+  console.log(`   Is texture cached? ${app.assets.isCached(uvTestTexture)}`);
+  console.log(`   Is HDRI cached? ${app.assets.isCached(studioHdr)}`);
 
   console.log('\n=== Demo Complete! ===');
   console.log('You should see:');

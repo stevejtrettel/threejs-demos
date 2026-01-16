@@ -20,6 +20,10 @@ import * as THREE from 'three';
 import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
 import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
 
+// Import assets directly - Vite will only bundle what's imported
+import cubeObj from '@assets/models/cube.obj';
+import icosahedronObj from '@assets/models/icosahedron.obj';
+
 // Create app
 const app = new App({
   debug: true,
@@ -222,7 +226,7 @@ app.camera.position.set(5, 3, 6);
 app.camera.lookAt(0, 1, 0);
 
 // Load default mesh
-loadMeshFromURL('/assets/models/icosahedron.obj');
+loadMeshFromURL(icosahedronObj);
 
 // ===================================
 // UI
@@ -233,8 +237,8 @@ const panel = new Panel('OBJ Room Viewer');
 // Model loading
 const modelFolder = new Folder('Model');
 modelFolder.add(new Button('Load File...', loadMeshFromFile));
-modelFolder.add(new Button('Cube', () => loadMeshFromURL('/assets/models/cube.obj')));
-modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL('/assets/models/icosahedron.obj')));
+modelFolder.add(new Button('Cube', () => loadMeshFromURL(cubeObj)));
+modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL(icosahedronObj)));
 panel.add(modelFolder);
 
 // Visibility

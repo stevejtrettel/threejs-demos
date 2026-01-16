@@ -6,6 +6,9 @@ import { Button } from '@/ui/inputs/Button';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 
+// Import assets directly - Vite will only bundle what's imported
+import studioHdr from '@assets/hdri/studio.hdr';
+
 // Create app
 const app = new App({
     debug: true,
@@ -18,7 +21,7 @@ const app = new App({
 
 // Load HDRI for environment lighting and background
 // Environment changes are automatically detected by the pathtracer!
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHdr, {
     asEnvironment: true,  // Use for image-based lighting
     asBackground: true,   // Use as background
     intensity: 1.0

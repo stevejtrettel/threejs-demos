@@ -24,11 +24,9 @@ import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLigh
 // Initialize RectAreaLight support for WebGL
 RectAreaLightUniformsLib.init();
 
-// Import mesh evolver visualization classes
-// @ts-ignore - Legacy JS module without type declarations
-import { loadOBJ } from '../../../legacy/mesh-embedding/utils/objs.js';
-// @ts-ignore - Legacy JS module without type declarations
-import TopologyView from '../../../legacy/mesh-embedding/Visualizer/TopologyView.js';
+// Import new path-tracer-compatible mesh visualization (merged geometry, not instanced)
+import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
+import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
 
 // ===================================
 // APP SETUP
@@ -160,67 +158,74 @@ app.scene.add(ambientLight);
 // MESH EVOLVER VISUALIZATION
 // ===================================
 
-// Container for the mesh visualization
-let currentMeshView: THREE.Group | null = null;
-
-// Default colors for visualization
-const meshColors = {
-    vertex: 0x222222,  // Dark vertices
-    edge: 0x3366aa,    // Blue edges
-    face: 0xffcc88     // Warm gold faces
-};
+// Current visualizer (uses merged geometry for path tracer compatibility)
+let visualizer: MeshVisualizer | null = null;
 
 // Scale and position settings
 const meshSettings = {
     scale: 1.0,
-    positionY: 1.5  // Center height in box
+    positionY: boxHeight / 2  // Center height in box
 };
+
+/**
+ * Display a parsed mesh using MeshVisualizer
+ */
+function showMesh(parsed: ParsedMesh) {
+    // Remove existing visualizer
+    if (visualizer) {
+        app.scene.remove(visualizer);
+        visualizer.dispose();
+        visualizer = null;
+    }
+
+    // Create new visualizer with merged geometry (path tracer compatible)
+    visualizer = new MeshVisualizer(parsed, {
+        sphereRadius: 0.06,
+        tubeRadius: 0.025,
+        vertexColor: 0x222222,    // Dark vertices
+        edgeColor: 0x3366aa,      // Blue edges
+        faceColor: 0xffcc88,      // Warm gold faces
+        faceOpacity: 0.95,
+        showVertices: true,
+        showEdges: true,
+        showFaces: true,
+    });
+
+    // Center and scale the mesh
+    const bbox = new THREE.Box3().setFromObject(visualizer);
+    const center = bbox.getCenter(new THREE.Vector3());
+    const size = bbox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    // Scale to fit nicely in the Cornell box (about 2 units)
+    const targetSize = 2.0;
+    const scale = targetSize / maxDim * meshSettings.scale;
+
+    visualizer.scale.setScalar(scale);
+    visualizer.position.set(
+        -center.x * scale,
+        meshSettings.positionY - center.y * scale,
+        -center.z * scale
+    );
+
+    app.scene.add(visualizer);
+
+    // Notify pathtracer of scene change
+    if (app.renderManager.isPathTracing()) {
+        app.renderManager.notifyMaterialsChanged();
+        app.renderManager.resetAccumulation();
+    }
+
+    console.log(`Loaded mesh: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
+}
 
 /**
  * Load and display an OBJ file as a mesh evolver visualization
  */
 function loadAndDisplayOBJ(objText: string) {
-    // Remove previous mesh
-    if (currentMeshView) {
-        app.scene.remove(currentMeshView);
-        currentMeshView = null;
-    }
-
     try {
-        // Parse OBJ and create embedding
-        const embedding = loadOBJ(objText);
-
-        // Create topology view (faces + edges + vertices)
-        const meshView = new TopologyView(embedding, meshColors);
-
-        // Center and scale the mesh
-        const bbox = new THREE.Box3().setFromObject(meshView);
-        const center = bbox.getCenter(new THREE.Vector3());
-        const size = bbox.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-
-        // Scale to fit nicely in the Cornell box (about 2 units)
-        const targetSize = 2.0;
-        const scale = targetSize / maxDim * meshSettings.scale;
-
-        meshView.scale.setScalar(scale);
-        meshView.position.set(
-            -center.x * scale,
-            meshSettings.positionY - center.y * scale,
-            -center.z * scale
-        );
-
-        app.scene.add(meshView);
-        currentMeshView = meshView;
-
-        // Notify pathtracer of scene change
-        if (app.renderManager.isPathTracing()) {
-            app.renderManager.notifyMaterialsChanged();
-            app.renderManager.resetAccumulation();
-        }
-
-        console.log(`Loaded mesh: ${embedding.topology.vertices.length} vertices, ${embedding.topology.faces.length} faces`);
-
+        const parsed = parseOBJ(objText);
+        showMesh(parsed);
     } catch (error) {
         console.error('Failed to load OBJ:', error);
     }
@@ -346,24 +351,13 @@ app.camera.lookAt(0, boxHeight / 2, 0);
 // FILE INPUT FOR OBJ LOADING
 // ===================================
 
-// Create hidden file input
-const fileInput = document.createElement('input');
-fileInput.type = 'file';
-fileInput.accept = '.obj';
-fileInput.style.display = 'none';
-document.body.appendChild(fileInput);
-
-fileInput.addEventListener('change', (event) => {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const text = e.target?.result as string;
-            loadAndDisplayOBJ(text);
-        };
-        reader.readAsText(file);
+// Use the built-in loadOBJFile picker
+async function loadFromFilePicker() {
+    const parsed = await loadOBJFile();
+    if (parsed) {
+        showMesh(parsed);
     }
-});
+}
 
 // ===================================
 // UI PANEL
@@ -432,9 +426,7 @@ panel.add(lightFolder);
 // Mesh controls
 const meshFolder = new Folder('Mesh');
 
-meshFolder.add(new Button('Load OBJ File', () => {
-    fileInput.click();
-}));
+meshFolder.add(new Button('Load OBJ File', loadFromFilePicker));
 
 meshFolder.add(new Button('Sample: Icosahedron', () => {
     loadAndDisplayOBJ(createSampleMesh());
@@ -451,10 +443,8 @@ meshFolder.add(new Slider(1.0, {
     step: 0.1,
     onChange: (value) => {
         meshSettings.scale = value;
-        if (currentMeshView) {
-            // Reload to apply new scale
-            // For now, just scale directly
-            currentMeshView.scale.setScalar(value);
+        if (visualizer) {
+            visualizer.scale.setScalar(value);
             if (app.renderManager.isPathTracing()) {
                 app.renderManager.resetAccumulation();
             }

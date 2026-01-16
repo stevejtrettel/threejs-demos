@@ -736,8 +736,8 @@ lightingFolder.add(new Slider(1.0, {
 lightingFolder.add(new Slider(0, {
     label: 'Spotlight',
     min: 0,
-    max: 15,
-    step: 0.5,
+    max: 5,
+    step: 0.25,
     onChange: (value) => {
         spotLight.intensity = value;
         if (app.renderManager.isPathTracing()) {

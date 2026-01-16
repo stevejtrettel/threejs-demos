@@ -71,7 +71,8 @@ export class RenderManager {
         enabled: false,
         focusDistance: 5,
         fStop: 2.8,
-        apertureBlades: 0
+        apertureBlades: 0,
+        focalLength: 37.5  // Default for 50° FOV, 35mm film
     };
 
     constructor(options: RenderManagerOptions = {}) {
@@ -155,11 +156,8 @@ export class RenderManager {
             this.pathTracer.setScene(this.currentScene, this.currentCamera);
 
             // Apply cached DOF settings (must be after setScene)
-            if (isNewPathTracer && this.pathTracer.physicalCamera) {
-                this.pathTracer.physicalCamera.enabled = this.dofSettings.enabled;
-                this.pathTracer.physicalCamera.focusDistance = this.dofSettings.focusDistance;
-                this.pathTracer.physicalCamera.fStop = this.dofSettings.fStop;
-                this.pathTracer.physicalCamera.apertureBlades = this.dofSettings.apertureBlades;
+            if (isNewPathTracer) {
+                this.applyDOFSettings();
             }
 
             // Initial sync of materials
@@ -207,12 +205,40 @@ export class RenderManager {
     }
 
     /**
+     * Apply DOF settings to path tracer's internal shader uniform
+     * This is needed because WebGLPathTracer doesn't expose physicalCamera directly
+     */
+    private applyDOFSettings(): void {
+        if (!this.pathTracer) return;
+
+        // Access the internal material's physicalCamera uniform
+        const material = (this.pathTracer as any)._pathTracer?.material;
+        if (!material?.uniforms?.physicalCamera?.value) return;
+
+        const uniform = material.uniforms.physicalCamera.value;
+
+        // bokehSize = focalLength / fStop (0 when DOF disabled)
+        const bokehSize = this.dofSettings.enabled
+            ? (this.dofSettings.focalLength / this.dofSettings.fStop)
+            : 0;
+
+        uniform.bokehSize = bokehSize;
+        uniform.focusDistance = this.dofSettings.focusDistance;
+        uniform.apertureBlades = this.dofSettings.apertureBlades;
+        uniform.apertureRotation = 0;
+        uniform.anamorphicRatio = 1;
+
+        // Update shader define for DOF feature
+        material.setDefine('FEATURE_DOF', bokehSize > 0 ? 1 : 0);
+    }
+
+    /**
      * Enable/disable depth of field (PT only)
      */
     setDOFEnabled(enabled: boolean): void {
         this.dofSettings.enabled = enabled;
         if (this.pathTracer) {
-            this.pathTracer.physicalCamera.enabled = enabled;
+            this.applyDOFSettings();
             this.resetAccumulation();
         }
     }
@@ -230,7 +256,7 @@ export class RenderManager {
     setFocusDistance(distance: number): void {
         this.dofSettings.focusDistance = distance;
         if (this.pathTracer) {
-            this.pathTracer.physicalCamera.focusDistance = distance;
+            this.applyDOFSettings();
             this.resetAccumulation();
         }
     }
@@ -249,7 +275,7 @@ export class RenderManager {
     setFStop(fStop: number): void {
         this.dofSettings.fStop = fStop;
         if (this.pathTracer) {
-            this.pathTracer.physicalCamera.fStop = fStop;
+            this.applyDOFSettings();
             this.resetAccumulation();
         }
     }
@@ -268,7 +294,7 @@ export class RenderManager {
     setApertureBlades(blades: number): void {
         this.dofSettings.apertureBlades = blades;
         if (this.pathTracer) {
-            this.pathTracer.physicalCamera.apertureBlades = blades;
+            this.applyDOFSettings();
             this.resetAccumulation();
         }
     }
@@ -278,6 +304,25 @@ export class RenderManager {
      */
     getApertureBlades(): number {
         return this.dofSettings.apertureBlades;
+    }
+
+    /**
+     * Set focal length for DOF calculations (in mm)
+     * This affects the strength of the blur effect
+     */
+    setFocalLength(focalLength: number): void {
+        this.dofSettings.focalLength = focalLength;
+        if (this.pathTracer) {
+            this.applyDOFSettings();
+            this.resetAccumulation();
+        }
+    }
+
+    /**
+     * Get current focal length
+     */
+    getFocalLength(): number {
+        return this.dofSettings.focalLength;
     }
 
     /**

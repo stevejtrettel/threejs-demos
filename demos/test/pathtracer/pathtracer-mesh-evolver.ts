@@ -440,9 +440,6 @@ physicalCamera.apertureBlades = 0;
 (app.controls.controls as any).object = physicalCamera;  // OrbitControls.object
 (app.layout as any).camera = physicalCamera;
 
-// Debug: verify camera is PhysicalCamera
-console.log('Camera is PhysicalCamera:', physicalCamera.constructor.name);
-
 // ===================================
 // FOCUS PLANE HELPER
 // ===================================
@@ -511,50 +508,14 @@ async function loadFromFilePicker() {
 }
 
 // ===================================
-// DOF HELPER - Direct access to path tracer internals
+// DOF SETUP - Configure RenderManager with camera's focal length
 // ===================================
 
-// Apply DOF settings directly to path tracer's internal uniform
-// This bypasses the instanceof PhysicalCamera check which can fail
-// due to module duplication issues
-function applyDOFToPathTracer() {
-    const pt = (app.renderManager as any).pathTracer;
-    if (!pt) return;
-
-    // Access the internal _pathTracer and its material
-    const material = pt._pathTracer?.material;
-    if (!material?.uniforms?.physicalCamera?.value) {
-        console.warn('Could not access path tracer physicalCamera uniform');
-        return;
-    }
-
-    const uniform = material.uniforms.physicalCamera.value;
-
-    // Calculate bokehSize from camera settings
-    // bokehSize = focalLength / fStop (in mm)
-    // Manual focal length calculation (getFocalLength might be unreliable)
-    const fov = physicalCamera.fov;
-    const filmGauge = physicalCamera.filmGauge || 35; // mm
-    const focalLength = filmGauge / (2 * Math.tan(fov * Math.PI / 360));
-
-    // bokehSize in mm, boosted for testing
-    const bokehSize = dofEnabled ? (focalLength / physicalCamera.fStop) * 10 : 0;
-
-    console.log('Focal length calc:', { fov, filmGauge, focalLength, fStop: physicalCamera.fStop });
-
-    uniform.bokehSize = bokehSize;
-    uniform.focusDistance = physicalCamera.focusDistance;
-    uniform.apertureBlades = physicalCamera.apertureBlades;
-    uniform.apertureRotation = 0;
-    uniform.anamorphicRatio = 1;
-
-    // Update the FEATURE_DOF define based on bokehSize
-    material.setDefine('FEATURE_DOF', bokehSize > 0 ? 1 : 0);
-
-    console.log('DOF applied:', { bokehSize, focusDistance: uniform.focusDistance, fStop: physicalCamera.fStop });
-
-    app.renderManager.resetAccumulation();
-}
+// Calculate focal length from camera FOV and set it in RenderManager
+const fov = physicalCamera.fov;
+const filmGauge = physicalCamera.filmGauge || 35; // mm
+const focalLength = filmGauge / (2 * Math.tan(fov * Math.PI / 360));
+app.renderManager.setFocalLength(focalLength);
 
 // ===================================
 // UI PANEL
@@ -579,10 +540,6 @@ const pathTraceButton = new Button('▶ Start Path Trace', () => {
         pathTraceButton.setLabel('■ Stop Path Trace');
         pathTraceButton.domElement.style.backgroundColor = '#c94444';
         pathTraceButton.domElement.style.color = '#ffffff';
-
-        // Force DOF settings directly on path tracer internal uniform
-        // (bypasses instanceof check that may fail due to module duplication)
-        applyDOFToPathTracer();
     } else {
         app.disablePathTracing();
         pathTraceButton.setLabel('▶ Start Path Trace');
@@ -615,22 +572,10 @@ panel.add(actionsFolder);
 
 const cameraFolder = new Folder('Camera');
 
-// Track if DOF is enabled (we'll set fStop to Infinity to disable)
-let dofEnabled = false;
-let savedFStop = 2.8;
-
 cameraFolder.add(new Toggle(false, {
     label: 'Depth of Field',
     onChange: (enabled) => {
-        dofEnabled = enabled;
-        if (enabled) {
-            physicalCamera.fStop = savedFStop;
-        } else {
-            physicalCamera.fStop = 10000;
-        }
-        if (app.renderManager.isPathTracing()) {
-            applyDOFToPathTracer();
-        }
+        app.renderManager.setDOFEnabled(enabled);
     }
 }));
 
@@ -648,12 +593,9 @@ cameraFolder.add(new Slider(5.0, {
     max: 15,
     step: 0.1,
     onChange: (value) => {
-        physicalCamera.focusDistance = value;
+        app.renderManager.setFocusDistance(value);
         focusPlaneSettings.distance = value;
         updateFocusPlane();
-        if (app.renderManager.isPathTracing()) {
-            applyDOFToPathTracer();
-        }
     }
 }));
 
@@ -663,13 +605,7 @@ cameraFolder.add(new Slider(2.8, {
     max: 16,
     step: 0.1,
     onChange: (value) => {
-        savedFStop = value;
-        if (dofEnabled) {
-            physicalCamera.fStop = value;
-            if (app.renderManager.isPathTracing()) {
-                applyDOFToPathTracer();
-            }
-        }
+        app.renderManager.setFStop(value);
     }
 }));
 
@@ -679,10 +615,7 @@ cameraFolder.add(new Slider(0, {
     max: 8,
     step: 1,
     onChange: (value) => {
-        physicalCamera.apertureBlades = value;
-        if (app.renderManager.isPathTracing()) {
-            applyDOFToPathTracer();
-        }
+        app.renderManager.setApertureBlades(value);
     }
 }));
 

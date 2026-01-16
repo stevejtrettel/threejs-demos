@@ -96,22 +96,56 @@ function createSpotlight(color: number, intensity: number, position: THREE.Vecto
     return light;
 }
 
-// Key light - warm/orange from upper left front
+// Light rig settings
+const lightRig = {
+    // Base positions (unit directions from center, will be scaled)
+    keyDir: new THREE.Vector3(-1, 0, 0.8).normalize(),
+    fillDir: new THREE.Vector3(1, 0, 0.6).normalize(),
+    rimDir: new THREE.Vector3(0, 0, -1).normalize(),
+    // Rig parameters
+    distance: 6,      // How far lights are from center (triangle size)
+    height: 7,        // Height of lights
+    spread: Math.PI / 4,  // Beam angle
+    intensity: 10,    // Base intensity for all lights
+};
+
+function updateLightPositions() {
+    const d = lightRig.distance;
+    const h = lightRig.height;
+    keyLight.position.set(lightRig.keyDir.x * d, h, lightRig.keyDir.z * d);
+    fillLight.position.set(lightRig.fillDir.x * d, h - 1, lightRig.fillDir.z * d);
+    rimLight.position.set(lightRig.rimDir.x * d, h - 1, lightRig.rimDir.z * d);
+}
+
+function updateLightAngles() {
+    keyLight.angle = lightRig.spread;
+    fillLight.angle = lightRig.spread;
+    rimLight.angle = lightRig.spread;
+}
+
+function updateLightIntensities() {
+    keyLight.intensity = lightRig.intensity * 1.2;  // Key slightly brighter
+    fillLight.intensity = lightRig.intensity * 0.8;  // Fill softer
+    rimLight.intensity = lightRig.intensity;
+}
+
+// Create the three lights
 const keyLight = createSpotlight(0xffddaa, 12, new THREE.Vector3(-5, 8, 4));
 app.scene.add(keyLight);
 app.scene.add(keyLight.target);
 
-// Fill light - cool blue from right
 const fillLight = createSpotlight(0xaaccff, 8, new THREE.Vector3(6, 5, 3));
-fillLight.angle = Math.PI / 3;
 app.scene.add(fillLight);
 app.scene.add(fillLight.target);
 
-// Rim/back light - magenta/pink from behind
 const rimLight = createSpotlight(0xffaacc, 10, new THREE.Vector3(0, 6, -5));
-rimLight.angle = Math.PI / 3;
 app.scene.add(rimLight);
 app.scene.add(rimLight.target);
+
+// Initialize positions
+updateLightPositions();
+updateLightAngles();
+updateLightIntensities();
 
 // Preview lights for WebGL mode (disabled during path tracing)
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
@@ -366,51 +400,41 @@ appearanceFolder.add(new ColorInput(meshSettings.faceColor, { label: 'Face Color
 panel.add(appearanceFolder);
 appearanceFolder.close();
 
-// Lighting - Key Light
-const keyLightFolder = new Folder('Key Light (Warm)');
-keyLightFolder.add(new ColorInput('#ffddaa', { label: 'Color', onChange: c => {
+// Lighting
+const lightingFolder = new Folder('Lighting');
+
+// Rig controls
+lightingFolder.add(new Slider(6, { label: 'Distance', min: 2, max: 12, step: 0.5, onChange: v => {
+    lightRig.distance = v;
+    updateLightPositions();
+    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+}}));
+lightingFolder.add(new Slider(Math.PI / 4, { label: 'Spread', min: 0.1, max: Math.PI / 2, step: 0.05, onChange: v => {
+    lightRig.spread = v;
+    updateLightAngles();
+    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+}}));
+lightingFolder.add(new Slider(10, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
+    lightRig.intensity = v;
+    updateLightIntensities();
+    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+}}));
+
+// Color pickers for each light
+lightingFolder.add(new ColorInput('#ffddaa', { label: 'Key (Warm)', onChange: c => {
     keyLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-keyLightFolder.add(new Slider(12, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
-    keyLight.intensity = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
-}}));
-keyLightFolder.add(new Slider(-5, { label: 'X Position', min: -10, max: 10, step: 0.5, onChange: v => {
-    keyLight.position.x = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
-}}));
-keyLightFolder.add(new Slider(8, { label: 'Y Position', min: 2, max: 15, step: 0.5, onChange: v => {
-    keyLight.position.y = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
-}}));
-panel.add(keyLightFolder);
-
-// Lighting - Fill Light
-const fillLightFolder = new Folder('Fill Light (Cool)');
-fillLightFolder.add(new ColorInput('#aaccff', { label: 'Color', onChange: c => {
+lightingFolder.add(new ColorInput('#aaccff', { label: 'Fill (Cool)', onChange: c => {
     fillLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-fillLightFolder.add(new Slider(8, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
-    fillLight.intensity = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
-}}));
-panel.add(fillLightFolder);
-fillLightFolder.close();
-
-// Lighting - Rim Light
-const rimLightFolder = new Folder('Rim Light (Accent)');
-rimLightFolder.add(new ColorInput('#ffaacc', { label: 'Color', onChange: c => {
+lightingFolder.add(new ColorInput('#ffaacc', { label: 'Rim (Accent)', onChange: c => {
     rimLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-rimLightFolder.add(new Slider(10, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
-    rimLight.intensity = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
-}}));
-panel.add(rimLightFolder);
-rimLightFolder.close();
+
+panel.add(lightingFolder);
 
 // Floor
 const floorFolder = new Folder('Floor');

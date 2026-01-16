@@ -531,9 +531,11 @@ function applyDOFToPathTracer() {
     const uniform = material.uniforms.physicalCamera.value;
 
     // Calculate bokehSize from camera settings
-    // bokehSize = focalLength / fStop
+    // bokehSize = focalLength / fStop (in mm)
+    // The shader multiplies by 0.5 * 1e-3, so we need large values
     const focalLength = physicalCamera.getFocalLength();
-    const bokehSize = dofEnabled ? (focalLength / physicalCamera.fStop) : 0;
+    // Boost by 10x to make effect more visible for testing
+    const bokehSize = dofEnabled ? (focalLength / physicalCamera.fStop) * 10 : 0;
 
     uniform.bokehSize = bokehSize;
     uniform.focusDistance = physicalCamera.focusDistance;

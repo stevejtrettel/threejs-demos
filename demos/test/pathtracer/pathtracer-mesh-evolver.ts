@@ -1,12 +1,12 @@
 /**
  * Path Traced Mesh Evolver Scene
  *
- * A Cornell box-style scene for rendering mesh evolver outputs with
+ * A white studio scene for rendering mesh evolver outputs with
  * beautiful global illumination via GPU path tracing.
  *
  * Features:
- * - Cornell box with colored walls
- * - Quad light (RectAreaLight) on ceiling
+ * - Large white studio with soft lighting
+ * - Bright quad light (RectAreaLight) on ceiling
  * - OBJ file loading for mesh evolver outputs
  * - Surface + tube edges + sphere vertices visualization
  */
@@ -42,107 +42,88 @@ const app = new App({
 });
 
 // ===================================
-// CORNELL BOX GEOMETRY
+// WHITE STUDIO GEOMETRY
 // ===================================
 
-// Box dimensions
-const boxWidth = 6;
-const boxHeight = 6;
-const boxDepth = 6;
+// Studio dimensions - larger room so camera fits inside
+const studioWidth = 14;
+const studioHeight = 10;
+const studioDepth = 14;
 
-// Create individual walls as separate planes for proper normals and materials
-function createCornellBox() {
+// White studio material
+const whiteMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.9,
+    metalness: 0.0,
+    side: THREE.DoubleSide
+});
+
+// Create the white studio
+function createStudio() {
     const group = new THREE.Group();
 
-    // Common material settings
-    const wallSettings = {
-        roughness: 0.9,
-        metalness: 0.0,
-        side: THREE.DoubleSide  // Visible from both sides
-    };
-
-    // Floor (white)
-    const floorGeo = new THREE.PlaneGeometry(boxWidth, boxDepth);
-    const floorMat = new THREE.MeshStandardMaterial({
-        color: 0xeeeeee,
-        ...wallSettings
-    });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
+    // Floor
+    const floorGeo = new THREE.PlaneGeometry(studioWidth, studioDepth);
+    const floor = new THREE.Mesh(floorGeo, whiteMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = 0;
     group.add(floor);
 
-    // Ceiling (white)
-    const ceilingGeo = new THREE.PlaneGeometry(boxWidth, boxDepth);
-    const ceilingMat = new THREE.MeshStandardMaterial({
-        color: 0xeeeeee,
-        ...wallSettings
-    });
-    const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
+    // Ceiling
+    const ceilingGeo = new THREE.PlaneGeometry(studioWidth, studioDepth);
+    const ceiling = new THREE.Mesh(ceilingGeo, whiteMat);
     ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = boxHeight;
+    ceiling.position.y = studioHeight;
     group.add(ceiling);
 
-    // Back wall (white)
-    const backWallGeo = new THREE.PlaneGeometry(boxWidth, boxHeight);
-    const backWallMat = new THREE.MeshStandardMaterial({
-        color: 0xeeeeee,
-        ...wallSettings
-    });
-    const backWall = new THREE.Mesh(backWallGeo, backWallMat);
-    backWall.position.z = -boxDepth / 2;
-    backWall.position.y = boxHeight / 2;
+    // Back wall
+    const backWallGeo = new THREE.PlaneGeometry(studioWidth, studioHeight);
+    const backWall = new THREE.Mesh(backWallGeo, whiteMat);
+    backWall.position.z = -studioDepth / 2;
+    backWall.position.y = studioHeight / 2;
     group.add(backWall);
 
-    // Left wall (red)
-    const leftWallGeo = new THREE.PlaneGeometry(boxDepth, boxHeight);
-    const leftWallMat = new THREE.MeshStandardMaterial({
-        color: 0xcc3333,
-        ...wallSettings
-    });
-    const leftWall = new THREE.Mesh(leftWallGeo, leftWallMat);
+    // Left wall
+    const leftWallGeo = new THREE.PlaneGeometry(studioDepth, studioHeight);
+    const leftWall = new THREE.Mesh(leftWallGeo, whiteMat);
     leftWall.rotation.y = Math.PI / 2;
-    leftWall.position.x = -boxWidth / 2;
-    leftWall.position.y = boxHeight / 2;
+    leftWall.position.x = -studioWidth / 2;
+    leftWall.position.y = studioHeight / 2;
     group.add(leftWall);
 
-    // Right wall (green)
-    const rightWallGeo = new THREE.PlaneGeometry(boxDepth, boxHeight);
-    const rightWallMat = new THREE.MeshStandardMaterial({
-        color: 0x33cc33,
-        ...wallSettings
-    });
-    const rightWall = new THREE.Mesh(rightWallGeo, rightWallMat);
+    // Right wall
+    const rightWallGeo = new THREE.PlaneGeometry(studioDepth, studioHeight);
+    const rightWall = new THREE.Mesh(rightWallGeo, whiteMat);
     rightWall.rotation.y = -Math.PI / 2;
-    rightWall.position.x = boxWidth / 2;
-    rightWall.position.y = boxHeight / 2;
+    rightWall.position.x = studioWidth / 2;
+    rightWall.position.y = studioHeight / 2;
     group.add(rightWall);
 
     return group;
 }
 
-// Create and add Cornell box
-const cornellBox = createCornellBox();
-app.scene.add(cornellBox);
+// Create and add studio
+const studio = createStudio();
+app.scene.add(studio);
 
 // ===================================
 // QUAD LIGHT (RectAreaLight)
 // ===================================
 
-// Create a rectangular area light on the ceiling
-const lightWidth = 2;
-const lightHeight = 2;
-const rectLight = new THREE.RectAreaLight(0xffffff, 15, lightWidth, lightHeight);
-rectLight.position.set(0, boxHeight - 0.01, 0); // Just below ceiling
+// Large bright area light on the ceiling
+const lightWidth = 6;
+const lightHeight = 6;
+const rectLight = new THREE.RectAreaLight(0xffffff, 25, lightWidth, lightHeight);
+rectLight.position.set(0, studioHeight - 0.01, 0); // Just below ceiling
 rectLight.rotation.x = Math.PI / 2; // Point downward
 app.scene.add(rectLight);
 
-// Add a visible light panel (emissive plane)
+// Visible light panel (emissive plane)
 const lightPanelGeo = new THREE.PlaneGeometry(lightWidth, lightHeight);
 const lightPanelMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: 0xffffff,
-    emissiveIntensity: 3,
+    emissiveIntensity: 5,
     side: THREE.DoubleSide
 });
 const lightPanel = new THREE.Mesh(lightPanelGeo, lightPanelMat);
@@ -150,8 +131,8 @@ lightPanel.position.copy(rectLight.position);
 lightPanel.rotation.x = -Math.PI / 2;
 app.scene.add(lightPanel);
 
-// Add subtle ambient light for WebGL preview (path tracer ignores this for GI)
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+// Subtle ambient for WebGL preview
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 app.scene.add(ambientLight);
 
 // ===================================
@@ -164,7 +145,7 @@ let visualizer: MeshVisualizer | null = null;
 // Scale and position settings
 const meshSettings = {
     scale: 1.0,
-    positionY: boxHeight / 2  // Center height in box
+    positionY: 2.5  // Object sits on a pedestal height
 };
 
 /**
@@ -344,8 +325,9 @@ loadAndDisplayOBJ(createSubdividedIcosahedron(2));
 // CAMERA SETUP
 // ===================================
 
-app.camera.position.set(0, boxHeight / 2, boxDepth * 1.2);
-app.camera.lookAt(0, boxHeight / 2, 0);
+// Camera inside the studio, looking at the object
+app.camera.position.set(0, 4, 6);
+app.camera.lookAt(0, 2.5, 0);
 
 // ===================================
 // FILE INPUT FOR OBJ LOADING
@@ -390,10 +372,10 @@ panel.add(renderFolder);
 // Light controls
 const lightFolder = new Folder('Quad Light');
 
-lightFolder.add(new Slider(15, {
+lightFolder.add(new Slider(25, {
     label: 'Intensity',
     min: 0,
-    max: 50,
+    max: 80,
     step: 1,
     onChange: (value) => {
         rectLight.intensity = value;
@@ -405,11 +387,11 @@ lightFolder.add(new Slider(15, {
     }
 }));
 
-lightFolder.add(new Slider(2, {
+lightFolder.add(new Slider(6, {
     label: 'Size',
-    min: 0.5,
-    max: 4,
-    step: 0.1,
+    min: 1,
+    max: 10,
+    step: 0.5,
     onChange: (value) => {
         rectLight.width = value;
         rectLight.height = value;
@@ -459,19 +441,18 @@ const infoFolder = new Folder('About');
 const info = document.createElement('div');
 info.style.cssText = 'padding: 8px; font-size: 11px; line-height: 1.6; color: var(--cr-text-secondary);';
 info.innerHTML = `
-  <strong>Cornell Box + Mesh Evolver</strong><br/><br/>
+  <strong>White Studio + Mesh Evolver</strong><br/><br/>
 
-  Classic Cornell box scene with:<br/>
-  - Red/green walls for color bleeding<br/>
-  - Quad light on ceiling<br/>
+  Clean white studio with:<br/>
+  - Large soft quad light<br/>
   - Mesh evolver OBJ visualization<br/><br/>
 
   <strong>Mesh Display:</strong><br/>
-  - Gold surface (semi-transparent)<br/>
+  - Gold surface<br/>
   - Blue tube edges<br/>
   - Dark vertex spheres<br/><br/>
 
-  Enable path tracing to see<br/>
+  Enable path tracing for<br/>
   beautiful global illumination!
 `;
 infoFolder.domElement.appendChild(info);

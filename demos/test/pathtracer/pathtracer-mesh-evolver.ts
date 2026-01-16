@@ -21,7 +21,7 @@ import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { PhysicalCamera } from 'three-gpu-pathtracer';
+import { PhysicalCamera, PhysicalSpotLight } from 'three-gpu-pathtracer';
 import { saveAs } from 'file-saver';
 
 // Initialize RectAreaLight support for WebGL
@@ -150,6 +150,19 @@ app.scene.add(ambientLight);
 const previewLight = new THREE.DirectionalLight(0xffffff, 1.5);
 previewLight.position.set(5, 8, 5);
 app.scene.add(previewLight);
+
+// Physical spotlight for path tracing (accent light from the side)
+const spotLight = new PhysicalSpotLight(0xffffff, 0);  // Start disabled
+spotLight.position.set(5, 5, 3);
+spotLight.angle = Math.PI / 6;  // 30 degree cone
+spotLight.penumbra = 0.3;  // Soft edge
+spotLight.decay = 2;
+spotLight.distance = 20;
+spotLight.radius = 0.5;  // Soft shadows in path tracer
+// Point at center of scene
+spotLight.target.position.set(0, 2.5, 0);
+app.scene.add(spotLight);
+app.scene.add(spotLight.target);
 
 // ===================================
 // MESH EVOLVER VISUALIZATION
@@ -480,14 +493,6 @@ cameraFolder.add(new Slider(50, {
     }
 }));
 
-cameraFolder.add(new Toggle(false, {
-    label: 'Show Focus Plane',
-    onChange: (visible) => {
-        focusPlaneSettings.visible = visible;
-        updateFocusPlane();
-    }
-}));
-
 cameraFolder.add(new Slider(5.0, {
     label: 'Focus Distance',
     min: 0.5,
@@ -510,13 +515,11 @@ cameraFolder.add(new Slider(16, {
     }
 }));
 
-cameraFolder.add(new Slider(0, {
-    label: 'Aperture Blades',
-    min: 0,
-    max: 8,
-    step: 1,
-    onChange: (value) => {
-        app.renderManager.setApertureBlades(value);
+cameraFolder.add(new Toggle(false, {
+    label: 'Show Focus Plane',
+    onChange: (visible) => {
+        focusPlaneSettings.visible = visible;
+        updateFocusPlane();
     }
 }));
 
@@ -713,6 +716,20 @@ lightingFolder.add(new Slider(1.0, {
     onChange: (value) => {
         whiteMat.color.setRGB(value, value, value);
         whiteMat.needsUpdate = true;
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
+    }
+}));
+
+lightingFolder.add(new Slider(0, {
+    label: 'Spotlight',
+    min: 0,
+    max: 100,
+    step: 5,
+    onChange: (value) => {
+        spotLight.intensity = value;
         if (app.renderManager.isPathTracing()) {
             app.renderManager.notifyMaterialsChanged();
             app.renderManager.resetAccumulation();

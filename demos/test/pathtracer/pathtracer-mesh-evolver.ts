@@ -532,10 +532,15 @@ function applyDOFToPathTracer() {
 
     // Calculate bokehSize from camera settings
     // bokehSize = focalLength / fStop (in mm)
-    // The shader multiplies by 0.5 * 1e-3, so we need large values
-    const focalLength = physicalCamera.getFocalLength();
-    // Boost by 10x to make effect more visible for testing
+    // Manual focal length calculation (getFocalLength might be unreliable)
+    const fov = physicalCamera.fov;
+    const filmGauge = physicalCamera.filmGauge || 35; // mm
+    const focalLength = filmGauge / (2 * Math.tan(fov * Math.PI / 360));
+
+    // bokehSize in mm, boosted for testing
     const bokehSize = dofEnabled ? (focalLength / physicalCamera.fStop) * 10 : 0;
+
+    console.log('Focal length calc:', { fov, filmGauge, focalLength, fStop: physicalCamera.fStop });
 
     uniform.bokehSize = bokehSize;
     uniform.focusDistance = physicalCamera.focusDistance;

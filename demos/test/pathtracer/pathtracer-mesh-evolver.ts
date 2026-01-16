@@ -694,6 +694,21 @@ lightingFolder.add(new Slider(6, {
     }
 }));
 
+lightingFolder.add(new Slider(1.0, {
+    label: 'Wall Brightness',
+    min: 0.1,
+    max: 1.0,
+    step: 0.05,
+    onChange: (value) => {
+        whiteMat.color.setRGB(value, value, value);
+        whiteMat.needsUpdate = true;
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
+    }
+}));
+
 panel.add(lightingFolder);
 lightingFolder.close();
 

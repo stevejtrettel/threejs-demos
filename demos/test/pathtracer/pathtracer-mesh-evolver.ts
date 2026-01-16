@@ -455,6 +455,20 @@ app.renderManager.setFStop(16);
 
 const cameraFolder = new Folder('Camera');
 
+cameraFolder.add(new Slider(50, {
+    label: 'FOV',
+    min: 20,
+    max: 90,
+    step: 1,
+    onChange: (value) => {
+        app.camera.fov = value;
+        (app.camera as any).updateProjectionMatrix();
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.resetAccumulation();
+        }
+    }
+}));
+
 cameraFolder.add(new Toggle(false, {
     label: 'Show Focus Plane',
     onChange: (visible) => {

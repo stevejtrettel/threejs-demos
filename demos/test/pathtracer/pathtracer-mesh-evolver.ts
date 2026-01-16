@@ -684,14 +684,17 @@ appearanceFolder.add(new Toggle(false, {
         if (visualizer?.faceMesh) {
             const mat = visualizer.faceMesh.material as THREE.MeshPhysicalMaterial;
             if (isGlass) {
-                // Glass properties
-                mat.transmission = 0.98;
-                mat.ior = 1.25;
-                mat.thickness = 0.1;
+                // Glass properties - use attenuationColor for tinted glass
+                mat.transmission = 1.0;
+                mat.ior = 1.5;
+                mat.thickness = 1.0;
                 mat.roughness = 0.0;
                 mat.metalness = 0.0;
                 mat.transparent = true;
                 mat.opacity = 1.0;
+                // Tint the glass with face color via attenuation
+                mat.attenuationColor = mat.color.clone();
+                mat.attenuationDistance = 0.5;
             } else {
                 // Regular dielectric
                 mat.transmission = 0.0;
@@ -701,6 +704,7 @@ appearanceFolder.add(new Toggle(false, {
                 mat.metalness = 0.0;
                 mat.transparent = false;
                 mat.opacity = 1.0;
+                mat.attenuationDistance = Infinity;
             }
             mat.needsUpdate = true;
             if (app.renderManager.isPathTracing()) {

@@ -126,6 +126,8 @@ export class RenderManager {
      * @param options - Path tracer configuration options
      */
     switchToPathTracing(options?: PathTracerOptions): void {
+        const isNewPathTracer = !this.pathTracer;
+
         if (!this.pathTracer) {
             // Lazy initialization: wrap our existing renderer
             this.pathTracer = new WebGLPathTracer(this.renderer);
@@ -136,12 +138,6 @@ export class RenderManager {
             if (opts.tiles) {
                 this.pathTracer.tiles.set(opts.tiles.x, opts.tiles.y);
             }
-
-            // Apply cached DOF settings
-            this.pathTracer.physicalCamera.enabled = this.dofSettings.enabled;
-            this.pathTracer.physicalCamera.focusDistance = this.dofSettings.focusDistance;
-            this.pathTracer.physicalCamera.fStop = this.dofSettings.fStop;
-            this.pathTracer.physicalCamera.apertureBlades = this.dofSettings.apertureBlades;
         } else if (options) {
             // Update existing PT settings
             if (options.bounces !== undefined) {
@@ -157,6 +153,15 @@ export class RenderManager {
         // Update scene if available
         if (this.currentScene && this.currentCamera) {
             this.pathTracer.setScene(this.currentScene, this.currentCamera);
+
+            // Apply cached DOF settings (must be after setScene)
+            if (isNewPathTracer && this.pathTracer.physicalCamera) {
+                this.pathTracer.physicalCamera.enabled = this.dofSettings.enabled;
+                this.pathTracer.physicalCamera.focusDistance = this.dofSettings.focusDistance;
+                this.pathTracer.physicalCamera.fStop = this.dofSettings.fStop;
+                this.pathTracer.physicalCamera.apertureBlades = this.dofSettings.apertureBlades;
+            }
+
             // Initial sync of materials
             this.pathTracer.updateMaterials();
             // Initial sync of environment (only if one exists)

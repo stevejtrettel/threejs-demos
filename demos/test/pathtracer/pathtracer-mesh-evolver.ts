@@ -99,6 +99,14 @@ function createStudio() {
     rightWall.position.y = studioHeight / 2;
     group.add(rightWall);
 
+    // Front wall (behind camera)
+    const frontWallGeo = new THREE.PlaneGeometry(studioWidth, studioHeight);
+    const frontWall = new THREE.Mesh(frontWallGeo, whiteMat);
+    frontWall.rotation.y = Math.PI;  // Face inward
+    frontWall.position.z = studioDepth / 2;
+    frontWall.position.y = studioHeight / 2;
+    group.add(frontWall);
+
     return group;
 }
 
@@ -142,10 +150,13 @@ app.scene.add(ambientLight);
 // Current visualizer (uses merged geometry for path tracer compatibility)
 let visualizer: MeshVisualizer | null = null;
 
-// Scale and position settings
+// Scale, position, and rotation settings
 const meshSettings = {
     scale: 1.0,
-    positionY: 2.5  // Object sits on a pedestal height
+    positionY: 2.5,  // Object sits on a pedestal height
+    rotationX: 0,
+    rotationY: 0,
+    rotationZ: 0
 };
 
 /**
@@ -187,6 +198,11 @@ function showMesh(parsed: ParsedMesh) {
         -center.x * scale,
         meshSettings.positionY - center.y * scale,
         -center.z * scale
+    );
+    visualizer.rotation.set(
+        meshSettings.rotationX,
+        meshSettings.rotationY,
+        meshSettings.rotationZ
     );
 
     app.scene.add(visualizer);
@@ -427,6 +443,55 @@ meshFolder.add(new Slider(1.0, {
         meshSettings.scale = value;
         if (visualizer) {
             visualizer.scale.setScalar(value);
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
+
+// Rotation sliders
+meshFolder.add(new Slider(0, {
+    label: 'Rotate X',
+    min: -Math.PI,
+    max: Math.PI,
+    step: 0.05,
+    onChange: (value) => {
+        meshSettings.rotationX = value;
+        if (visualizer) {
+            visualizer.rotation.x = value;
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
+
+meshFolder.add(new Slider(0, {
+    label: 'Rotate Y',
+    min: -Math.PI,
+    max: Math.PI,
+    step: 0.05,
+    onChange: (value) => {
+        meshSettings.rotationY = value;
+        if (visualizer) {
+            visualizer.rotation.y = value;
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
+
+meshFolder.add(new Slider(0, {
+    label: 'Rotate Z',
+    min: -Math.PI,
+    max: Math.PI,
+    step: 0.05,
+    onChange: (value) => {
+        meshSettings.rotationZ = value;
+        if (visualizer) {
+            visualizer.rotation.z = value;
             if (app.renderManager.isPathTracing()) {
                 app.renderManager.resetAccumulation();
             }

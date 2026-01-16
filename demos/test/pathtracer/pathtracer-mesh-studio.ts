@@ -283,7 +283,7 @@ showMesh(parseOBJ(createTorus()));
 // ===================================
 
 const physicalCamera = new PhysicalCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-physicalCamera.position.set(0, 1.5, 5);
+physicalCamera.position.set(0, 2.5, 5);
 physicalCamera.lookAt(0, 1.2, 0);
 
 (app.cameraManager as any).camera = physicalCamera;

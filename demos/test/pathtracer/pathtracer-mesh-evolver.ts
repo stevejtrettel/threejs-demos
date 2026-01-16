@@ -383,6 +383,11 @@ renderFolder.add(new Button('Reset Accumulation', () => {
     app.renderManager.resetAccumulation();
 }));
 
+renderFolder.add(new Button('Download Image', () => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+    app.screenshot(`mesh-evolver-${timestamp}.png`);
+}));
+
 panel.add(renderFolder);
 
 // Light controls

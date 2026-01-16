@@ -66,13 +66,13 @@ export class RenderManager {
     private lastEnvironment?: THREE.Texture | null;
     private materialsNeedUpdate = false;
 
-    // Cached DOF settings (applied when pathTracer is initialized)
+    // Cached DOF settings (applied to PhysicalCamera when path tracing)
+    // Note: focal length is derived from PhysicalCamera's FOV, not stored here
     private dofSettings = {
         enabled: false,
         focusDistance: 5,
         fStop: 2.8,
-        apertureBlades: 0,
-        focalLength: 37.5  // Default for 50° FOV, 35mm film
+        apertureBlades: 0
     };
 
     constructor(options: RenderManagerOptions = {}) {
@@ -205,31 +205,36 @@ export class RenderManager {
     }
 
     /**
-     * Apply DOF settings to path tracer's internal shader uniform
-     * This is needed because WebGLPathTracer doesn't expose physicalCamera directly
+     * Apply DOF settings.
+     *
+     * DOF requires a PhysicalCamera from three-gpu-pathtracer because the
+     * path tracer's internal updateFrom(camera) checks instanceof PhysicalCamera.
+     * If it's a regular camera, DOF is disabled (bokehSize reset to 0).
+     *
+     * This method syncs our DOF settings to the camera's properties, which
+     * the path tracer then reads during rendering.
      */
     private applyDOFSettings(): void {
-        if (!this.pathTracer) return;
+        if (!this.currentCamera) return;
 
-        // Access the internal material's physicalCamera uniform
-        const material = (this.pathTracer as any)._pathTracer?.material;
-        if (!material?.uniforms?.physicalCamera?.value) return;
+        // Check if camera has PhysicalCamera properties (fStop, focusDistance, etc.)
+        const cam = this.currentCamera as any;
+        if (typeof cam.fStop === 'undefined') {
+            // Not a PhysicalCamera - DOF won't work
+            // (path tracer's updateFrom will set bokehSize to 0)
+            return;
+        }
 
-        const uniform = material.uniforms.physicalCamera.value;
-
-        // bokehSize = focalLength / fStop (0 when DOF disabled)
-        const bokehSize = this.dofSettings.enabled
-            ? (this.dofSettings.focalLength / this.dofSettings.fStop)
-            : 0;
-
-        uniform.bokehSize = bokehSize;
-        uniform.focusDistance = this.dofSettings.focusDistance;
-        uniform.apertureBlades = this.dofSettings.apertureBlades;
-        uniform.apertureRotation = 0;
-        uniform.anamorphicRatio = 1;
-
-        // Update shader define for DOF feature
-        material.setDefine('FEATURE_DOF', bokehSize > 0 ? 1 : 0);
+        // Sync DOF settings to camera properties
+        // The path tracer reads these via updateFrom(camera)
+        if (this.dofSettings.enabled) {
+            cam.fStop = this.dofSettings.fStop;
+            cam.focusDistance = this.dofSettings.focusDistance;
+            cam.apertureBlades = this.dofSettings.apertureBlades;
+        } else {
+            // Very high fStop = effectively no DOF
+            cam.fStop = 10000;
+        }
     }
 
     /**
@@ -304,25 +309,6 @@ export class RenderManager {
      */
     getApertureBlades(): number {
         return this.dofSettings.apertureBlades;
-    }
-
-    /**
-     * Set focal length for DOF calculations (in mm)
-     * This affects the strength of the blur effect
-     */
-    setFocalLength(focalLength: number): void {
-        this.dofSettings.focalLength = focalLength;
-        if (this.pathTracer) {
-            this.applyDOFSettings();
-            this.resetAccumulation();
-        }
-    }
-
-    /**
-     * Get current focal length
-     */
-    getFocalLength(): number {
-        return this.dofSettings.focalLength;
     }
 
     /**

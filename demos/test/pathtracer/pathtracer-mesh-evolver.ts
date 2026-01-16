@@ -146,6 +146,11 @@ app.scene.add(lightPanel);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 app.scene.add(ambientLight);
 
+// Directional light for better WebGL preview (disabled during path tracing)
+const previewLight = new THREE.DirectionalLight(0xffffff, 1.5);
+previewLight.position.set(5, 8, 5);
+app.scene.add(previewLight);
+
 // ===================================
 // MESH EVOLVER VISUALIZATION
 // ===================================
@@ -415,12 +420,18 @@ let isPathTracing = false;
 const pathTraceButton = new Button('▶ Start Path Trace', () => {
     isPathTracing = !isPathTracing;
     if (isPathTracing) {
+        // Disable preview lights (they would affect path tracer)
+        previewLight.intensity = 0;
+        ambientLight.intensity = 0;
         app.enablePathTracing();
         pathTraceButton.setLabel('■ Stop Path Trace');
         pathTraceButton.domElement.style.backgroundColor = '#c94444';
         pathTraceButton.domElement.style.color = '#ffffff';
     } else {
         app.disablePathTracing();
+        // Re-enable preview lights
+        previewLight.intensity = 1.5;
+        ambientLight.intensity = 0.4;
         pathTraceButton.setLabel('▶ Start Path Trace');
         pathTraceButton.domElement.style.backgroundColor = '#44aa44';
         pathTraceButton.domElement.style.color = '#ffffff';

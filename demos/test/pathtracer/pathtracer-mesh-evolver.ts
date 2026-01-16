@@ -45,37 +45,6 @@ const app = new App({
 });
 
 // ===================================
-// LOADING OVERLAY
-// ===================================
-
-const loadingOverlay = document.createElement('div');
-loadingOverlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    color: white;
-    font-family: sans-serif;
-    font-size: 24px;
-`;
-loadingOverlay.textContent = 'Loading Path Tracer...';
-document.body.appendChild(loadingOverlay);
-
-function showLoading() {
-    loadingOverlay.style.display = 'flex';
-}
-
-function hideLoading() {
-    loadingOverlay.style.display = 'none';
-}
-
-// ===================================
 // WHITE STUDIO GEOMETRY
 // ===================================
 
@@ -474,26 +443,13 @@ let isPathTracing = false;
 const pathTraceButton = new Button('▶ Start Path Trace', () => {
     isPathTracing = !isPathTracing;
     if (isPathTracing) {
-        // Show loading overlay
-        showLoading();
-        pathTraceButton.setLabel('⏳ Loading...');
-        pathTraceButton.domElement.style.backgroundColor = '#888888';
-
-        // Use setTimeout to let UI update before blocking setScene()
-        setTimeout(() => {
-            // Disable preview lights (they would affect path tracer)
-            previewLight.intensity = 0;
-            ambientLight.intensity = 0;
-            app.enablePathTracing();
-
-            // Hide loading after first frame renders
-            requestAnimationFrame(() => {
-                hideLoading();
-                pathTraceButton.setLabel('■ Stop Path Trace');
-                pathTraceButton.domElement.style.backgroundColor = '#c94444';
-                pathTraceButton.domElement.style.color = '#ffffff';
-            });
-        }, 50);
+        // Disable preview lights (they would affect path tracer)
+        previewLight.intensity = 0;
+        ambientLight.intensity = 0;
+        app.enablePathTracing();
+        pathTraceButton.setLabel('■ Stop Path Trace');
+        pathTraceButton.domElement.style.backgroundColor = '#c94444';
+        pathTraceButton.domElement.style.color = '#ffffff';
     } else {
         app.disablePathTracing();
         // Re-enable preview lights

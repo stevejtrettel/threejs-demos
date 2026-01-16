@@ -66,6 +66,14 @@ export class RenderManager {
     private lastEnvironment?: THREE.Texture | null;
     private materialsNeedUpdate = false;
 
+    // Cached DOF settings (applied when pathTracer is initialized)
+    private dofSettings = {
+        enabled: false,
+        focusDistance: 5,
+        fStop: 2.8,
+        apertureBlades: 0
+    };
+
     constructor(options: RenderManagerOptions = {}) {
         // Create single WebGL renderer
         this.renderer = new THREE.WebGLRenderer({
@@ -128,6 +136,12 @@ export class RenderManager {
             if (opts.tiles) {
                 this.pathTracer.tiles.set(opts.tiles.x, opts.tiles.y);
             }
+
+            // Apply cached DOF settings
+            this.pathTracer.physicalCamera.enabled = this.dofSettings.enabled;
+            this.pathTracer.physicalCamera.focusDistance = this.dofSettings.focusDistance;
+            this.pathTracer.physicalCamera.fStop = this.dofSettings.fStop;
+            this.pathTracer.physicalCamera.apertureBlades = this.dofSettings.apertureBlades;
         } else if (options) {
             // Update existing PT settings
             if (options.bounces !== undefined) {
@@ -191,6 +205,7 @@ export class RenderManager {
      * Enable/disable depth of field (PT only)
      */
     setDOFEnabled(enabled: boolean): void {
+        this.dofSettings.enabled = enabled;
         if (this.pathTracer) {
             this.pathTracer.physicalCamera.enabled = enabled;
             this.resetAccumulation();
@@ -201,13 +216,14 @@ export class RenderManager {
      * Check if DOF is enabled
      */
     isDOFEnabled(): boolean {
-        return this.pathTracer?.physicalCamera.enabled ?? false;
+        return this.dofSettings.enabled;
     }
 
     /**
      * Set focus distance for DOF (PT only)
      */
     setFocusDistance(distance: number): void {
+        this.dofSettings.focusDistance = distance;
         if (this.pathTracer) {
             this.pathTracer.physicalCamera.focusDistance = distance;
             this.resetAccumulation();
@@ -218,7 +234,7 @@ export class RenderManager {
      * Get current focus distance
      */
     getFocusDistance(): number {
-        return this.pathTracer?.physicalCamera.focusDistance ?? 5;
+        return this.dofSettings.focusDistance;
     }
 
     /**
@@ -226,6 +242,7 @@ export class RenderManager {
      * Lower values = more blur, higher values = sharper
      */
     setFStop(fStop: number): void {
+        this.dofSettings.fStop = fStop;
         if (this.pathTracer) {
             this.pathTracer.physicalCamera.fStop = fStop;
             this.resetAccumulation();
@@ -236,7 +253,7 @@ export class RenderManager {
      * Get current f-stop
      */
     getFStop(): number {
-        return this.pathTracer?.physicalCamera.fStop ?? 1.4;
+        return this.dofSettings.fStop;
     }
 
     /**
@@ -244,6 +261,7 @@ export class RenderManager {
      * 0 = circular, 5-8 = typical polygon shapes
      */
     setApertureBlades(blades: number): void {
+        this.dofSettings.apertureBlades = blades;
         if (this.pathTracer) {
             this.pathTracer.physicalCamera.apertureBlades = blades;
             this.resetAccumulation();
@@ -254,7 +272,7 @@ export class RenderManager {
      * Get current aperture blade count
      */
     getApertureBlades(): number {
-        return this.pathTracer?.physicalCamera.apertureBlades ?? 0;
+        return this.dofSettings.apertureBlades;
     }
 
     /**

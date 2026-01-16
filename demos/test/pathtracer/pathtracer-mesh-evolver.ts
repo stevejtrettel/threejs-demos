@@ -350,16 +350,12 @@ const physicalCamera = new PhysicalCamera(
     1000  // far
 );
 physicalCamera.position.set(0, 2.5, 5);
-physicalCamera.lookAt(0, 0.8, 0);
+physicalCamera.lookAt(0, 1.2, 0);
 
 // Replace app's camera with PhysicalCamera
 (app.cameraManager as any).camera = physicalCamera;
 (app.controls.controls as any).object = physicalCamera;
 (app.layout as any).camera = physicalCamera;
-
-// Set orbit controls target to match lookAt
-(app.controls.controls as any).target.set(0, 0.8, 0);
-(app.controls.controls as any).update();
 
 // ===================================
 // FOCUS PLANE HELPER

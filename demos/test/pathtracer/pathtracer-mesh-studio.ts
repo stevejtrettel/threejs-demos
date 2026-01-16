@@ -284,15 +284,11 @@ showMesh(parseOBJ(createTorus()));
 
 const physicalCamera = new PhysicalCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 physicalCamera.position.set(0, 2.5, 5);
-physicalCamera.lookAt(0, 0.8, 0);
+physicalCamera.lookAt(0, 1.2, 0);
 
 (app.cameraManager as any).camera = physicalCamera;
 (app.controls.controls as any).object = physicalCamera;
 (app.layout as any).camera = physicalCamera;
-
-// Set orbit controls target to match lookAt
-(app.controls.controls as any).target.set(0, 0.8, 0);
-(app.controls.controls as any).update();
 
 // ===================================
 // FOCUS PLANE HELPER

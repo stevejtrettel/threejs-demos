@@ -437,8 +437,11 @@ physicalCamera.apertureBlades = 0;
 // Replace the app's camera with our PhysicalCamera
 // This is needed for the path tracer to recognize DOF settings
 (app.cameraManager as any).camera = physicalCamera;
-app.controls.object = physicalCamera;
+(app.controls.controls as any).object = physicalCamera;  // OrbitControls.object
 (app.layout as any).camera = physicalCamera;
+
+// Debug: verify camera is PhysicalCamera
+console.log('Camera is PhysicalCamera:', physicalCamera.constructor.name);
 
 // ===================================
 // FOCUS PLANE HELPER
@@ -530,6 +533,13 @@ const pathTraceButton = new Button('▶ Start Path Trace', () => {
         pathTraceButton.setLabel('■ Stop Path Trace');
         pathTraceButton.domElement.style.backgroundColor = '#c94444';
         pathTraceButton.domElement.style.color = '#ffffff';
+
+        // Debug DOF settings
+        console.log('Camera passed to PT:', app.camera.constructor.name);
+        console.log('Camera fStop:', (app.camera as any).fStop);
+        console.log('Camera focusDistance:', (app.camera as any).focusDistance);
+        console.log('Camera focal length:', (app.camera as any).getFocalLength?.());
+        console.log('Camera bokehSize:', (app.camera as any).bokehSize);
     } else {
         app.disablePathTracing();
         pathTraceButton.setLabel('▶ Start Path Trace');

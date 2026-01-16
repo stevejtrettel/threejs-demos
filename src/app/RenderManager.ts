@@ -215,36 +215,47 @@ export class RenderManager {
      * the path tracer then reads during rendering.
      */
     private applyDOFSettings(): void {
-        if (!this.currentCamera) return;
+        if (!this.pathTracer || !this.currentCamera) return;
 
-        // Check if camera has PhysicalCamera properties (fStop, focusDistance, etc.)
         const cam = this.currentCamera as any;
-        if (typeof cam.fStop === 'undefined') {
-            // Not a PhysicalCamera - DOF won't work
-            // (path tracer's updateFrom will set bokehSize to 0)
-            return;
+        const focalLength = cam.getFocalLength?.() || 35;
+
+        // Calculate bokehSize: larger = more blur
+        // We need very large values because shader multiplies by 0.5 * 1e-3
+        let bokehSize: number;
+        let focusDistance: number;
+        let apertureBlades: number;
+
+        if (this.dofSettings.enabled) {
+            // bokehSize = focalLength / fStop, but we need much larger values
+            // Multiply by 10 to get visible blur
+            bokehSize = (focalLength / this.dofSettings.fStop) * 10;
+            focusDistance = this.dofSettings.focusDistance;
+            apertureBlades = this.dofSettings.apertureBlades;
+        } else {
+            bokehSize = 0;
+            focusDistance = 10;
+            apertureBlades = 0;
         }
 
-        // Sync DOF settings to camera properties
-        // The path tracer reads these via updateFrom(camera)
-        // Note: Shader uses bokehSize * 0.5 * 1e-3, so we need large bokehSize values
-        // bokehSize = focalLength / fStop, so we scale fStop down significantly
-        if (this.dofSettings.enabled) {
-            cam.fStop = this.dofSettings.fStop / 100;  // Scale down for visible blur
-            cam.focusDistance = this.dofSettings.focusDistance;
-            cam.apertureBlades = this.dofSettings.apertureBlades;
+        // DIRECTLY set the path tracer's internal uniforms
+        // This is what actually controls the DOF in the shader
+        const pt = this.pathTracer as any;
+        const uniforms = pt._pathTracer?.material?.uniforms?.physicalCamera?.value;
 
-            // Debug: log actual values
-            const focalLength = cam.getFocalLength?.() || 35;
-            console.log('DOF applied:', {
-                fStop: cam.fStop,
-                focusDistance: cam.focusDistance,
-                focalLength,
-                bokehSize: focalLength / cam.fStop
+        if (uniforms) {
+            uniforms.bokehSize = bokehSize;
+            uniforms.focusDistance = focusDistance;
+            uniforms.apertureBlades = apertureBlades;
+
+            console.log('DOF uniforms set directly:', {
+                bokehSize,
+                focusDistance,
+                apertureBlades,
+                focalLength
             });
         } else {
-            // Very high fStop = effectively no DOF
-            cam.fStop = 10000;
+            console.warn('Could not access path tracer uniforms');
         }
     }
 

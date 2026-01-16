@@ -70,6 +70,14 @@ floor.rotation.x = -Math.PI / 2;
 floor.position.y = 0;
 app.scene.add(floor);
 
+// Back wall (same material as floor)
+const backWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(30, 20),
+    floorMat
+);
+backWall.position.set(0, 10, -15);
+app.scene.add(backWall);
+
 // ===================================
 // THREE-POINT LIGHTING SYSTEM
 // ===================================
@@ -436,8 +444,12 @@ lightingFolder.add(new ColorInput('#ffaacc', { label: 'Rim (Accent)', onChange: 
 
 panel.add(lightingFolder);
 
-// Floor
-const floorFolder = new Folder('Floor');
+// Floor & Wall
+const floorFolder = new Folder('Floor & Wall');
+floorFolder.add(new Slider(0, { label: 'Floor Height', min: -3, max: 3, step: 0.1, onChange: v => {
+    floor.position.y = v;
+    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+}}));
 floorFolder.add(new ColorInput('#fafafa', { label: 'Color', onChange: c => {
     floorMat.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }

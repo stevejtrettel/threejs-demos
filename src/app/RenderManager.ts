@@ -227,8 +227,10 @@ export class RenderManager {
 
         // Sync DOF settings to camera properties
         // The path tracer reads these via updateFrom(camera)
+        // Note: We scale fStop down by 10x to get visible blur
+        // (bokehSize = focalLength / fStop, so lower fStop = more blur)
         if (this.dofSettings.enabled) {
-            cam.fStop = this.dofSettings.fStop;
+            cam.fStop = this.dofSettings.fStop / 10;  // Scale for visible effect
             cam.focusDistance = this.dofSettings.focusDistance;
             cam.apertureBlades = this.dofSettings.apertureBlades;
         } else {

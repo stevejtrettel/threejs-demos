@@ -449,14 +449,11 @@ panel.add(actionsFolder);
 // CAMERA (DOF)
 // ─────────────────────────────────────
 
-const cameraFolder = new Folder('Camera');
+// Enable DOF by default (high f-stop = sharp like pinhole, lower = blur)
+app.renderManager.setDOFEnabled(true);
+app.renderManager.setFStop(16);
 
-cameraFolder.add(new Toggle(false, {
-    label: 'Depth of Field',
-    onChange: (enabled) => {
-        app.renderManager.setDOFEnabled(enabled);
-    }
-}));
+const cameraFolder = new Folder('Camera');
 
 cameraFolder.add(new Toggle(false, {
     label: 'Show Focus Plane',
@@ -478,7 +475,7 @@ cameraFolder.add(new Slider(5.0, {
     }
 }));
 
-cameraFolder.add(new Slider(2.8, {
+cameraFolder.add(new Slider(16, {
     label: 'f-Stop',
     min: 0.5,
     max: 16,

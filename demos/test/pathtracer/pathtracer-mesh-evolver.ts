@@ -20,6 +20,7 @@ import { Slider } from '@/ui/inputs/Slider';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { saveAs } from 'file-saver';
 
 // Initialize RectAreaLight support for WebGL
 RectAreaLightUniformsLib.init();
@@ -384,8 +385,13 @@ renderFolder.add(new Button('Reset Accumulation', () => {
 }));
 
 renderFolder.add(new Button('Download Image', () => {
+    // Capture canvas directly without re-rendering (preserves path tracer result)
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-    app.screenshot(`mesh-evolver-${timestamp}.png`);
+    app.renderManager.renderer.domElement.toBlob((blob) => {
+        if (blob) {
+            saveAs(blob, `mesh-evolver-${timestamp}.png`);
+        }
+    });
 }));
 
 panel.add(renderFolder);

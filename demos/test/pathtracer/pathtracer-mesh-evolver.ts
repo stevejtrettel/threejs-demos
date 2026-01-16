@@ -685,9 +685,9 @@ appearanceFolder.add(new Toggle(false, {
             const mat = visualizer.faceMesh.material as THREE.MeshPhysicalMaterial;
             if (isGlass) {
                 // Glass properties
-                mat.transmission = 1.0;
-                mat.ior = 1.5;
-                mat.thickness = 0.5;
+                mat.transmission = 0.98;
+                mat.ior = 1.25;
+                mat.thickness = 0.1;
                 mat.roughness = 0.0;
                 mat.metalness = 0.0;
                 mat.transparent = true;

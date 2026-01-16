@@ -472,7 +472,7 @@ function updateFocusPlane() {
 }
 
 // Update focus plane on each frame
-app.onRender(() => {
+app.addAnimateCallback(() => {
     updateFocusPlane();
 });
 

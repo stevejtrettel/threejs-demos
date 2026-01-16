@@ -152,14 +152,24 @@ previewLight.position.set(5, 8, 5);
 app.scene.add(previewLight);
 
 // Physical spotlight for path tracing (accent light from the side)
-const spotLight = new PhysicalSpotLight(0xffffff, 0);  // Start disabled
-spotLight.position.set(5, 5, 3);
-spotLight.angle = Math.PI / 6;  // 30 degree cone
-spotLight.penumbra = 0.3;  // Soft edge
-spotLight.decay = 2;
-spotLight.distance = 20;
+const spotLight = new PhysicalSpotLight(0xffffff);
+spotLight.position.set(5, 6, 3);
+spotLight.angle = Math.PI / 2;
+spotLight.decay = 0;
+spotLight.penumbra = 1.0;
+spotLight.distance = 0;  // Infinite range
+spotLight.intensity = 0;  // Start disabled
 spotLight.radius = 0.5;  // Soft shadows in path tracer
-// Point at center of scene
+
+// Spotlight shadow settings
+spotLight.shadow.mapSize.width = 512;
+spotLight.shadow.mapSize.height = 512;
+spotLight.shadow.camera.near = 0.1;
+spotLight.shadow.camera.far = 20.0;
+spotLight.shadow.focus = 1.0;
+spotLight.castShadow = true;
+
+// Spotlight target (point at mesh)
 spotLight.target.position.set(0, 2.5, 0);
 app.scene.add(spotLight);
 app.scene.add(spotLight.target);

@@ -672,7 +672,7 @@ appearanceFolder.add(new Toggle(false, {
                 // Glass properties - use attenuationColor for tinted glass
                 mat.transmission = 1.0;
                 mat.ior = 1.5;
-                mat.thickness = 1.0;
+                mat.thickness = 0.01;
                 mat.roughness = 0.0;
                 mat.metalness = 0.0;
                 mat.transparent = true;

@@ -17,6 +17,7 @@ import { Folder } from '@/ui/containers/Folder';
 import { Toggle } from '@/ui/inputs/Toggle';
 import { Button } from '@/ui/inputs/Button';
 import { Slider } from '@/ui/inputs/Slider';
+import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
@@ -150,20 +151,39 @@ app.scene.add(ambientLight);
 
 // Current visualizer (uses merged geometry for path tracer compatibility)
 let visualizer: MeshVisualizer | null = null;
+let currentParsedMesh: ParsedMesh | null = null;
 
-// Scale, position, and rotation settings
+// Helper to reload mesh with current settings (for color/visibility changes)
+function reloadCurrentMesh() {
+    if (currentParsedMesh) {
+        showMesh(currentParsedMesh);
+    }
+}
+
+// Mesh transform and appearance settings
 const meshSettings = {
+    // Transform
     scale: 1.0,
     positionY: 2.5,  // Object sits on a pedestal height
     rotationX: 0,
     rotationY: 0,
-    rotationZ: 0
+    rotationZ: 0,
+    // Appearance
+    showVertices: true,
+    showEdges: true,
+    showFaces: true,
+    vertexColor: '#222222',
+    edgeColor: '#3366aa',
+    faceColor: '#ffcc88'
 };
 
 /**
  * Display a parsed mesh using MeshVisualizer
  */
 function showMesh(parsed: ParsedMesh) {
+    // Store for later reloading
+    currentParsedMesh = parsed;
+
     // Remove existing visualizer
     if (visualizer) {
         app.scene.remove(visualizer);
@@ -175,13 +195,13 @@ function showMesh(parsed: ParsedMesh) {
     visualizer = new MeshVisualizer(parsed, {
         sphereRadius: 0.06,
         tubeRadius: 0.025,
-        vertexColor: 0x222222,    // Dark vertices
-        edgeColor: 0x3366aa,      // Blue edges
-        faceColor: 0xffcc88,      // Warm gold faces
+        vertexColor: meshSettings.vertexColor,
+        edgeColor: meshSettings.edgeColor,
+        faceColor: meshSettings.faceColor,
         faceOpacity: 0.95,
-        showVertices: true,
-        showEdges: true,
-        showFaces: true,
+        showVertices: meshSettings.showVertices,
+        showEdges: meshSettings.showEdges,
+        showFaces: meshSettings.showFaces,
     });
 
     // Center and scale the mesh
@@ -335,8 +355,63 @@ function createSubdividedIcosahedron(subdivisions: number = 1) {
     return objText;
 }
 
-// Load sample mesh on start
-loadAndDisplayOBJ(createSubdividedIcosahedron(2));
+/**
+ * Create a torus mesh
+ */
+function createTorus(majorRadius: number = 1.0, minorRadius: number = 0.4, majorSegments: number = 24, minorSegments: number = 12) {
+    const vertices: number[][] = [];
+    const faces: number[][] = [];
+
+    // Generate vertices
+    for (let i = 0; i < majorSegments; i++) {
+        const theta = (i / majorSegments) * Math.PI * 2;
+        const cosTheta = Math.cos(theta);
+        const sinTheta = Math.sin(theta);
+
+        for (let j = 0; j < minorSegments; j++) {
+            const phi = (j / minorSegments) * Math.PI * 2;
+            const cosPhi = Math.cos(phi);
+            const sinPhi = Math.sin(phi);
+
+            const x = (majorRadius + minorRadius * cosPhi) * cosTheta;
+            const y = minorRadius * sinPhi;
+            const z = (majorRadius + minorRadius * cosPhi) * sinTheta;
+
+            vertices.push([x, y, z]);
+        }
+    }
+
+    // Generate faces (quads split into triangles)
+    for (let i = 0; i < majorSegments; i++) {
+        const nextI = (i + 1) % majorSegments;
+        for (let j = 0; j < minorSegments; j++) {
+            const nextJ = (j + 1) % minorSegments;
+
+            const v0 = i * minorSegments + j;
+            const v1 = nextI * minorSegments + j;
+            const v2 = nextI * minorSegments + nextJ;
+            const v3 = i * minorSegments + nextJ;
+
+            // Two triangles per quad
+            faces.push([v0, v1, v2]);
+            faces.push([v0, v2, v3]);
+        }
+    }
+
+    // Generate OBJ format
+    let objText = '# Torus\n';
+    for (const [x, y, z] of vertices) {
+        objText += `v ${x} ${y} ${z}\n`;
+    }
+    for (const [a, b, c] of faces) {
+        objText += `f ${a + 1} ${b + 1} ${c + 1}\n`;
+    }
+
+    return objText;
+}
+
+// Load torus as default mesh
+loadAndDisplayOBJ(createTorus());
 
 // ===================================
 // CAMERA SETUP
@@ -362,92 +437,92 @@ async function loadFromFilePicker() {
 // UI PANEL
 // ===================================
 
-const panel = new Panel('Mesh Evolver Path Tracer');
+const panel = new Panel('Path Tracer Studio');
 
-// Rendering controls
-const renderFolder = new Folder('Rendering');
+// ─────────────────────────────────────
+// TOP-LEVEL ACTIONS (always visible)
+// ─────────────────────────────────────
 
-renderFolder.add(new Toggle(false, {
+const actionsFolder = new Folder('Actions');
+
+actionsFolder.add(new Button('Load OBJ File', loadFromFilePicker));
+
+actionsFolder.add(new Toggle(false, {
     label: 'Path Tracing',
     onChange: (enabled) => {
         if (enabled) {
             app.enablePathTracing();
-            console.log('Path tracing enabled - samples will accumulate');
         } else {
             app.disablePathTracing();
-            console.log('WebGL rendering enabled');
         }
     }
 }));
 
-renderFolder.add(new Button('Reset Accumulation', () => {
-    app.renderManager.resetAccumulation();
-}));
-
-renderFolder.add(new Button('Download Image', () => {
-    // Force a render to ensure canvas has content, then capture
+actionsFolder.add(new Button('Download Image', () => {
     app.renderManager.render(app.scene, app.camera);
-
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
     app.renderManager.renderer.domElement.toBlob((blob) => {
         if (blob) {
-            saveAs(blob, `mesh-evolver-${timestamp}.png`);
+            saveAs(blob, `render-${timestamp}.png`);
         }
     });
 }));
 
-panel.add(renderFolder);
+panel.add(actionsFolder);
 
-// Light controls
-const lightFolder = new Folder('Quad Light');
+// ─────────────────────────────────────
+// CAMERA (DOF)
+// ─────────────────────────────────────
 
-lightFolder.add(new Slider(25, {
-    label: 'Intensity',
+const cameraFolder = new Folder('Camera');
+
+cameraFolder.add(new Toggle(false, {
+    label: 'Depth of Field',
+    onChange: (enabled) => {
+        app.renderManager.setDOFEnabled(enabled);
+    }
+}));
+
+cameraFolder.add(new Slider(5.0, {
+    label: 'Focus Distance',
+    min: 0.5,
+    max: 15,
+    step: 0.1,
+    onChange: (value) => {
+        app.renderManager.setFocusDistance(value);
+    }
+}));
+
+cameraFolder.add(new Slider(2.8, {
+    label: 'f-Stop',
+    min: 0.5,
+    max: 16,
+    step: 0.1,
+    onChange: (value) => {
+        app.renderManager.setFStop(value);
+    }
+}));
+
+cameraFolder.add(new Slider(0, {
+    label: 'Aperture Blades',
     min: 0,
-    max: 80,
+    max: 8,
     step: 1,
     onChange: (value) => {
-        rectLight.intensity = value;
-        lightPanelMat.emissiveIntensity = value / 5;
-        if (app.renderManager.isPathTracing()) {
-            app.renderManager.notifyMaterialsChanged();
-            app.renderManager.resetAccumulation();
-        }
+        app.renderManager.setApertureBlades(value);
     }
 }));
 
-lightFolder.add(new Slider(6, {
-    label: 'Size',
-    min: 1,
-    max: 10,
-    step: 0.5,
-    onChange: (value) => {
-        rectLight.width = value;
-        rectLight.height = value;
-        lightPanel.scale.set(value / lightWidth, value / lightHeight, 1);
-        if (app.renderManager.isPathTracing()) {
-            app.renderManager.notifyMaterialsChanged();
-            app.renderManager.resetAccumulation();
-        }
-    }
-}));
+panel.add(cameraFolder);
+cameraFolder.close();
 
-panel.add(lightFolder);
+// ─────────────────────────────────────
+// MESH TRANSFORM
+// ─────────────────────────────────────
 
-// Mesh controls
-const meshFolder = new Folder('Mesh');
+const transformFolder = new Folder('Mesh Transform');
 
-meshFolder.add(new Button('Load OBJ File', loadFromFilePicker));
-
-meshFolder.add(new Button('Sample: Icosahedron', () => {
-    loadAndDisplayOBJ(createSampleMesh());
-}));
-
-meshFolder.add(new Button('Sample: Subdivided Sphere', () => {
-    loadAndDisplayOBJ(createSubdividedIcosahedron(2));
-}));
-
-meshFolder.add(new Slider(1.0, {
+transformFolder.add(new Slider(1.0, {
     label: 'Scale',
     min: 0.2,
     max: 3.0,
@@ -463,8 +538,7 @@ meshFolder.add(new Slider(1.0, {
     }
 }));
 
-// Rotation sliders
-meshFolder.add(new Slider(0, {
+transformFolder.add(new Slider(0, {
     label: 'Rotate X',
     min: -Math.PI,
     max: Math.PI,
@@ -480,7 +554,7 @@ meshFolder.add(new Slider(0, {
     }
 }));
 
-meshFolder.add(new Slider(0, {
+transformFolder.add(new Slider(0, {
     label: 'Rotate Y',
     min: -Math.PI,
     max: Math.PI,
@@ -496,7 +570,7 @@ meshFolder.add(new Slider(0, {
     }
 }));
 
-meshFolder.add(new Slider(0, {
+transformFolder.add(new Slider(0, {
     label: 'Rotate Z',
     min: -Math.PI,
     max: Math.PI,
@@ -512,29 +586,164 @@ meshFolder.add(new Slider(0, {
     }
 }));
 
-panel.add(meshFolder);
+panel.add(transformFolder);
+transformFolder.close();
 
-// Info
-const infoFolder = new Folder('About');
-const info = document.createElement('div');
-info.style.cssText = 'padding: 8px; font-size: 11px; line-height: 1.6; color: var(--cr-text-secondary);';
-info.innerHTML = `
-  <strong>White Studio + Mesh Evolver</strong><br/><br/>
+// ─────────────────────────────────────
+// MESH APPEARANCE
+// ─────────────────────────────────────
 
-  Clean white studio with:<br/>
-  - Large soft quad light<br/>
-  - Mesh evolver OBJ visualization<br/><br/>
+const appearanceFolder = new Folder('Mesh Appearance');
 
-  <strong>Mesh Display:</strong><br/>
-  - Gold surface<br/>
-  - Blue tube edges<br/>
-  - Dark vertex spheres<br/><br/>
+appearanceFolder.add(new Toggle(true, {
+    label: 'Show Vertices',
+    onChange: (visible) => {
+        meshSettings.showVertices = visible;
+        if (visualizer) {
+            visualizer.setVerticesVisible(visible);
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
 
-  Enable path tracing for<br/>
-  beautiful global illumination!
-`;
-infoFolder.domElement.appendChild(info);
-panel.add(infoFolder);
+appearanceFolder.add(new Toggle(true, {
+    label: 'Show Edges',
+    onChange: (visible) => {
+        meshSettings.showEdges = visible;
+        if (visualizer) {
+            visualizer.setEdgesVisible(visible);
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
+
+appearanceFolder.add(new Toggle(true, {
+    label: 'Show Faces',
+    onChange: (visible) => {
+        meshSettings.showFaces = visible;
+        if (visualizer) {
+            visualizer.setFacesVisible(visible);
+            if (app.renderManager.isPathTracing()) {
+                app.renderManager.resetAccumulation();
+            }
+        }
+    }
+}));
+
+appearanceFolder.add(new ColorInput(meshSettings.vertexColor, {
+    label: 'Vertex Color',
+    onChange: (color) => {
+        meshSettings.vertexColor = color;
+        reloadCurrentMesh();
+    }
+}));
+
+appearanceFolder.add(new ColorInput(meshSettings.edgeColor, {
+    label: 'Edge Color',
+    onChange: (color) => {
+        meshSettings.edgeColor = color;
+        reloadCurrentMesh();
+    }
+}));
+
+appearanceFolder.add(new ColorInput(meshSettings.faceColor, {
+    label: 'Face Color',
+    onChange: (color) => {
+        meshSettings.faceColor = color;
+        reloadCurrentMesh();
+    }
+}));
+
+panel.add(appearanceFolder);
+appearanceFolder.close();
+
+// ─────────────────────────────────────
+// LIGHTING
+// ─────────────────────────────────────
+
+const lightingFolder = new Folder('Lighting');
+
+lightingFolder.add(new Slider(25, {
+    label: 'Intensity',
+    min: 0,
+    max: 80,
+    step: 1,
+    onChange: (value) => {
+        rectLight.intensity = value;
+        lightPanelMat.emissiveIntensity = value / 5;
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
+    }
+}));
+
+lightingFolder.add(new Slider(6, {
+    label: 'Light Size',
+    min: 1,
+    max: 10,
+    step: 0.5,
+    onChange: (value) => {
+        rectLight.width = value;
+        rectLight.height = value;
+        lightPanel.scale.set(value / lightWidth, value / lightHeight, 1);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
+    }
+}));
+
+panel.add(lightingFolder);
+lightingFolder.close();
+
+// ─────────────────────────────────────
+// PATH TRACER SETTINGS
+// ─────────────────────────────────────
+
+const pathTracerFolder = new Folder('Path Tracer');
+
+pathTracerFolder.add(new Slider(8, {
+    label: 'Bounces',
+    min: 1,
+    max: 16,
+    step: 1,
+    onChange: (value) => {
+        app.renderManager.setBounces(value);
+    }
+}));
+
+pathTracerFolder.add(new Button('Reset Accumulation', () => {
+    app.renderManager.resetAccumulation();
+}));
+
+panel.add(pathTracerFolder);
+pathTracerFolder.close();
+
+// ─────────────────────────────────────
+// SAMPLE MESHES
+// ─────────────────────────────────────
+
+const samplesFolder = new Folder('Sample Meshes');
+
+samplesFolder.add(new Button('Torus', () => {
+    loadAndDisplayOBJ(createTorus());
+}));
+
+samplesFolder.add(new Button('Icosahedron', () => {
+    loadAndDisplayOBJ(createSampleMesh());
+}));
+
+samplesFolder.add(new Button('Subdivided Sphere', () => {
+    loadAndDisplayOBJ(createSubdividedIcosahedron(2));
+}));
+
+panel.add(samplesFolder);
+samplesFolder.close();
 
 panel.mount(document.body);
 
@@ -544,7 +753,5 @@ panel.mount(document.body);
 
 app.start();
 
-console.log('Cornell Box + Mesh Evolver Path Tracer');
-console.log('');
-console.log('Load your mesh evolver OBJ files or use the sample meshes.');
-console.log('Enable Path Tracing for photorealistic rendering.');
+console.log('Path Tracer Studio');
+console.log('Load OBJ files and render with GPU path tracing.');

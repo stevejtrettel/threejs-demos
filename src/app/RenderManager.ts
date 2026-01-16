@@ -188,6 +188,76 @@ export class RenderManager {
     }
 
     /**
+     * Enable/disable depth of field (PT only)
+     */
+    setDOFEnabled(enabled: boolean): void {
+        if (this.pathTracer) {
+            this.pathTracer.physicalCamera.enabled = enabled;
+            this.resetAccumulation();
+        }
+    }
+
+    /**
+     * Check if DOF is enabled
+     */
+    isDOFEnabled(): boolean {
+        return this.pathTracer?.physicalCamera.enabled ?? false;
+    }
+
+    /**
+     * Set focus distance for DOF (PT only)
+     */
+    setFocusDistance(distance: number): void {
+        if (this.pathTracer) {
+            this.pathTracer.physicalCamera.focusDistance = distance;
+            this.resetAccumulation();
+        }
+    }
+
+    /**
+     * Get current focus distance
+     */
+    getFocusDistance(): number {
+        return this.pathTracer?.physicalCamera.focusDistance ?? 5;
+    }
+
+    /**
+     * Set f-stop (aperture) for DOF (PT only)
+     * Lower values = more blur, higher values = sharper
+     */
+    setFStop(fStop: number): void {
+        if (this.pathTracer) {
+            this.pathTracer.physicalCamera.fStop = fStop;
+            this.resetAccumulation();
+        }
+    }
+
+    /**
+     * Get current f-stop
+     */
+    getFStop(): number {
+        return this.pathTracer?.physicalCamera.fStop ?? 1.4;
+    }
+
+    /**
+     * Set aperture blade count for bokeh shape (PT only)
+     * 0 = circular, 5-8 = typical polygon shapes
+     */
+    setApertureBlades(blades: number): void {
+        if (this.pathTracer) {
+            this.pathTracer.physicalCamera.apertureBlades = blades;
+            this.resetAccumulation();
+        }
+    }
+
+    /**
+     * Get current aperture blade count
+     */
+    getApertureBlades(): number {
+        return this.pathTracer?.physicalCamera.apertureBlades ?? 0;
+    }
+
+    /**
      * Notify that materials have changed while pathtracing is active
      *
      * NOTE: You usually DON'T need to call this!

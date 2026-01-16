@@ -619,12 +619,7 @@ appearanceFolder.add(new Toggle(true, {
     label: 'Show Vertices',
     onChange: (visible) => {
         meshSettings.showVertices = visible;
-        if (visualizer) {
-            visualizer.setVerticesVisible(visible);
-            if (app.renderManager.isPathTracing()) {
-                app.renderManager.resetAccumulation();
-            }
-        }
+        reloadCurrentMesh();
     }
 }));
 
@@ -632,12 +627,7 @@ appearanceFolder.add(new Toggle(true, {
     label: 'Show Edges',
     onChange: (visible) => {
         meshSettings.showEdges = visible;
-        if (visualizer) {
-            visualizer.setEdgesVisible(visible);
-            if (app.renderManager.isPathTracing()) {
-                app.renderManager.resetAccumulation();
-            }
-        }
+        reloadCurrentMesh();
     }
 }));
 
@@ -645,12 +635,7 @@ appearanceFolder.add(new Toggle(true, {
     label: 'Show Faces',
     onChange: (visible) => {
         meshSettings.showFaces = visible;
-        if (visualizer) {
-            visualizer.setFacesVisible(visible);
-            if (app.renderManager.isPathTracing()) {
-                app.renderManager.resetAccumulation();
-            }
-        }
+        reloadCurrentMesh();
     }
 }));
 

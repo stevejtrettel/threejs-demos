@@ -44,8 +44,8 @@ const app = new App({
 // ===================================
 
 const gradientTexture = new GradientEquirectTexture();
-gradientTexture.topColor.set(0x1a1a2e);  // Deep blue-black
-gradientTexture.bottomColor.set(0x0f0f14);  // Near black
+gradientTexture.topColor.set(0xffffff);  // White
+gradientTexture.bottomColor.set(0xe8e8e8);  // Slight gray at horizon
 gradientTexture.update();
 app.scene.environment = gradientTexture;
 app.scene.background = gradientTexture;
@@ -55,11 +55,11 @@ app.scene.background = gradientTexture;
 // ===================================
 
 const floorMat = new THREE.MeshPhysicalMaterial({
-    color: 0x111111,
-    roughness: 0.15,
+    color: 0xfafafa,  // Off-white
+    roughness: 0.4,
     metalness: 0.0,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.1,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.3,
 });
 
 const floor = new THREE.Mesh(
@@ -96,19 +96,19 @@ function createSpotlight(color: number, intensity: number, position: THREE.Vecto
     return light;
 }
 
-// Key light - main warm light from upper left front
-const keyLight = createSpotlight(0xffaa66, 12, new THREE.Vector3(-5, 8, 4));
+// Key light - warm white from upper left front
+const keyLight = createSpotlight(0xfff5e6, 10, new THREE.Vector3(-5, 8, 4));
 app.scene.add(keyLight);
 app.scene.add(keyLight.target);
 
-// Fill light - cooler, softer light from right
-const fillLight = createSpotlight(0x6688ff, 6, new THREE.Vector3(6, 5, 3));
+// Fill light - cool white from right
+const fillLight = createSpotlight(0xe6f0ff, 6, new THREE.Vector3(6, 5, 3));
 fillLight.angle = Math.PI / 3;
 app.scene.add(fillLight);
 app.scene.add(fillLight.target);
 
-// Rim/back light - accent from behind
-const rimLight = createSpotlight(0xff4488, 8, new THREE.Vector3(0, 6, -5));
+// Rim/back light - slight magenta tint from behind
+const rimLight = createSpotlight(0xffe6f0, 8, new THREE.Vector3(0, 6, -5));
 rimLight.angle = Math.PI / 3;
 app.scene.add(rimLight);
 app.scene.add(rimLight.target);
@@ -368,11 +368,11 @@ appearanceFolder.close();
 
 // Lighting - Key Light
 const keyLightFolder = new Folder('Key Light (Warm)');
-keyLightFolder.add(new ColorInput('#ffaa66', { label: 'Color', onChange: c => {
+keyLightFolder.add(new ColorInput('#fff5e6', { label: 'Color', onChange: c => {
     keyLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-keyLightFolder.add(new Slider(12, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
+keyLightFolder.add(new Slider(10, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
     keyLight.intensity = v;
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
@@ -388,7 +388,7 @@ panel.add(keyLightFolder);
 
 // Lighting - Fill Light
 const fillLightFolder = new Folder('Fill Light (Cool)');
-fillLightFolder.add(new ColorInput('#6688ff', { label: 'Color', onChange: c => {
+fillLightFolder.add(new ColorInput('#e6f0ff', { label: 'Color', onChange: c => {
     fillLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
@@ -401,7 +401,7 @@ fillLightFolder.close();
 
 // Lighting - Rim Light
 const rimLightFolder = new Folder('Rim Light (Accent)');
-rimLightFolder.add(new ColorInput('#ff4488', { label: 'Color', onChange: c => {
+rimLightFolder.add(new ColorInput('#ffe6f0', { label: 'Color', onChange: c => {
     rimLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
@@ -414,15 +414,15 @@ rimLightFolder.close();
 
 // Floor
 const floorFolder = new Folder('Floor');
-floorFolder.add(new ColorInput('#111111', { label: 'Color', onChange: c => {
+floorFolder.add(new ColorInput('#fafafa', { label: 'Color', onChange: c => {
     floorMat.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-floorFolder.add(new Slider(0.15, { label: 'Roughness', min: 0, max: 1, step: 0.05, onChange: v => {
+floorFolder.add(new Slider(0.4, { label: 'Roughness', min: 0, max: 1, step: 0.05, onChange: v => {
     floorMat.roughness = v;
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-floorFolder.add(new Slider(1.0, { label: 'Clearcoat', min: 0, max: 1, step: 0.05, onChange: v => {
+floorFolder.add(new Slider(0.2, { label: 'Clearcoat', min: 0, max: 1, step: 0.05, onChange: v => {
     floorMat.clearcoat = v;
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
@@ -431,12 +431,12 @@ floorFolder.close();
 
 // Environment
 const envFolder = new Folder('Environment');
-envFolder.add(new ColorInput('#1a1a2e', { label: 'Sky Color', onChange: c => {
+envFolder.add(new ColorInput('#ffffff', { label: 'Sky Color', onChange: c => {
     gradientTexture.topColor.set(c);
     gradientTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-envFolder.add(new ColorInput('#0f0f14', { label: 'Horizon Color', onChange: c => {
+envFolder.add(new ColorInput('#e8e8e8', { label: 'Horizon Color', onChange: c => {
     gradientTexture.bottomColor.set(c);
     gradientTexture.update();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }

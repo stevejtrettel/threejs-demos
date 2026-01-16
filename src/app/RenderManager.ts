@@ -227,12 +227,21 @@ export class RenderManager {
 
         // Sync DOF settings to camera properties
         // The path tracer reads these via updateFrom(camera)
-        // Note: We scale fStop down by 10x to get visible blur
-        // (bokehSize = focalLength / fStop, so lower fStop = more blur)
+        // Note: Shader uses bokehSize * 0.5 * 1e-3, so we need large bokehSize values
+        // bokehSize = focalLength / fStop, so we scale fStop down significantly
         if (this.dofSettings.enabled) {
-            cam.fStop = this.dofSettings.fStop / 10;  // Scale for visible effect
+            cam.fStop = this.dofSettings.fStop / 100;  // Scale down for visible blur
             cam.focusDistance = this.dofSettings.focusDistance;
             cam.apertureBlades = this.dofSettings.apertureBlades;
+
+            // Debug: log actual values
+            const focalLength = cam.getFocalLength?.() || 35;
+            console.log('DOF applied:', {
+                fStop: cam.fStop,
+                focusDistance: cam.focusDistance,
+                focalLength,
+                bokehSize: focalLength / cam.fStop
+            });
         } else {
             // Very high fStop = effectively no DOF
             cam.fStop = 10000;

@@ -225,6 +225,7 @@ export class RenderManager {
         let bokehSize: number;
         let focusDistance: number;
         let apertureBlades: number;
+        let cameraFStop: number;
 
         if (this.dofSettings.enabled) {
             // bokehSize = focalLength / fStop, but we need much larger values
@@ -232,14 +233,26 @@ export class RenderManager {
             bokehSize = (focalLength / this.dofSettings.fStop) * 10;
             focusDistance = this.dofSettings.focusDistance;
             apertureBlades = this.dofSettings.apertureBlades;
+            // Camera fStop needed to produce our boosted bokehSize
+            // (since cam.bokehSize is a getter: focalLength / fStop)
+            cameraFStop = this.dofSettings.fStop / 10;
         } else {
             bokehSize = 0;
             focusDistance = 10;
             apertureBlades = 0;
+            cameraFStop = 10000;
         }
 
-        // DIRECTLY set the path tracer's internal uniforms
-        // This is what actually controls the DOF in the shader
+        // Set camera properties so updateFrom(camera) reads correct values
+        // This prevents the path tracer from overwriting our settings
+        if (typeof cam.fStop !== 'undefined') {
+            cam.fStop = cameraFStop;
+            cam.focusDistance = focusDistance;
+            cam.apertureBlades = apertureBlades;
+        }
+
+        // ALSO directly set the path tracer's internal uniforms as backup
+        // See docs/FIX-DOF.md for details on this temporary hack
         const pt = this.pathTracer as any;
         const uniforms = pt._pathTracer?.material?.uniforms?.physicalCamera?.value;
 
@@ -248,8 +261,6 @@ export class RenderManager {
             uniforms.focusDistance = focusDistance;
             uniforms.apertureBlades = apertureBlades;
         }
-        // Note: If uniforms not accessible, DOF silently won't work
-        // See docs/FIX-DOF.md for details on this temporary hack
     }
 
     /**

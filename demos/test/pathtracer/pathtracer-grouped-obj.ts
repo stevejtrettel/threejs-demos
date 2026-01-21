@@ -6,8 +6,7 @@
  *
  * Features:
  * - Load OBJ files with face groups (g directive)
- * - Optional MTL file for colors
- * - Custom color mapping for groups
+ * - Custom color mapping for groups via UI
  * - Path tracing with soft studio lighting
  */
 
@@ -22,13 +21,10 @@ import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import {
   parseGroupedOBJ,
-  loadGroupedOBJWithColors,
-  groupedToSimple,
+  loadGroupedOBJFile,
   groupColorsFromMap,
   generateGroupPalette,
   type GroupedMesh,
-  type LoadedGroupedMesh,
-  DEFAULT_GROUP_COLORS
 } from '@/math/mesh/parseOBJ';
 import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
 
@@ -237,13 +233,19 @@ function updateColors(): void {
 }
 
 async function loadGroupedFile(): Promise<void> {
-  const loaded = await loadGroupedOBJWithColors({
-    colorMap: groupColors,
-    autoGeneratePalette: true
-  });
+  const mesh = await loadGroupedOBJFile();
 
-  if (loaded) {
-    showGroupedMesh(loaded.mesh, loaded.faceColors);
+  if (mesh) {
+    // Build color map, auto-generating for unknown groups
+    let colorMap = { ...groupColors };
+    const unknownGroups = mesh.groups.filter(g => !(g in colorMap));
+    if (unknownGroups.length > 0) {
+      const generated = generateGroupPalette(unknownGroups);
+      colorMap = { ...colorMap, ...generated };
+    }
+
+    const faceColors = groupColorsFromMap(mesh.faces, colorMap);
+    showGroupedMesh(mesh, faceColors);
   }
 }
 
@@ -303,7 +305,7 @@ const panel = new Panel('Grouped OBJ Viewer');
 
 // Model loading
 const modelFolder = new Folder('Model');
-modelFolder.add(new Button('Load OBJ/MTL Files...', loadGroupedFile));
+modelFolder.add(new Button('Load OBJ File...', loadGroupedFile));
 modelFolder.add(new Button('Sample Tetrahedron', loadSampleMesh));
 panel.add(modelFolder);
 
@@ -429,4 +431,3 @@ app.start();
 
 console.log('Grouped OBJ Viewer');
 console.log('Load OBJ files with face groups (g directive) for per-group coloring.');
-console.log('Select both .obj and .mtl files together for material colors.');

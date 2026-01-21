@@ -167,7 +167,7 @@ let meshGroup: THREE.Group | null = null;
 let currentMesh: GroupedMesh | null = null;
 let groupColorsFolder: Folder | null = null;
 
-// Materials for each group (keyed by group name)
+// Materials for each group (keyed by "groupName-front" or "groupName-back")
 const groupMaterials: Map<string, THREE.MeshPhysicalMaterial> = new Map();
 
 // Forward declaration - will be populated when UI is built
@@ -185,23 +185,28 @@ function rebuildGroupColorUI() {
         groups.add(face.group ?? 'default');
     }
 
-    // Add color picker for each group
+    // Add color pickers for front and back of each group
     for (const groupName of groups) {
         const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
-        const currentColor = groupColors[groupName] || groupColors['default'];
+        const frontColor = groupColors[groupName]?.front || groupColors['default'].front;
+        const backColor = groupColors[groupName]?.back || groupColors['default'].back;
 
-        groupColorsFolder.add(new ColorInput(currentColor, {
-            label: displayName,
-            onChange: (c: string) => updateGroupColor(groupName, c)
+        groupColorsFolder.add(new ColorInput(frontColor, {
+            label: `${displayName} Front`,
+            onChange: (c: string) => updateGroupColor(groupName, 'front', c)
+        }));
+        groupColorsFolder.add(new ColorInput(backColor, {
+            label: `${displayName} Back`,
+            onChange: (c: string) => updateGroupColor(groupName, 'back', c)
         }));
     }
 }
 
-// Default group colors
-const groupColors: Record<string, string> = {
-    '1': '#ffe9ad',
-    '-1': '#add8e6',
-    'default': '#ddaa77'
+// Default group colors (front and back)
+const groupColors: Record<string, { front: string; back: string }> = {
+    '1': { front: '#ffe9ad', back: '#d4c48a' },
+    '-1': { front: '#add8e6', back: '#8ab8c6' },
+    'default': { front: '#ddaa77', back: '#b8895f' }
 };
 
 const meshSettings = {
@@ -296,8 +301,9 @@ function buildEdgeTubes(vertices: THREE.Vector3[], edges: [number, number][], ra
 function buildFaceMeshForGroup(
     vertices: THREE.Vector3[],
     faces: GroupedFace[],
-    color: string
-): { mesh: THREE.Mesh; material: THREE.MeshPhysicalMaterial } {
+    frontColor: string,
+    backColor: string
+): { group: THREE.Group; frontMaterial: THREE.MeshPhysicalMaterial; backMaterial: THREE.MeshPhysicalMaterial } {
     const positions: number[] = [];
 
     for (const face of faces) {
@@ -316,17 +322,34 @@ function buildFaceMeshForGroup(
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
     geometry.computeVertexNormals();
 
-    const material = new THREE.MeshPhysicalMaterial({
-        color,
-        side: THREE.DoubleSide,
+    // Front face material
+    const frontMaterial = new THREE.MeshPhysicalMaterial({
+        color: frontColor,
+        side: THREE.FrontSide,
         roughness: 0.5,
         metalness: 0.0,
         clearcoat: 0.1
     });
 
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.frustumCulled = false;
-    return { mesh, material };
+    // Back face material
+    const backMaterial = new THREE.MeshPhysicalMaterial({
+        color: backColor,
+        side: THREE.BackSide,
+        roughness: 0.5,
+        metalness: 0.0,
+        clearcoat: 0.1
+    });
+
+    // Create group with both meshes sharing the same geometry
+    const group = new THREE.Group();
+    const frontMesh = new THREE.Mesh(geometry, frontMaterial);
+    const backMesh = new THREE.Mesh(geometry, backMaterial);
+    frontMesh.frustumCulled = false;
+    backMesh.frustumCulled = false;
+    group.add(frontMesh);
+    group.add(backMesh);
+
+    return { group, frontMaterial, backMaterial };
 }
 
 // ===================================
@@ -348,9 +371,10 @@ function computeBounds(vertices: THREE.Vector3[]) {
     };
 }
 
-function getGroupColor(groupName: string | null): string {
-    if (groupName !== null && groupName in groupColors) {
-        return groupColors[groupName];
+function getGroupColor(groupName: string | null): { front: string; back: string } {
+    const key = groupName ?? 'default';
+    if (key in groupColors) {
+        return groupColors[key];
     }
     return groupColors['default'];
 }
@@ -422,11 +446,14 @@ function showMesh(mesh: GroupedMesh): void {
         }
 
         for (const [groupName, faces] of facesByGroup) {
-            const color = getGroupColor(groupName === 'default' ? null : groupName);
-            const { mesh: faceMesh, material } = buildFaceMeshForGroup(centeredVertices, faces, color);
-            faceMesh.name = `faces-${groupName}`;
-            meshGroup.add(faceMesh);
-            groupMaterials.set(groupName, material);
+            const colors = getGroupColor(groupName === 'default' ? null : groupName);
+            const { group: faceGroup, frontMaterial, backMaterial } = buildFaceMeshForGroup(
+                centeredVertices, faces, colors.front, colors.back
+            );
+            faceGroup.name = `faces-${groupName}`;
+            meshGroup.add(faceGroup);
+            groupMaterials.set(`${groupName}-front`, frontMaterial);
+            groupMaterials.set(`${groupName}-back`, backMaterial);
         }
     }
 
@@ -458,9 +485,16 @@ function reloadCurrentMesh() {
     }
 }
 
-function updateGroupColor(groupName: string, color: string): void {
-    groupColors[groupName] = color;
-    const material = groupMaterials.get(groupName);
+function updateGroupColor(groupName: string, side: 'front' | 'back', color: string): void {
+    // Ensure group entry exists
+    if (!groupColors[groupName]) {
+        groupColors[groupName] = { ...groupColors['default'] };
+    }
+    groupColors[groupName][side] = color;
+
+    // Update the corresponding material
+    const materialKey = `${groupName}-${side}`;
+    const material = groupMaterials.get(materialKey);
     if (material) {
         material.color.set(color);
         if (app.renderManager.isPathTracing()) {

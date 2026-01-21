@@ -170,6 +170,33 @@ let groupColorsFolder: Folder | null = null;
 // Materials for each group (keyed by group name)
 const groupMaterials: Map<string, THREE.MeshPhysicalMaterial> = new Map();
 
+// Forward declaration - will be populated when UI is built
+function rebuildGroupColorUI() {
+    if (!groupColorsFolder) return;
+
+    // Clear existing children
+    groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
+
+    if (!currentMesh) return;
+
+    // Get all groups present in current mesh
+    const groups = new Set<string>();
+    for (const face of currentMesh.faces) {
+        groups.add(face.group ?? 'default');
+    }
+
+    // Add color picker for each group
+    for (const groupName of groups) {
+        const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
+        const currentColor = groupColors[groupName] || groupColors['default'];
+
+        groupColorsFolder.add(new ColorInput(currentColor, {
+            label: displayName,
+            onChange: (c: string) => updateGroupColor(groupName, c)
+        }));
+    }
+}
+
 // Default group colors
 const groupColors: Record<string, string> = {
     '1': '#ffe9ad',
@@ -622,34 +649,7 @@ appearanceFolder.add(new ColorInput(meshSettings.vertexColor, { label: 'Vertex C
 appearanceFolder.add(new ColorInput(meshSettings.edgeColor, { label: 'Edge Color', onChange: c => { meshSettings.edgeColor = c; reloadCurrentMesh(); }}));
 panel.add(appearanceFolder);
 
-// Group Colors (dynamically populated)
-function rebuildGroupColorUI() {
-    if (!groupColorsFolder) return;
-
-    // Clear existing children
-    groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
-
-    if (!currentMesh) return;
-
-    // Get all groups present in current mesh
-    const groups = new Set<string>();
-    for (const face of currentMesh.faces) {
-        groups.add(face.group ?? 'default');
-    }
-
-    // Add color picker for each group
-    for (const groupName of groups) {
-        const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
-        const currentColor = groupColors[groupName] || groupColors['default'];
-
-        groupColorsFolder.add(new ColorInput(currentColor, {
-            label: displayName,
-            onChange: (c: string) => updateGroupColor(groupName, c)
-        }));
-    }
-}
-
-// Create the folder and trigger initial population
+// Create the Group Colors folder and trigger initial population
 groupColorsFolder = new Folder('Group Colors');
 panel.add(groupColorsFolder);
 rebuildGroupColorUI();

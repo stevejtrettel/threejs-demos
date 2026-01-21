@@ -19,14 +19,14 @@ import { Slider } from '@/ui/inputs/Slider';
 import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   parseGroupedOBJ,
   loadGroupedOBJFile,
-  groupColorsFromMap,
-  generateGroupPalette,
+  extractEdges,
   type GroupedMesh,
+  type GroupedFace,
 } from '@/math/mesh/parseOBJ';
-import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
 
 // Create app
 const app = new App({
@@ -50,7 +50,6 @@ function createRoomEnvironment() {
   const roomDepth = 12;
   const wallColor = 0xf5f2ed;
 
-  // Room
   const roomGeo = new THREE.BoxGeometry(roomWidth, roomHeight, roomDepth);
   const roomMat = new THREE.MeshStandardMaterial({
     color: wallColor,
@@ -62,7 +61,6 @@ function createRoomEnvironment() {
   room.position.y = roomHeight / 2;
   envScene.add(room);
 
-  // Ceiling light
   const lightPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(4, 4),
     new THREE.MeshStandardMaterial({
@@ -76,7 +74,6 @@ function createRoomEnvironment() {
   lightPanel.rotation.x = Math.PI / 2;
   envScene.add(lightPanel);
 
-  // Three-point lighting
   const keyLight = new THREE.PointLight(0xffffff, 150);
   keyLight.position.set(3, 5, 3);
   envScene.add(keyLight);
@@ -120,9 +117,12 @@ app.scene.add(floor);
 // STATE
 // ===================================
 
-let visualizer: MeshVisualizer | null = null;
+// Container for all mesh parts
+let meshGroup: THREE.Group | null = null;
 let currentMesh: GroupedMesh | null = null;
-let currentFaceColors: (number | THREE.Color)[] = [];
+
+// Materials for each group (keyed by group name)
+const groupMaterials: Map<string, THREE.MeshStandardMaterial> = new Map();
 
 // Visualization options
 const vizOptions = {
@@ -141,18 +141,116 @@ const groupColors: Record<string, number> = {
 };
 
 // ===================================
+// MESH BUILDING UTILITIES
+// ===================================
+
+function buildVertexSpheres(vertices: THREE.Vector3[], radius: number, color: number): THREE.Mesh {
+  const template = new THREE.SphereGeometry(radius, 12, 12);
+  const geometries: THREE.BufferGeometry[] = [];
+  const matrix = new THREE.Matrix4();
+
+  for (const v of vertices) {
+    const geo = template.clone();
+    matrix.makeTranslation(v.x, v.y, v.z);
+    geo.applyMatrix4(matrix);
+    geometries.push(geo);
+  }
+
+  const merged = mergeGeometries(geometries, false);
+  template.dispose();
+  geometries.forEach(g => g.dispose());
+
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.1 });
+  const mesh = new THREE.Mesh(merged, material);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+function buildEdgeTubes(vertices: THREE.Vector3[], edges: [number, number][], radius: number, color: number): THREE.Mesh {
+  const template = new THREE.CylinderGeometry(radius, radius, 1, 8, 1);
+  const geometries: THREE.BufferGeometry[] = [];
+  const matrix = new THREE.Matrix4();
+  const start = new THREE.Vector3();
+  const end = new THREE.Vector3();
+  const mid = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scale = new THREE.Vector3(1, 1, 1);
+  const up = new THREE.Vector3(0, 1, 0);
+
+  for (const [a, b] of edges) {
+    start.copy(vertices[a]);
+    end.copy(vertices[b]);
+    mid.addVectors(start, end).multiplyScalar(0.5);
+    dir.subVectors(end, start);
+    const length = dir.length();
+    dir.normalize();
+    quat.setFromUnitVectors(up, dir);
+    scale.set(1, length, 1);
+    matrix.compose(mid, quat, scale);
+
+    const geo = template.clone();
+    geo.applyMatrix4(matrix);
+    geometries.push(geo);
+  }
+
+  const merged = mergeGeometries(geometries, false);
+  template.dispose();
+  geometries.forEach(g => g.dispose());
+
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.2 });
+  const mesh = new THREE.Mesh(merged, material);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+function buildFaceMeshForGroup(
+  vertices: THREE.Vector3[],
+  faces: GroupedFace[],
+  color: number
+): { mesh: THREE.Mesh; material: THREE.MeshStandardMaterial } {
+  const positions: number[] = [];
+
+  for (const face of faces) {
+    const indices = face.indices;
+    // Fan triangulation
+    for (let i = 1; i < indices.length - 1; i++) {
+      const v0 = vertices[indices[0]];
+      const v1 = vertices[indices[i]];
+      const v2 = vertices[indices[i + 1]];
+      positions.push(v0.x, v0.y, v0.z);
+      positions.push(v1.x, v1.y, v1.z);
+      positions.push(v2.x, v2.y, v2.z);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+  geometry.computeVertexNormals();
+
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    side: THREE.DoubleSide,
+    roughness: 0.5,
+    metalness: 0.0
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  return { mesh, material };
+}
+
+// ===================================
 // MESH LOADING AND DISPLAY
 // ===================================
 
 function computeBounds(vertices: THREE.Vector3[]) {
   const min = new THREE.Vector3(Infinity, Infinity, Infinity);
   const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-
   for (const v of vertices) {
     min.min(v);
     max.max(v);
   }
-
   return {
     min,
     max,
@@ -161,22 +259,35 @@ function computeBounds(vertices: THREE.Vector3[]) {
   };
 }
 
-function showGroupedMesh(mesh: GroupedMesh, faceColors: (number | THREE.Color)[]): void {
-  // Remove existing
-  if (visualizer) {
-    app.scene.remove(visualizer);
-    visualizer.dispose();
-    visualizer = null;
+function getGroupColor(groupName: string | null): number {
+  if (groupName !== null && groupName in groupColors) {
+    return groupColors[groupName];
   }
+  return groupColors['default'];
+}
+
+function showGroupedMesh(mesh: GroupedMesh): void {
+  // Remove existing
+  if (meshGroup) {
+    app.scene.remove(meshGroup);
+    meshGroup.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose();
+        if (obj.material instanceof THREE.Material) {
+          obj.material.dispose();
+        }
+      }
+    });
+    meshGroup = null;
+  }
+  groupMaterials.clear();
 
   currentMesh = mesh;
-  currentFaceColors = faceColors;
 
   console.log(`Loaded: ${mesh.vertices.length} vertices, ${mesh.faces.length} faces`);
   console.log(`Groups: ${mesh.groups.join(', ') || 'none'}`);
-  console.log(`Materials: ${mesh.materials.join(', ') || 'none'}`);
 
-  // Center and scale
+  // Center and scale vertices
   const bounds = computeBounds(mesh.vertices);
   const center = bounds.center;
   const maxDim = Math.max(bounds.size.x, bounds.size.y, bounds.size.z);
@@ -190,63 +301,76 @@ function showGroupedMesh(mesh: GroupedMesh, faceColors: (number | THREE.Color)[]
     )
   );
 
-  // Convert to simple mesh format
-  const simpleMesh = {
-    vertices: centeredVertices,
-    faces: mesh.faces.map(f => f.indices)
-  };
+  // Create group container
+  meshGroup = new THREE.Group();
 
-  visualizer = new MeshVisualizer(simpleMesh, {
-    sphereRadius: vizOptions.sphereRadius,
-    tubeRadius: vizOptions.tubeRadius,
-    sphereSegments: 12,
-    tubeSegments: 8,
-    vertexColor: 0x333333,
-    edgeColor: 0x555555,
-    faceColors: faceColors,
-    faceOpacity: 1.0,
-    showVertices: vizOptions.showVertices,
-    showEdges: vizOptions.showEdges,
-    showFaces: vizOptions.showFaces,
-  });
+  // Build vertices
+  if (vizOptions.showVertices) {
+    const vertexMesh = buildVertexSpheres(centeredVertices, vizOptions.sphereRadius, 0x333333);
+    vertexMesh.name = 'vertices';
+    meshGroup.add(vertexMesh);
+  }
 
-  app.scene.add(visualizer);
+  // Build edges
+  if (vizOptions.showEdges) {
+    const edges = extractEdges(mesh.faces);
+    const edgeMesh = buildEdgeTubes(centeredVertices, edges, vizOptions.tubeRadius, 0x555555);
+    edgeMesh.name = 'edges';
+    meshGroup.add(edgeMesh);
+  }
 
-  // Rebuild BVH if path tracing (new geometry added)
+  // Build faces - separate mesh per group
+  if (vizOptions.showFaces) {
+    // Group faces by their group name
+    const facesByGroup = new Map<string, GroupedFace[]>();
+    for (const face of mesh.faces) {
+      const key = face.group ?? 'default';
+      if (!facesByGroup.has(key)) {
+        facesByGroup.set(key, []);
+      }
+      facesByGroup.get(key)!.push(face);
+    }
+
+    // Create mesh for each group
+    for (const [groupName, faces] of facesByGroup) {
+      const color = getGroupColor(groupName === 'default' ? null : groupName);
+      const { mesh: faceMesh, material } = buildFaceMeshForGroup(centeredVertices, faces, color);
+      faceMesh.name = `faces-${groupName}`;
+      meshGroup.add(faceMesh);
+      groupMaterials.set(groupName, material);
+    }
+  }
+
+  app.scene.add(meshGroup);
+
+  // Notify path tracer of material changes
   if (app.renderManager.isPathTracing()) {
-    app.notifySceneChanged();
+    app.renderManager.notifyMaterialsChanged();
+    app.renderManager.resetAccumulation();
   }
 }
 
-function updateColors(): void {
-  if (!currentMesh || !visualizer) return;
+function updateGroupColor(groupName: string, color: number): void {
+  const material = groupMaterials.get(groupName);
+  if (material) {
+    material.color.setHex(color);
+    if (app.renderManager.isPathTracing()) {
+      app.renderManager.notifyMaterialsChanged();
+      app.renderManager.resetAccumulation();
+    }
+  }
+}
 
-  // Regenerate colors with current groupColors
-  const newColors = groupColorsFromMap(currentMesh.faces, groupColors);
-  currentFaceColors = newColors;
-
-  // Update visualizer
-  visualizer.setFaceColors(newColors);
-
-  if (app.renderManager.isPathTracing()) {
-    app.renderManager.resetAccumulation();
+function reloadMesh(): void {
+  if (currentMesh) {
+    showGroupedMesh(currentMesh);
   }
 }
 
 async function loadGroupedFile(): Promise<void> {
   const mesh = await loadGroupedOBJFile();
-
   if (mesh) {
-    // Build color map, auto-generating for unknown groups
-    let colorMap = { ...groupColors };
-    const unknownGroups = mesh.groups.filter(g => !(g in colorMap));
-    if (unknownGroups.length > 0) {
-      const generated = generateGroupPalette(unknownGroups);
-      colorMap = { ...colorMap, ...generated };
-    }
-
-    const faceColors = groupColorsFromMap(mesh.faces, colorMap);
-    showGroupedMesh(mesh, faceColors);
+    showGroupedMesh(mesh);
   }
 }
 
@@ -254,7 +378,6 @@ async function loadGroupedFile(): Promise<void> {
 // SAMPLE DATA
 // ===================================
 
-// Example checkerboard mesh (tetrahedron with alternating faces)
 const sampleCheckerboardOBJ = `
 # Sample checkerboard tetrahedron
 # Groups: 1 (warm) and -1 (cool)
@@ -275,17 +398,7 @@ f 2 4 3
 
 function loadSampleMesh(): void {
   const mesh = parseGroupedOBJ(sampleCheckerboardOBJ);
-
-  // Generate colors, including auto-palette for any unknown groups
-  let colorMap = { ...groupColors };
-  const unknownGroups = mesh.groups.filter(g => !(g in colorMap));
-  if (unknownGroups.length > 0) {
-    const generatedPalette = generateGroupPalette(unknownGroups);
-    colorMap = { ...colorMap, ...generatedPalette };
-  }
-
-  const faceColors = groupColorsFromMap(mesh.faces, colorMap);
-  showGroupedMesh(mesh, faceColors);
+  showGroupedMesh(mesh);
 }
 
 // ===================================
@@ -326,21 +439,21 @@ colorFolder.add(new ColorInput(hexToString(groupColors['1']), {
   label: 'Group +1',
   onChange: (c: string) => {
     groupColors['1'] = stringToHex(c);
-    updateColors();
+    updateGroupColor('1', groupColors['1']);
   }
 }));
 colorFolder.add(new ColorInput(hexToString(groupColors['-1']), {
   label: 'Group -1',
   onChange: (c: string) => {
     groupColors['-1'] = stringToHex(c);
-    updateColors();
+    updateGroupColor('-1', groupColors['-1']);
   }
 }));
 colorFolder.add(new ColorInput(hexToString(groupColors['default']), {
   label: 'Default',
   onChange: (c: string) => {
     groupColors['default'] = stringToHex(c);
-    updateColors();
+    updateGroupColor('default', groupColors['default']);
   }
 }));
 panel.add(colorFolder);
@@ -351,21 +464,21 @@ displayFolder.add(new Toggle(vizOptions.showVertices, {
   label: 'Vertices',
   onChange: (v) => {
     vizOptions.showVertices = v;
-    visualizer?.setVerticesVisible(v);
+    reloadMesh();
   }
 }));
 displayFolder.add(new Toggle(vizOptions.showEdges, {
   label: 'Edges',
   onChange: (v) => {
     vizOptions.showEdges = v;
-    visualizer?.setEdgesVisible(v);
+    reloadMesh();
   }
 }));
 displayFolder.add(new Toggle(vizOptions.showFaces, {
   label: 'Faces',
   onChange: (v) => {
     vizOptions.showFaces = v;
-    visualizer?.setFacesVisible(v);
+    reloadMesh();
   }
 }));
 displayFolder.add(new Slider(vizOptions.sphereRadius, {
@@ -375,7 +488,17 @@ displayFolder.add(new Slider(vizOptions.sphereRadius, {
   label: 'Vertex Size',
   onChange: (v: number) => {
     vizOptions.sphereRadius = v;
-    // Would need to rebuild mesh to change this
+    reloadMesh();
+  }
+}));
+displayFolder.add(new Slider(vizOptions.tubeRadius, {
+  min: 0.005,
+  max: 0.05,
+  step: 0.002,
+  label: 'Edge Size',
+  onChange: (v: number) => {
+    vizOptions.tubeRadius = v;
+    reloadMesh();
   }
 }));
 panel.add(displayFolder);
@@ -410,6 +533,7 @@ floorFolder.add(new Slider(0.15, {
     floorMat.roughness = v;
     floorMat.needsUpdate = true;
     if (app.renderManager.isPathTracing()) {
+      app.renderManager.notifyMaterialsChanged();
       app.renderManager.resetAccumulation();
     }
   }

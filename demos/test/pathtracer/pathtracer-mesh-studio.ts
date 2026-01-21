@@ -622,10 +622,11 @@ appearanceFolder.add(new ColorInput(meshSettings.edgeColor, { label: 'Edge Color
 panel.add(appearanceFolder);
 
 // Group Colors (dynamically populated)
-const groupColorsFolder = new Folder('Group Colors');
-panel.add(groupColorsFolder);
+let groupColorsFolder: Folder | null = null;
 
 function rebuildGroupColorUI() {
+    if (!groupColorsFolder) return;
+
     // Clear existing children
     groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
 
@@ -648,6 +649,11 @@ function rebuildGroupColorUI() {
         }));
     }
 }
+
+// Create the folder and trigger initial population
+groupColorsFolder = new Folder('Group Colors');
+panel.add(groupColorsFolder);
+rebuildGroupColorUI();
 
 // Lighting
 const lightingFolder = new Folder('Lighting');

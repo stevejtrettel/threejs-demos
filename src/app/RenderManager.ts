@@ -375,6 +375,21 @@ export class RenderManager {
     }
 
     /**
+     * Notify that scene geometry has changed (objects added/removed).
+     * This rebuilds the BVH acceleration structure for path tracing.
+     * Call this after adding or removing meshes from the scene during active PT.
+     */
+    notifySceneChanged(): void {
+        if (this.pathTracer && this.currentScene && this.currentCamera) {
+            this.pathTracer.setScene(this.currentScene, this.currentCamera);
+            this.pathTracer.updateMaterials();
+            if (this.currentScene.environment) {
+                this.pathTracer.updateEnvironment();
+            }
+        }
+    }
+
+    /**
      * Set render size
      */
     setSize(width: number, height: number): void {

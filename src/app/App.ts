@@ -318,6 +318,14 @@ export class App {
   }
 
   /**
+   * Notify that scene geometry has changed (objects added/removed).
+   * Call this after adding or removing meshes during active path tracing.
+   */
+  notifySceneChanged(): void {
+    this.renderManager.notifySceneChanged();
+  }
+
+  /**
    * Main animation loop
    */
   private animate = (timestamp: number) => {

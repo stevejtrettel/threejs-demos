@@ -212,8 +212,9 @@ function showGroupedMesh(mesh: GroupedMesh, faceColors: (number | THREE.Color)[]
 
   app.scene.add(visualizer);
 
+  // Rebuild BVH if path tracing (new geometry added)
   if (app.renderManager.isPathTracing()) {
-    app.renderManager.resetAccumulation();
+    app.notifySceneChanged();
   }
 }
 

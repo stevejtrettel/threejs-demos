@@ -165,6 +165,7 @@ app.scene.add(previewLight);
 
 let meshGroup: THREE.Group | null = null;
 let currentMesh: GroupedMesh | null = null;
+let groupColorsFolder: Folder | null = null;
 
 // Materials for each group (keyed by group name)
 const groupMaterials: Map<string, THREE.MeshPhysicalMaterial> = new Map();
@@ -622,8 +623,6 @@ appearanceFolder.add(new ColorInput(meshSettings.edgeColor, { label: 'Edge Color
 panel.add(appearanceFolder);
 
 // Group Colors (dynamically populated)
-let groupColorsFolder: Folder | null = null;
-
 function rebuildGroupColorUI() {
     if (!groupColorsFolder) return;
 

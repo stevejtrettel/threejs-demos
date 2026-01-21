@@ -5,6 +5,7 @@
  * with dramatic colored lighting and gradient backgrounds.
  *
  * Features:
+ * - Support for grouped OBJ files with per-group coloring
  * - Three-point lighting system with colored PhysicalSpotLights
  * - Reflective floor with adjustable properties
  * - Gradient environment background
@@ -20,11 +21,17 @@ import { Slider } from '@/ui/inputs/Slider';
 import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PhysicalCamera, PhysicalSpotLight, GradientEquirectTexture } from 'three-gpu-pathtracer';
 import { saveAs } from 'file-saver';
 
-import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
-import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
+import {
+    parseGroupedOBJ,
+    loadGroupedOBJFile,
+    extractEdges,
+    type GroupedMesh,
+    type GroupedFace,
+} from '@/math/mesh/parseOBJ';
 
 // ===================================
 // APP SETUP
@@ -43,10 +50,9 @@ const app = new App({
 // GRADIENT ENVIRONMENT
 // ===================================
 
-// Environment texture (used for both lighting and background)
 const envTexture = new GradientEquirectTexture();
-envTexture.topColor.set(0x555566);  // Medium gray-blue sky
-envTexture.bottomColor.set(0x888888);  // Lighter at horizon
+envTexture.topColor.set(0x555566);
+envTexture.bottomColor.set(0x888888);
 envTexture.update();
 app.scene.environment = envTexture;
 app.scene.background = envTexture;
@@ -56,7 +62,7 @@ app.scene.background = envTexture;
 // ===================================
 
 const floorMat = new THREE.MeshPhysicalMaterial({
-    color: 0xfafafa,  // Off-white
+    color: 0xfafafa,
     roughness: 0.4,
     metalness: 0.0,
     clearcoat: 0.2,
@@ -71,7 +77,6 @@ floor.rotation.x = -Math.PI / 2;
 floor.position.y = 0;
 app.scene.add(floor);
 
-// Back wall (same material as floor)
 const backWall = new THREE.Mesh(
     new THREE.PlaneGeometry(30, 20),
     floorMat
@@ -83,7 +88,6 @@ app.scene.add(backWall);
 // THREE-POINT LIGHTING SYSTEM
 // ===================================
 
-// Helper to create a spotlight with standard settings
 function createSpotlight(color: number, intensity: number, position: THREE.Vector3): PhysicalSpotLight {
     const light = new PhysicalSpotLight(color);
     light.position.copy(position);
@@ -93,29 +97,23 @@ function createSpotlight(color: number, intensity: number, position: THREE.Vecto
     light.distance = 0;
     light.intensity = intensity;
     light.radius = 0.25;
-
     light.shadow.mapSize.width = 512;
     light.shadow.mapSize.height = 512;
     light.shadow.camera.near = 0.1;
     light.shadow.camera.far = 30.0;
     light.castShadow = true;
-
     light.target.position.set(0, 1.2, 0);
-
     return light;
 }
 
-// Light rig settings
 const lightRig = {
-    // Base positions (unit directions from center, will be scaled)
     keyDir: new THREE.Vector3(-1, 0, 0.8).normalize(),
     fillDir: new THREE.Vector3(1, 0, 0.6).normalize(),
     rimDir: new THREE.Vector3(0, 0, -1).normalize(),
-    // Rig parameters
-    distance: 6,      // How far lights are from center (triangle size)
-    height: 7,        // Height of lights
-    spread: Math.PI / 4,  // Beam angle
-    intensity: 10,    // Base intensity for all lights
+    distance: 6,
+    height: 7,
+    spread: Math.PI / 4,
+    intensity: 10,
 };
 
 function updateLightPositions() {
@@ -133,12 +131,11 @@ function updateLightAngles() {
 }
 
 function updateLightIntensities() {
-    keyLight.intensity = lightRig.intensity * 1.2;  // Key slightly brighter
-    fillLight.intensity = lightRig.intensity * 0.8;  // Fill softer
+    keyLight.intensity = lightRig.intensity * 1.2;
+    fillLight.intensity = lightRig.intensity * 0.8;
     rimLight.intensity = lightRig.intensity;
 }
 
-// Create the three lights
 const keyLight = createSpotlight(0xffddaa, 12, new THREE.Vector3(-5, 8, 4));
 app.scene.add(keyLight);
 app.scene.add(keyLight.target);
@@ -151,12 +148,10 @@ const rimLight = createSpotlight(0xffaacc, 10, new THREE.Vector3(0, 6, -5));
 app.scene.add(rimLight);
 app.scene.add(rimLight.target);
 
-// Initialize positions
 updateLightPositions();
 updateLightAngles();
 updateLightIntensities();
 
-// Preview lights for WebGL mode (disabled during path tracing)
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.15);
 app.scene.add(ambientLight);
 
@@ -165,11 +160,21 @@ previewLight.position.set(3, 6, 4);
 app.scene.add(previewLight);
 
 // ===================================
-// MESH VISUALIZATION
+// MESH STATE
 // ===================================
 
-let visualizer: MeshVisualizer | null = null;
-let currentParsedMesh: ParsedMesh | null = null;
+let meshGroup: THREE.Group | null = null;
+let currentMesh: GroupedMesh | null = null;
+
+// Materials for each group (keyed by group name)
+const groupMaterials: Map<string, THREE.MeshPhysicalMaterial> = new Map();
+
+// Default group colors
+const groupColors: Record<string, string> = {
+    '1': '#ffe9ad',
+    '-1': '#add8e6',
+    'default': '#ddaa77'
+};
 
 const meshSettings = {
     scale: 1.0,
@@ -180,68 +185,266 @@ const meshSettings = {
     showVertices: true,
     showEdges: true,
     showFaces: true,
+    sphereRadius: 0.06,
+    tubeRadius: 0.025,
     vertexColor: '#1a1a1a',
     edgeColor: '#4488cc',
-    faceColor: '#ddaa77'
 };
 
-function reloadCurrentMesh() {
-    if (currentParsedMesh) {
-        showMesh(currentParsedMesh);
+// ===================================
+// MESH BUILDING UTILITIES
+// ===================================
+
+function buildVertexSpheres(vertices: THREE.Vector3[], radius: number, color: string): THREE.Mesh {
+    const template = new THREE.SphereGeometry(radius, 12, 12);
+    const geometries: THREE.BufferGeometry[] = [];
+    const matrix = new THREE.Matrix4();
+
+    for (const v of vertices) {
+        const geo = template.clone();
+        matrix.makeTranslation(v.x, v.y, v.z);
+        geo.applyMatrix4(matrix);
+        geometries.push(geo);
     }
+
+    const merged = mergeGeometries(geometries, false);
+    template.dispose();
+    geometries.forEach(g => g.dispose());
+
+    const material = new THREE.MeshPhysicalMaterial({
+        color,
+        roughness: 0.3,
+        metalness: 0.1,
+        clearcoat: 0.3
+    });
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.frustumCulled = false;
+    return mesh;
 }
 
-function showMesh(parsed: ParsedMesh) {
-    currentParsedMesh = parsed;
+function buildEdgeTubes(vertices: THREE.Vector3[], edges: [number, number][], radius: number, color: string): THREE.Mesh {
+    const template = new THREE.CylinderGeometry(radius, radius, 1, 8, 1);
+    const geometries: THREE.BufferGeometry[] = [];
+    const matrix = new THREE.Matrix4();
+    const start = new THREE.Vector3();
+    const end = new THREE.Vector3();
+    const mid = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scale = new THREE.Vector3(1, 1, 1);
+    const up = new THREE.Vector3(0, 1, 0);
 
-    if (visualizer) {
-        app.scene.remove(visualizer);
-        visualizer.dispose();
-        visualizer = null;
+    for (const [a, b] of edges) {
+        start.copy(vertices[a]);
+        end.copy(vertices[b]);
+        mid.addVectors(start, end).multiplyScalar(0.5);
+        dir.subVectors(end, start);
+        const length = dir.length();
+        dir.normalize();
+        quat.setFromUnitVectors(up, dir);
+        scale.set(1, length, 1);
+        matrix.compose(mid, quat, scale);
+
+        const geo = template.clone();
+        geo.applyMatrix4(matrix);
+        geometries.push(geo);
     }
 
-    visualizer = new MeshVisualizer(parsed, {
-        sphereRadius: 0.06,
-        tubeRadius: 0.025,
-        vertexColor: meshSettings.vertexColor,
-        edgeColor: meshSettings.edgeColor,
-        faceColor: meshSettings.faceColor,
-        faceOpacity: 0.95,
-        showVertices: meshSettings.showVertices,
-        showEdges: meshSettings.showEdges,
-        showFaces: meshSettings.showFaces,
+    const merged = mergeGeometries(geometries, false);
+    template.dispose();
+    geometries.forEach(g => g.dispose());
+
+    const material = new THREE.MeshPhysicalMaterial({
+        color,
+        roughness: 0.4,
+        metalness: 0.2,
+        clearcoat: 0.5
+    });
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.frustumCulled = false;
+    return mesh;
+}
+
+function buildFaceMeshForGroup(
+    vertices: THREE.Vector3[],
+    faces: GroupedFace[],
+    color: string
+): { mesh: THREE.Mesh; material: THREE.MeshPhysicalMaterial } {
+    const positions: number[] = [];
+
+    for (const face of faces) {
+        const indices = face.indices;
+        for (let i = 1; i < indices.length - 1; i++) {
+            const v0 = vertices[indices[0]];
+            const v1 = vertices[indices[i]];
+            const v2 = vertices[indices[i + 1]];
+            positions.push(v0.x, v0.y, v0.z);
+            positions.push(v1.x, v1.y, v1.z);
+            positions.push(v2.x, v2.y, v2.z);
+        }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geometry.computeVertexNormals();
+
+    const material = new THREE.MeshPhysicalMaterial({
+        color,
+        side: THREE.DoubleSide,
+        roughness: 0.5,
+        metalness: 0.0,
+        clearcoat: 0.1
     });
 
-    // Center and scale
-    const bbox = new THREE.Box3().setFromObject(visualizer);
-    const center = bbox.getCenter(new THREE.Vector3());
-    const size = bbox.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = (2.0 / maxDim) * meshSettings.scale;
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.frustumCulled = false;
+    return { mesh, material };
+}
 
-    visualizer.scale.setScalar(scale);
-    visualizer.position.set(
-        -center.x * scale,
-        meshSettings.positionY - center.y * scale,
-        -center.z * scale
+// ===================================
+// MESH DISPLAY
+// ===================================
+
+function computeBounds(vertices: THREE.Vector3[]) {
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    for (const v of vertices) {
+        min.min(v);
+        max.max(v);
+    }
+    return {
+        min,
+        max,
+        size: new THREE.Vector3().subVectors(max, min),
+        center: new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5)
+    };
+}
+
+function getGroupColor(groupName: string | null): string {
+    if (groupName !== null && groupName in groupColors) {
+        return groupColors[groupName];
+    }
+    return groupColors['default'];
+}
+
+function showMesh(mesh: GroupedMesh): void {
+    // Remove existing
+    if (meshGroup) {
+        app.scene.remove(meshGroup);
+        meshGroup.traverse((obj) => {
+            if (obj instanceof THREE.Mesh) {
+                obj.geometry.dispose();
+                if (obj.material instanceof THREE.Material) {
+                    obj.material.dispose();
+                }
+            }
+        });
+        meshGroup = null;
+    }
+    groupMaterials.clear();
+
+    currentMesh = mesh;
+
+    console.log(`Loaded: ${mesh.vertices.length} vertices, ${mesh.faces.length} faces`);
+    if (mesh.groups.length > 0) {
+        console.log(`Groups: ${mesh.groups.join(', ')}`);
+    }
+
+    // Center and scale vertices
+    const bounds = computeBounds(mesh.vertices);
+    const center = bounds.center;
+    const maxDim = Math.max(bounds.size.x, bounds.size.y, bounds.size.z);
+    const baseScale = 2.0 / maxDim;
+
+    const centeredVertices = mesh.vertices.map(v =>
+        new THREE.Vector3(
+            (v.x - center.x) * baseScale,
+            (v.y - center.y) * baseScale,
+            (v.z - center.z) * baseScale
+        )
     );
-    visualizer.rotation.set(meshSettings.rotationX, meshSettings.rotationY, meshSettings.rotationZ);
 
-    app.scene.add(visualizer);
+    // Create group container
+    meshGroup = new THREE.Group();
 
-    // Update spotlight targets to point at mesh center
+    // Build vertices
+    if (meshSettings.showVertices && centeredVertices.length > 0) {
+        const vertexMesh = buildVertexSpheres(centeredVertices, meshSettings.sphereRadius, meshSettings.vertexColor);
+        vertexMesh.name = 'vertices';
+        meshGroup.add(vertexMesh);
+    }
+
+    // Build edges
+    if (meshSettings.showEdges && mesh.faces.length > 0) {
+        const edges = extractEdges(mesh.faces);
+        const edgeMesh = buildEdgeTubes(centeredVertices, edges, meshSettings.tubeRadius, meshSettings.edgeColor);
+        edgeMesh.name = 'edges';
+        meshGroup.add(edgeMesh);
+    }
+
+    // Build faces - separate mesh per group
+    if (meshSettings.showFaces && mesh.faces.length > 0) {
+        const facesByGroup = new Map<string, GroupedFace[]>();
+        for (const face of mesh.faces) {
+            const key = face.group ?? 'default';
+            if (!facesByGroup.has(key)) {
+                facesByGroup.set(key, []);
+            }
+            facesByGroup.get(key)!.push(face);
+        }
+
+        for (const [groupName, faces] of facesByGroup) {
+            const color = getGroupColor(groupName === 'default' ? null : groupName);
+            const { mesh: faceMesh, material } = buildFaceMeshForGroup(centeredVertices, faces, color);
+            faceMesh.name = `faces-${groupName}`;
+            meshGroup.add(faceMesh);
+            groupMaterials.set(groupName, material);
+        }
+    }
+
+    // Apply transform
+    meshGroup.scale.setScalar(meshSettings.scale);
+    meshGroup.position.set(0, meshSettings.positionY, 0);
+    meshGroup.rotation.set(meshSettings.rotationX, meshSettings.rotationY, meshSettings.rotationZ);
+
+    app.scene.add(meshGroup);
+
+    // Update spotlight targets
     const meshCenter = new THREE.Vector3(0, meshSettings.positionY, 0);
     keyLight.target.position.copy(meshCenter);
     fillLight.target.position.copy(meshCenter);
     rimLight.target.position.copy(meshCenter);
 
+    // Update UI with group colors
+    rebuildGroupColorUI();
+
     if (app.renderManager.isPathTracing()) {
         app.renderManager.notifyMaterialsChanged();
         app.renderManager.resetAccumulation();
     }
-
-    console.log(`Loaded mesh: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
 }
+
+function reloadCurrentMesh() {
+    if (currentMesh) {
+        showMesh(currentMesh);
+    }
+}
+
+function updateGroupColor(groupName: string, color: string): void {
+    groupColors[groupName] = color;
+    const material = groupMaterials.get(groupName);
+    if (material) {
+        material.color.set(color);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
+    }
+}
+
+// ===================================
+// SAMPLE DATA
+// ===================================
 
 function createTorus(majorRadius = 1.0, minorRadius = 0.4, majorSegments = 24, minorSegments = 12): string {
     const vertices: number[][] = [];
@@ -276,7 +479,7 @@ function createTorus(majorRadius = 1.0, minorRadius = 0.4, majorSegments = 24, m
 }
 
 // Load default mesh
-showMesh(parseOBJ(createTorus()));
+showMesh(parseGroupedOBJ(createTorus()));
 
 // ===================================
 // PHYSICAL CAMERA
@@ -326,8 +529,8 @@ const panel = new Panel('Studio');
 const actionsFolder = new Folder('Actions');
 
 actionsFolder.add(new Button('Load OBJ File', async () => {
-    const parsed = await loadOBJFile();
-    if (parsed) showMesh(parsed);
+    const mesh = await loadGroupedOBJFile();
+    if (mesh) showMesh(mesh);
 }));
 
 let isPathTracing = false;
@@ -381,19 +584,22 @@ cameraFolder.close();
 const transformFolder = new Folder('Mesh Transform');
 transformFolder.add(new Slider(1.0, { label: 'Scale', min: 0.2, max: 3.0, step: 0.1, onChange: v => {
     meshSettings.scale = v;
-    reloadCurrentMesh();
+    if (meshGroup) {
+        meshGroup.scale.setScalar(v);
+        if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation();
+    }
 }}));
 transformFolder.add(new Slider(0, { label: 'Rotate X', min: -Math.PI, max: Math.PI, step: 0.05, onChange: v => {
     meshSettings.rotationX = v;
-    if (visualizer) { visualizer.rotation.x = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
+    if (meshGroup) { meshGroup.rotation.x = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
 }}));
 transformFolder.add(new Slider(0, { label: 'Rotate Y', min: -Math.PI, max: Math.PI, step: 0.05, onChange: v => {
     meshSettings.rotationY = v;
-    if (visualizer) { visualizer.rotation.y = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
+    if (meshGroup) { meshGroup.rotation.y = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
 }}));
 transformFolder.add(new Slider(0, { label: 'Rotate Z', min: -Math.PI, max: Math.PI, step: 0.05, onChange: v => {
     meshSettings.rotationZ = v;
-    if (visualizer) { visualizer.rotation.z = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
+    if (meshGroup) { meshGroup.rotation.z = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
 }}));
 panel.add(transformFolder);
 transformFolder.close();
@@ -403,16 +609,48 @@ const appearanceFolder = new Folder('Mesh Appearance');
 appearanceFolder.add(new Toggle(true, { label: 'Show Vertices', onChange: v => { meshSettings.showVertices = v; reloadCurrentMesh(); }}));
 appearanceFolder.add(new Toggle(true, { label: 'Show Edges', onChange: v => { meshSettings.showEdges = v; reloadCurrentMesh(); }}));
 appearanceFolder.add(new Toggle(true, { label: 'Show Faces', onChange: v => { meshSettings.showFaces = v; reloadCurrentMesh(); }}));
+appearanceFolder.add(new Slider(meshSettings.sphereRadius, { label: 'Vertex Radius', min: 0.01, max: 0.15, step: 0.005, onChange: v => {
+    meshSettings.sphereRadius = v;
+    reloadCurrentMesh();
+}}));
+appearanceFolder.add(new Slider(meshSettings.tubeRadius, { label: 'Edge Radius', min: 0.005, max: 0.08, step: 0.002, onChange: v => {
+    meshSettings.tubeRadius = v;
+    reloadCurrentMesh();
+}}));
 appearanceFolder.add(new ColorInput(meshSettings.vertexColor, { label: 'Vertex Color', onChange: c => { meshSettings.vertexColor = c; reloadCurrentMesh(); }}));
 appearanceFolder.add(new ColorInput(meshSettings.edgeColor, { label: 'Edge Color', onChange: c => { meshSettings.edgeColor = c; reloadCurrentMesh(); }}));
-appearanceFolder.add(new ColorInput(meshSettings.faceColor, { label: 'Face Color', onChange: c => { meshSettings.faceColor = c; reloadCurrentMesh(); }}));
 panel.add(appearanceFolder);
-appearanceFolder.close();
+
+// Group Colors (dynamically populated)
+const groupColorsFolder = new Folder('Group Colors');
+panel.add(groupColorsFolder);
+
+function rebuildGroupColorUI() {
+    // Clear existing children
+    groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
+
+    if (!currentMesh) return;
+
+    // Get all groups present in current mesh
+    const groups = new Set<string>();
+    for (const face of currentMesh.faces) {
+        groups.add(face.group ?? 'default');
+    }
+
+    // Add color picker for each group
+    for (const groupName of groups) {
+        const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
+        const currentColor = groupColors[groupName] || groupColors['default'];
+
+        groupColorsFolder.add(new ColorInput(currentColor, {
+            label: displayName,
+            onChange: (c: string) => updateGroupColor(groupName, c)
+        }));
+    }
+}
 
 // Lighting
 const lightingFolder = new Folder('Lighting');
-
-// Rig controls
 lightingFolder.add(new Slider(6, { label: 'Distance', min: 2, max: 12, step: 0.5, onChange: v => {
     lightRig.distance = v;
     updateLightPositions();
@@ -428,8 +666,6 @@ lightingFolder.add(new Slider(10, { label: 'Intensity', min: 0, max: 30, step: 0
     updateLightIntensities();
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-
-// Color pickers for each light
 lightingFolder.add(new ColorInput('#ffddaa', { label: 'Key (Warm)', onChange: c => {
     keyLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
@@ -442,7 +678,6 @@ lightingFolder.add(new ColorInput('#ffaacc', { label: 'Rim (Accent)', onChange: 
     rimLight.color.set(c);
     if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
 }}));
-
 panel.add(lightingFolder);
 
 // Floor & Wall
@@ -500,4 +735,4 @@ panel.mount(document.body);
 // ===================================
 
 app.start();
-console.log('Studio Path Tracer - Three-point lighting with colored spotlights');
+console.log('Studio Path Tracer - Now supports grouped OBJ files with per-group coloring');

@@ -17,7 +17,7 @@ import { Folder } from '@/ui/containers/Folder';
 import { Toggle } from '@/ui/inputs/Toggle';
 import { Button } from '@/ui/inputs/Button';
 import { Slider } from '@/ui/inputs/Slider';
-import { ColorPicker } from '@/ui/inputs/ColorPicker';
+import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 import {
@@ -307,26 +307,36 @@ modelFolder.add(new Button('Load OBJ/MTL Files...', loadGroupedFile));
 modelFolder.add(new Button('Sample Tetrahedron', loadSampleMesh));
 panel.add(modelFolder);
 
+// Helper to convert hex number to CSS color string
+function hexToString(hex: number): string {
+  return '#' + hex.toString(16).padStart(6, '0');
+}
+
+// Helper to convert CSS color string to hex number
+function stringToHex(str: string): number {
+  return parseInt(str.slice(1), 16);
+}
+
 // Group colors
 const colorFolder = new Folder('Group Colors');
-colorFolder.add(new ColorPicker(groupColors['1'], {
+colorFolder.add(new ColorInput(hexToString(groupColors['1']), {
   label: 'Group +1',
-  onChange: (c: number) => {
-    groupColors['1'] = c;
+  onChange: (c: string) => {
+    groupColors['1'] = stringToHex(c);
     updateColors();
   }
 }));
-colorFolder.add(new ColorPicker(groupColors['-1'], {
+colorFolder.add(new ColorInput(hexToString(groupColors['-1']), {
   label: 'Group -1',
-  onChange: (c: number) => {
-    groupColors['-1'] = c;
+  onChange: (c: string) => {
+    groupColors['-1'] = stringToHex(c);
     updateColors();
   }
 }));
-colorFolder.add(new ColorPicker(groupColors['default'], {
+colorFolder.add(new ColorInput(hexToString(groupColors['default']), {
   label: 'Default',
-  onChange: (c: number) => {
-    groupColors['default'] = c;
+  onChange: (c: string) => {
+    groupColors['default'] = stringToHex(c);
     updateColors();
   }
 }));

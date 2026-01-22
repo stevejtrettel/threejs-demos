@@ -24,7 +24,7 @@ import * as THREE from 'three';
 import { PhysicalCamera, PhysicalSpotLight, GradientEquirectTexture } from 'three-gpu-pathtracer';
 import { saveAs } from 'file-saver';
 
-import { GroupedOBJMesh } from '@/math/mesh/GroupedOBJMesh';
+import { OBJStructure } from '@/math/mesh/OBJStructure';
 
 // ===================================
 // APP SETUP
@@ -156,7 +156,7 @@ app.scene.add(previewLight);
 // MESH STATE
 // ===================================
 
-let currentObjMesh: GroupedOBJMesh | null = null;
+let currentObjMesh: OBJStructure | null = null;
 let groupColorsFolder: Folder | null = null;
 
 const meshSettings = {
@@ -217,8 +217,8 @@ function showObjMesh(objString: string): void {
         currentObjMesh = null;
     }
 
-    // Create new GroupedOBJMesh
-    currentObjMesh = GroupedOBJMesh.fromOBJ(objString);
+    // Create new OBJStructure
+    currentObjMesh = OBJStructure.fromOBJ(objString);
 
     // Apply transform
     currentObjMesh.scale.setScalar(meshSettings.scale);
@@ -538,4 +538,4 @@ panel.mount(document.body);
 // ===================================
 
 app.start();
-console.log('Studio Path Tracer - Using GroupedOBJMesh for grouped OBJ files');
+console.log('Studio Path Tracer - Using OBJStructure for grouped OBJ files');

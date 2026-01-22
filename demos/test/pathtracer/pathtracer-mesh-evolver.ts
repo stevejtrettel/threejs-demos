@@ -27,9 +27,8 @@ import { saveAs } from 'file-saver';
 // Initialize RectAreaLight support for WebGL
 RectAreaLightUniformsLib.init();
 
-// Import new path-tracer-compatible mesh visualization (merged geometry, not instanced)
-import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
-import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
+// Import path-tracer-compatible mesh visualization
+import { OBJStructure } from '@/math/mesh/OBJStructure';
 
 // ===================================
 // APP SETUP
@@ -179,13 +178,13 @@ app.scene.add(spotLight.target);
 // ===================================
 
 // Current visualizer (uses merged geometry for path tracer compatibility)
-let visualizer: MeshVisualizer | null = null;
-let currentParsedMesh: ParsedMesh | null = null;
+let visualizer: OBJStructure | null = null;
+let currentObjString: string | null = null;
 
-// Helper to reload mesh with current settings (for color/visibility changes)
+// Helper to reload mesh with current settings (for visibility changes that require rebuild)
 function reloadCurrentMesh() {
-    if (currentParsedMesh) {
-        showMesh(currentParsedMesh);
+    if (currentObjString) {
+        showMesh(currentObjString);
     }
 }
 
@@ -207,11 +206,11 @@ const meshSettings = {
 };
 
 /**
- * Display a parsed mesh using MeshVisualizer
+ * Display mesh from OBJ string using OBJStructure
  */
-function showMesh(parsed: ParsedMesh) {
+function showMesh(objString: string) {
     // Store for later reloading
-    currentParsedMesh = parsed;
+    currentObjString = objString;
 
     // Remove existing visualizer
     if (visualizer) {
@@ -220,35 +219,21 @@ function showMesh(parsed: ParsedMesh) {
         visualizer = null;
     }
 
-    // Create new visualizer with merged geometry (path tracer compatible)
-    visualizer = new MeshVisualizer(parsed, {
+    // Create new visualizer (auto-centers and scales)
+    visualizer = OBJStructure.fromOBJ(objString, {
         sphereRadius: 0.06,
         tubeRadius: 0.025,
         vertexColor: meshSettings.vertexColor,
         edgeColor: meshSettings.edgeColor,
-        faceColor: meshSettings.faceColor,
-        faceOpacity: 0.95,
+        defaultFaceColors: { front: meshSettings.faceColor, back: '#aa8866' },
         showVertices: meshSettings.showVertices,
         showEdges: meshSettings.showEdges,
         showFaces: meshSettings.showFaces,
     });
 
-    // Center and scale the mesh
-    const bbox = new THREE.Box3().setFromObject(visualizer);
-    const center = bbox.getCenter(new THREE.Vector3());
-    const size = bbox.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-
-    // Scale to fit nicely in the Cornell box (about 2 units)
-    const targetSize = 2.0;
-    const scale = targetSize / maxDim * meshSettings.scale;
-
-    visualizer.scale.setScalar(scale);
-    visualizer.position.set(
-        -center.x * scale,
-        meshSettings.positionY - center.y * scale,
-        -center.z * scale
-    );
+    // Apply transform
+    visualizer.scale.setScalar(meshSettings.scale);
+    visualizer.position.set(0, meshSettings.positionY, 0);
     visualizer.rotation.set(
         meshSettings.rotationX,
         meshSettings.rotationY,
@@ -263,7 +248,7 @@ function showMesh(parsed: ParsedMesh) {
         app.renderManager.resetAccumulation();
     }
 
-    console.log(`Loaded mesh: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
+    console.log(`Loaded mesh: ${visualizer.vertexCount} vertices, ${visualizer.faceCount} faces`);
 }
 
 /**
@@ -271,8 +256,7 @@ function showMesh(parsed: ParsedMesh) {
  */
 function loadAndDisplayOBJ(objText: string) {
     try {
-        const parsed = parseOBJ(objText);
-        showMesh(parsed);
+        showMesh(objText);
     } catch (error) {
         console.error('Failed to load OBJ:', error);
     }
@@ -416,12 +400,19 @@ app.addAnimateCallback(() => {
 // FILE INPUT FOR OBJ LOADING
 // ===================================
 
-// Use the built-in loadOBJFile picker
+// File picker for OBJ files
 async function loadFromFilePicker() {
-    const parsed = await loadOBJFile();
-    if (parsed) {
-        showMesh(parsed);
-    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.obj';
+    input.onchange = async () => {
+        const file = input.files?.[0];
+        if (file) {
+            const text = await file.text();
+            showMesh(text);
+        }
+    };
+    input.click();
 }
 
 // ===================================
@@ -619,7 +610,10 @@ appearanceFolder.add(new Toggle(true, {
     label: 'Show Vertices',
     onChange: (visible) => {
         meshSettings.showVertices = visible;
-        reloadCurrentMesh();
+        visualizer?.setVerticesVisible(visible);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 
@@ -627,7 +621,10 @@ appearanceFolder.add(new Toggle(true, {
     label: 'Show Edges',
     onChange: (visible) => {
         meshSettings.showEdges = visible;
-        reloadCurrentMesh();
+        visualizer?.setEdgesVisible(visible);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 
@@ -635,7 +632,10 @@ appearanceFolder.add(new Toggle(true, {
     label: 'Show Faces',
     onChange: (visible) => {
         meshSettings.showFaces = visible;
-        reloadCurrentMesh();
+        visualizer?.setFacesVisible(visible);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 
@@ -643,7 +643,11 @@ appearanceFolder.add(new ColorInput(meshSettings.vertexColor, {
     label: 'Vertex Color',
     onChange: (color) => {
         meshSettings.vertexColor = color;
-        reloadCurrentMesh();
+        visualizer?.setVertexColor(color);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 
@@ -651,7 +655,11 @@ appearanceFolder.add(new ColorInput(meshSettings.edgeColor, {
     label: 'Edge Color',
     onChange: (color) => {
         meshSettings.edgeColor = color;
-        reloadCurrentMesh();
+        visualizer?.setEdgeColor(color);
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 
@@ -659,7 +667,16 @@ appearanceFolder.add(new ColorInput(meshSettings.faceColor, {
     label: 'Face Color',
     onChange: (color) => {
         meshSettings.faceColor = color;
-        reloadCurrentMesh();
+        // Update all groups' front face color
+        if (visualizer) {
+            for (const group of visualizer.groups) {
+                visualizer.setFaceColor(group, 'front', color);
+            }
+        }
+        if (app.renderManager.isPathTracing()) {
+            app.renderManager.notifyMaterialsChanged();
+            app.renderManager.resetAccumulation();
+        }
     }
 }));
 

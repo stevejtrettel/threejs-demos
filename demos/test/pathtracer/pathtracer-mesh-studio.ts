@@ -21,17 +21,10 @@ import { Slider } from '@/ui/inputs/Slider';
 import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PhysicalCamera, PhysicalSpotLight, GradientEquirectTexture } from 'three-gpu-pathtracer';
 import { saveAs } from 'file-saver';
 
-import {
-    parseGroupedOBJ,
-    loadGroupedOBJFile,
-    extractEdges,
-    type GroupedMesh,
-    type GroupedFace,
-} from '@/math/mesh/parseOBJ';
+import { GroupedOBJMesh } from '@/math/mesh/GroupedOBJMesh';
 
 // ===================================
 // APP SETUP
@@ -163,51 +156,8 @@ app.scene.add(previewLight);
 // MESH STATE
 // ===================================
 
-let meshGroup: THREE.Group | null = null;
-let currentMesh: GroupedMesh | null = null;
+let currentObjMesh: GroupedOBJMesh | null = null;
 let groupColorsFolder: Folder | null = null;
-
-// Materials for each group (keyed by "groupName-front" or "groupName-back")
-const groupMaterials: Map<string, THREE.MeshPhysicalMaterial> = new Map();
-
-// Forward declaration - will be populated when UI is built
-function rebuildGroupColorUI() {
-    if (!groupColorsFolder) return;
-
-    // Clear existing children
-    groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
-
-    if (!currentMesh) return;
-
-    // Get all groups present in current mesh
-    const groups = new Set<string>();
-    for (const face of currentMesh.faces) {
-        groups.add(face.group ?? 'default');
-    }
-
-    // Add color pickers for front and back of each group
-    for (const groupName of groups) {
-        const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
-        const frontColor = groupColors[groupName]?.front || groupColors['default'].front;
-        const backColor = groupColors[groupName]?.back || groupColors['default'].back;
-
-        groupColorsFolder.add(new ColorInput(frontColor, {
-            label: `${displayName} Front`,
-            onChange: (c: string) => updateGroupColor(groupName, 'front', c)
-        }));
-        groupColorsFolder.add(new ColorInput(backColor, {
-            label: `${displayName} Back`,
-            onChange: (c: string) => updateGroupColor(groupName, 'back', c)
-        }));
-    }
-}
-
-// Default group colors (front and back)
-const groupColors: Record<string, { front: string; back: string }> = {
-    '1': { front: '#ffe9ad', back: '#d4c48a' },
-    '-1': { front: '#add8e6', back: '#8ab8c6' },
-    'default': { front: '#ddaa77', back: '#b8895f' }
-};
 
 const meshSettings = {
     scale: 1.0,
@@ -215,273 +165,72 @@ const meshSettings = {
     rotationX: 0,
     rotationY: 0,
     rotationZ: 0,
-    showVertices: true,
-    showEdges: true,
-    showFaces: true,
-    sphereRadius: 0.06,
-    tubeRadius: 0.025,
-    vertexColor: '#1a1a1a',
-    edgeColor: '#4488cc',
 };
 
 // ===================================
-// MESH BUILDING UTILITIES
+// UI HELPERS
 // ===================================
 
-function buildVertexSpheres(vertices: THREE.Vector3[], radius: number, color: string): THREE.Mesh {
-    const template = new THREE.SphereGeometry(radius, 12, 12);
-    const geometries: THREE.BufferGeometry[] = [];
-    const matrix = new THREE.Matrix4();
+function rebuildGroupColorUI() {
+    if (!groupColorsFolder || !currentObjMesh) return;
 
-    for (const v of vertices) {
-        const geo = template.clone();
-        matrix.makeTranslation(v.x, v.y, v.z);
-        geo.applyMatrix4(matrix);
-        geometries.push(geo);
+    // Clear existing color inputs
+    groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
+
+    // Add color pickers for front and back of each group
+    for (const groupName of currentObjMesh.groups) {
+        const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
+
+        groupColorsFolder.add(new ColorInput(currentObjMesh.getFaceColor(groupName, 'front'), {
+            label: `${displayName} Front`,
+            onChange: (c: string) => {
+                currentObjMesh?.setFaceColor(groupName, 'front', c);
+                notifyPathTracerIfNeeded();
+            }
+        }));
+        groupColorsFolder.add(new ColorInput(currentObjMesh.getFaceColor(groupName, 'back'), {
+            label: `${displayName} Back`,
+            onChange: (c: string) => {
+                currentObjMesh?.setFaceColor(groupName, 'back', c);
+                notifyPathTracerIfNeeded();
+            }
+        }));
     }
-
-    const merged = mergeGeometries(geometries, false);
-    template.dispose();
-    geometries.forEach(g => g.dispose());
-
-    const material = new THREE.MeshPhysicalMaterial({
-        color,
-        roughness: 0.3,
-        metalness: 0.1,
-        clearcoat: 0.3
-    });
-    const mesh = new THREE.Mesh(merged, material);
-    mesh.frustumCulled = false;
-    return mesh;
 }
 
-function buildEdgeTubes(vertices: THREE.Vector3[], edges: [number, number][], radius: number, color: string): THREE.Mesh {
-    const template = new THREE.CylinderGeometry(radius, radius, 1, 8, 1);
-    const geometries: THREE.BufferGeometry[] = [];
-    const matrix = new THREE.Matrix4();
-    const start = new THREE.Vector3();
-    const end = new THREE.Vector3();
-    const mid = new THREE.Vector3();
-    const dir = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scale = new THREE.Vector3(1, 1, 1);
-    const up = new THREE.Vector3(0, 1, 0);
-
-    for (const [a, b] of edges) {
-        start.copy(vertices[a]);
-        end.copy(vertices[b]);
-        mid.addVectors(start, end).multiplyScalar(0.5);
-        dir.subVectors(end, start);
-        const length = dir.length();
-        dir.normalize();
-        quat.setFromUnitVectors(up, dir);
-        scale.set(1, length, 1);
-        matrix.compose(mid, quat, scale);
-
-        const geo = template.clone();
-        geo.applyMatrix4(matrix);
-        geometries.push(geo);
+function notifyPathTracerIfNeeded() {
+    if (app.renderManager.isPathTracing()) {
+        app.renderManager.notifyMaterialsChanged();
+        app.renderManager.resetAccumulation();
     }
-
-    const merged = mergeGeometries(geometries, false);
-    template.dispose();
-    geometries.forEach(g => g.dispose());
-
-    const material = new THREE.MeshPhysicalMaterial({
-        color,
-        roughness: 0.4,
-        metalness: 0.2,
-        clearcoat: 0.5
-    });
-    const mesh = new THREE.Mesh(merged, material);
-    mesh.frustumCulled = false;
-    return mesh;
-}
-
-function buildFaceMeshForGroup(
-    vertices: THREE.Vector3[],
-    faces: GroupedFace[],
-    frontColor: string,
-    backColor: string
-): { group: THREE.Group; frontMaterial: THREE.MeshPhysicalMaterial; backMaterial: THREE.MeshPhysicalMaterial } {
-    const frontPositions: number[] = [];
-    const backPositions: number[] = [];
-
-    for (const face of faces) {
-        const indices = face.indices;
-        for (let i = 1; i < indices.length - 1; i++) {
-            const v0 = vertices[indices[0]];
-            const v1 = vertices[indices[i]];
-            const v2 = vertices[indices[i + 1]];
-            // Front faces - normal winding
-            frontPositions.push(v0.x, v0.y, v0.z);
-            frontPositions.push(v1.x, v1.y, v1.z);
-            frontPositions.push(v2.x, v2.y, v2.z);
-            // Back faces - reversed winding order for opposite normals
-            backPositions.push(v0.x, v0.y, v0.z);
-            backPositions.push(v2.x, v2.y, v2.z);
-            backPositions.push(v1.x, v1.y, v1.z);
-        }
-    }
-
-    const frontGeometry = new THREE.BufferGeometry();
-    frontGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(frontPositions), 3));
-    frontGeometry.computeVertexNormals();
-
-    const backGeometry = new THREE.BufferGeometry();
-    backGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(backPositions), 3));
-    backGeometry.computeVertexNormals();
-
-    // Offset back geometry slightly inward to avoid coincident surfaces in path tracer
-    const backPosAttr = backGeometry.attributes.position as THREE.BufferAttribute;
-    const backNormAttr = backGeometry.attributes.normal as THREE.BufferAttribute;
-    const offset = 0.001; // tiny offset along normal direction
-    for (let i = 0; i < backPosAttr.count; i++) {
-        backPosAttr.setX(i, backPosAttr.getX(i) + backNormAttr.getX(i) * offset);
-        backPosAttr.setY(i, backPosAttr.getY(i) + backNormAttr.getY(i) * offset);
-        backPosAttr.setZ(i, backPosAttr.getZ(i) + backNormAttr.getZ(i) * offset);
-    }
-    backPosAttr.needsUpdate = true;
-
-    // Both materials use FrontSide - back geometry has reversed winding
-    const frontMaterial = new THREE.MeshPhysicalMaterial({
-        color: frontColor,
-        side: THREE.FrontSide,
-        roughness: 0.5,
-        metalness: 0.0,
-        clearcoat: 0.1
-    });
-
-    const backMaterial = new THREE.MeshPhysicalMaterial({
-        color: backColor,
-        side: THREE.FrontSide,
-        roughness: 0.5,
-        metalness: 0.0,
-        clearcoat: 0.1
-    });
-
-    const group = new THREE.Group();
-    const frontMesh = new THREE.Mesh(frontGeometry, frontMaterial);
-    const backMesh = new THREE.Mesh(backGeometry, backMaterial);
-    frontMesh.frustumCulled = false;
-    backMesh.frustumCulled = false;
-    group.add(frontMesh);
-    group.add(backMesh);
-
-    return { group, frontMaterial, backMaterial };
 }
 
 // ===================================
 // MESH DISPLAY
 // ===================================
 
-function computeBounds(vertices: THREE.Vector3[]) {
-    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
-    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-    for (const v of vertices) {
-        min.min(v);
-        max.max(v);
-    }
-    return {
-        min,
-        max,
-        size: new THREE.Vector3().subVectors(max, min),
-        center: new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5)
-    };
-}
-
-function getGroupColor(groupName: string | null): { front: string; back: string } {
-    const key = groupName ?? 'default';
-    if (key in groupColors) {
-        return groupColors[key];
-    }
-    return groupColors['default'];
-}
-
-function showMesh(mesh: GroupedMesh): void {
+function showObjMesh(objString: string): void {
     // Remove existing
-    if (meshGroup) {
-        app.scene.remove(meshGroup);
-        meshGroup.traverse((obj) => {
-            if (obj instanceof THREE.Mesh) {
-                obj.geometry.dispose();
-                if (obj.material instanceof THREE.Material) {
-                    obj.material.dispose();
-                }
-            }
-        });
-        meshGroup = null;
-    }
-    groupMaterials.clear();
-
-    currentMesh = mesh;
-
-    console.log(`Loaded: ${mesh.vertices.length} vertices, ${mesh.faces.length} faces`);
-    if (mesh.groups.length > 0) {
-        console.log(`Groups: ${mesh.groups.join(', ')}`);
+    if (currentObjMesh) {
+        app.scene.remove(currentObjMesh);
+        currentObjMesh.dispose();
+        currentObjMesh = null;
     }
 
-    // Center and scale vertices
-    const bounds = computeBounds(mesh.vertices);
-    const center = bounds.center;
-    const maxDim = Math.max(bounds.size.x, bounds.size.y, bounds.size.z);
-    const baseScale = 2.0 / maxDim;
-
-    const centeredVertices = mesh.vertices.map(v =>
-        new THREE.Vector3(
-            (v.x - center.x) * baseScale,
-            (v.y - center.y) * baseScale,
-            (v.z - center.z) * baseScale
-        )
-    );
-
-    // Create group container
-    meshGroup = new THREE.Group();
-
-    // Build vertices
-    if (meshSettings.showVertices && centeredVertices.length > 0) {
-        const vertexMesh = buildVertexSpheres(centeredVertices, meshSettings.sphereRadius, meshSettings.vertexColor);
-        vertexMesh.name = 'vertices';
-        meshGroup.add(vertexMesh);
-    }
-
-    // Build edges
-    if (meshSettings.showEdges && mesh.faces.length > 0) {
-        const edges = extractEdges(mesh.faces);
-        const edgeMesh = buildEdgeTubes(centeredVertices, edges, meshSettings.tubeRadius, meshSettings.edgeColor);
-        edgeMesh.name = 'edges';
-        meshGroup.add(edgeMesh);
-    }
-
-    // Build faces - separate mesh per group
-    if (meshSettings.showFaces && mesh.faces.length > 0) {
-        const facesByGroup = new Map<string, GroupedFace[]>();
-        for (const face of mesh.faces) {
-            const key = face.group ?? 'default';
-            if (!facesByGroup.has(key)) {
-                facesByGroup.set(key, []);
-            }
-            facesByGroup.get(key)!.push(face);
-        }
-
-        for (const [groupName, faces] of facesByGroup) {
-            const colors = getGroupColor(groupName === 'default' ? null : groupName);
-            const { group: faceGroup, frontMaterial, backMaterial } = buildFaceMeshForGroup(
-                centeredVertices, faces, colors.front, colors.back
-            );
-            faceGroup.name = `faces-${groupName}`;
-            meshGroup.add(faceGroup);
-            groupMaterials.set(`${groupName}-front`, frontMaterial);
-            groupMaterials.set(`${groupName}-back`, backMaterial);
-        }
-    }
+    // Create new GroupedOBJMesh
+    currentObjMesh = GroupedOBJMesh.fromOBJ(objString);
 
     // Apply transform
-    meshGroup.scale.setScalar(meshSettings.scale);
-    meshGroup.position.set(0, meshSettings.positionY, 0);
-    meshGroup.rotation.set(meshSettings.rotationX, meshSettings.rotationY, meshSettings.rotationZ);
+    currentObjMesh.scale.setScalar(meshSettings.scale);
+    currentObjMesh.position.set(0, meshSettings.positionY, 0);
+    currentObjMesh.rotation.set(meshSettings.rotationX, meshSettings.rotationY, meshSettings.rotationZ);
 
-    app.scene.add(meshGroup);
+    app.scene.add(currentObjMesh);
+
+    console.log(`Loaded: ${currentObjMesh.vertexCount} vertices, ${currentObjMesh.faceCount} faces`);
+    if (currentObjMesh.groups.length > 0) {
+        console.log(`Groups: ${currentObjMesh.groups.join(', ')}`);
+    }
 
     // Update spotlight targets
     const meshCenter = new THREE.Vector3(0, meshSettings.positionY, 0);
@@ -492,35 +241,7 @@ function showMesh(mesh: GroupedMesh): void {
     // Update UI with group colors
     rebuildGroupColorUI();
 
-    if (app.renderManager.isPathTracing()) {
-        app.renderManager.notifyMaterialsChanged();
-        app.renderManager.resetAccumulation();
-    }
-}
-
-function reloadCurrentMesh() {
-    if (currentMesh) {
-        showMesh(currentMesh);
-    }
-}
-
-function updateGroupColor(groupName: string, side: 'front' | 'back', color: string): void {
-    // Ensure group entry exists
-    if (!groupColors[groupName]) {
-        groupColors[groupName] = { ...groupColors['default'] };
-    }
-    groupColors[groupName][side] = color;
-
-    // Update the corresponding material
-    const materialKey = `${groupName}-${side}`;
-    const material = groupMaterials.get(materialKey);
-    if (material) {
-        material.color.set(color);
-        if (app.renderManager.isPathTracing()) {
-            app.renderManager.notifyMaterialsChanged();
-            app.renderManager.resetAccumulation();
-        }
-    }
+    notifyPathTracerIfNeeded();
 }
 
 // ===================================
@@ -560,7 +281,7 @@ function createTorus(majorRadius = 1.0, minorRadius = 0.4, majorSegments = 24, m
 }
 
 // Load default mesh
-showMesh(parseGroupedOBJ(createTorus()));
+showObjMesh(createTorus());
 
 // ===================================
 // PHYSICAL CAMERA
@@ -610,8 +331,17 @@ const panel = new Panel('Studio');
 const actionsFolder = new Folder('Actions');
 
 actionsFolder.add(new Button('Load OBJ File', async () => {
-    const mesh = await loadGroupedOBJFile();
-    if (mesh) showMesh(mesh);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.obj';
+    input.onchange = async () => {
+        const file = input.files?.[0];
+        if (file) {
+            const text = await file.text();
+            showObjMesh(text);
+        }
+    };
+    input.click();
 }));
 
 let isPathTracing = false;
@@ -665,41 +395,56 @@ cameraFolder.close();
 const transformFolder = new Folder('Mesh Transform');
 transformFolder.add(new Slider(1.0, { label: 'Scale', min: 0.2, max: 3.0, step: 0.1, onChange: v => {
     meshSettings.scale = v;
-    if (meshGroup) {
-        meshGroup.scale.setScalar(v);
-        if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation();
+    if (currentObjMesh) {
+        currentObjMesh.scale.setScalar(v);
+        notifyPathTracerIfNeeded();
     }
 }}));
 transformFolder.add(new Slider(0, { label: 'Rotate X', min: -Math.PI, max: Math.PI, step: 0.05, onChange: v => {
     meshSettings.rotationX = v;
-    if (meshGroup) { meshGroup.rotation.x = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
+    if (currentObjMesh) { currentObjMesh.rotation.x = v; notifyPathTracerIfNeeded(); }
 }}));
 transformFolder.add(new Slider(0, { label: 'Rotate Y', min: -Math.PI, max: Math.PI, step: 0.05, onChange: v => {
     meshSettings.rotationY = v;
-    if (meshGroup) { meshGroup.rotation.y = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
+    if (currentObjMesh) { currentObjMesh.rotation.y = v; notifyPathTracerIfNeeded(); }
 }}));
 transformFolder.add(new Slider(0, { label: 'Rotate Z', min: -Math.PI, max: Math.PI, step: 0.05, onChange: v => {
     meshSettings.rotationZ = v;
-    if (meshGroup) { meshGroup.rotation.z = v; if (app.renderManager.isPathTracing()) app.renderManager.resetAccumulation(); }
+    if (currentObjMesh) { currentObjMesh.rotation.z = v; notifyPathTracerIfNeeded(); }
 }}));
 panel.add(transformFolder);
 transformFolder.close();
 
 // Mesh Appearance
 const appearanceFolder = new Folder('Mesh Appearance');
-appearanceFolder.add(new Toggle(true, { label: 'Show Vertices', onChange: v => { meshSettings.showVertices = v; reloadCurrentMesh(); }}));
-appearanceFolder.add(new Toggle(true, { label: 'Show Edges', onChange: v => { meshSettings.showEdges = v; reloadCurrentMesh(); }}));
-appearanceFolder.add(new Toggle(true, { label: 'Show Faces', onChange: v => { meshSettings.showFaces = v; reloadCurrentMesh(); }}));
-appearanceFolder.add(new Slider(meshSettings.sphereRadius, { label: 'Vertex Radius', min: 0.01, max: 0.15, step: 0.005, onChange: v => {
-    meshSettings.sphereRadius = v;
-    reloadCurrentMesh();
+appearanceFolder.add(new Toggle(true, { label: 'Show Vertices', onChange: v => {
+    currentObjMesh?.setVerticesVisible(v);
+    notifyPathTracerIfNeeded();
 }}));
-appearanceFolder.add(new Slider(meshSettings.tubeRadius, { label: 'Edge Radius', min: 0.005, max: 0.08, step: 0.002, onChange: v => {
-    meshSettings.tubeRadius = v;
-    reloadCurrentMesh();
+appearanceFolder.add(new Toggle(true, { label: 'Show Edges', onChange: v => {
+    currentObjMesh?.setEdgesVisible(v);
+    notifyPathTracerIfNeeded();
 }}));
-appearanceFolder.add(new ColorInput(meshSettings.vertexColor, { label: 'Vertex Color', onChange: c => { meshSettings.vertexColor = c; reloadCurrentMesh(); }}));
-appearanceFolder.add(new ColorInput(meshSettings.edgeColor, { label: 'Edge Color', onChange: c => { meshSettings.edgeColor = c; reloadCurrentMesh(); }}));
+appearanceFolder.add(new Toggle(true, { label: 'Show Faces', onChange: v => {
+    currentObjMesh?.setFacesVisible(v);
+    notifyPathTracerIfNeeded();
+}}));
+appearanceFolder.add(new Slider(0.06, { label: 'Vertex Radius', min: 0.01, max: 0.15, step: 0.005, onChange: v => {
+    currentObjMesh?.setSphereRadius(v);
+    notifyPathTracerIfNeeded();
+}}));
+appearanceFolder.add(new Slider(0.025, { label: 'Edge Radius', min: 0.005, max: 0.08, step: 0.002, onChange: v => {
+    currentObjMesh?.setTubeRadius(v);
+    notifyPathTracerIfNeeded();
+}}));
+appearanceFolder.add(new ColorInput('#1a1a1a', { label: 'Vertex Color', onChange: c => {
+    currentObjMesh?.setVertexColor(c);
+    notifyPathTracerIfNeeded();
+}}));
+appearanceFolder.add(new ColorInput('#4488cc', { label: 'Edge Color', onChange: c => {
+    currentObjMesh?.setEdgeColor(c);
+    notifyPathTracerIfNeeded();
+}}));
 panel.add(appearanceFolder);
 
 // Create the Group Colors folder and trigger initial population
@@ -712,29 +457,29 @@ const lightingFolder = new Folder('Lighting');
 lightingFolder.add(new Slider(6, { label: 'Distance', min: 2, max: 12, step: 0.5, onChange: v => {
     lightRig.distance = v;
     updateLightPositions();
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 lightingFolder.add(new Slider(Math.PI / 4, { label: 'Spread', min: 0.1, max: Math.PI / 2, step: 0.05, onChange: v => {
     lightRig.spread = v;
     updateLightAngles();
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 lightingFolder.add(new Slider(10, { label: 'Intensity', min: 0, max: 30, step: 0.5, onChange: v => {
     lightRig.intensity = v;
     updateLightIntensities();
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 lightingFolder.add(new ColorInput('#ffddaa', { label: 'Key (Warm)', onChange: c => {
     keyLight.color.set(c);
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 lightingFolder.add(new ColorInput('#aaccff', { label: 'Fill (Cool)', onChange: c => {
     fillLight.color.set(c);
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 lightingFolder.add(new ColorInput('#ffaacc', { label: 'Rim (Accent)', onChange: c => {
     rimLight.color.set(c);
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 panel.add(lightingFolder);
 
@@ -743,23 +488,23 @@ const floorFolder = new Folder('Floor & Wall');
 floorFolder.add(new Toggle(true, { label: 'Show Floor & Wall', onChange: v => {
     floor.visible = v;
     backWall.visible = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 floorFolder.add(new Slider(0, { label: 'Floor Height', min: -3, max: 3, step: 0.1, onChange: v => {
     floor.position.y = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 floorFolder.add(new ColorInput('#fafafa', { label: 'Color', onChange: c => {
     floorMat.color.set(c);
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 floorFolder.add(new Slider(0.4, { label: 'Roughness', min: 0, max: 1, step: 0.05, onChange: v => {
     floorMat.roughness = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 floorFolder.add(new Slider(0.2, { label: 'Clearcoat', min: 0, max: 1, step: 0.05, onChange: v => {
     floorMat.clearcoat = v;
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 panel.add(floorFolder);
 floorFolder.close();
@@ -769,12 +514,12 @@ const envFolder = new Folder('Environment');
 envFolder.add(new ColorInput('#555566', { label: 'Sky Color', onChange: c => {
     envTexture.topColor.set(c);
     envTexture.update();
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 envFolder.add(new ColorInput('#888888', { label: 'Horizon Color', onChange: c => {
     envTexture.bottomColor.set(c);
     envTexture.update();
-    if (app.renderManager.isPathTracing()) { app.renderManager.notifyMaterialsChanged(); app.renderManager.resetAccumulation(); }
+    notifyPathTracerIfNeeded();
 }}));
 panel.add(envFolder);
 envFolder.close();
@@ -793,4 +538,4 @@ panel.mount(document.body);
 // ===================================
 
 app.start();
-console.log('Studio Path Tracer - Now supports grouped OBJ files with per-group coloring');
+console.log('Studio Path Tracer - Using GroupedOBJMesh for grouped OBJ files');

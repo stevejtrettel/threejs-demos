@@ -304,7 +304,8 @@ function buildFaceMeshForGroup(
     frontColor: string,
     backColor: string
 ): { group: THREE.Group; frontMaterial: THREE.MeshPhysicalMaterial; backMaterial: THREE.MeshPhysicalMaterial } {
-    const positions: number[] = [];
+    const frontPositions: number[] = [];
+    const backPositions: number[] = [];
 
     for (const face of faces) {
         const indices = face.indices;
@@ -312,17 +313,26 @@ function buildFaceMeshForGroup(
             const v0 = vertices[indices[0]];
             const v1 = vertices[indices[i]];
             const v2 = vertices[indices[i + 1]];
-            positions.push(v0.x, v0.y, v0.z);
-            positions.push(v1.x, v1.y, v1.z);
-            positions.push(v2.x, v2.y, v2.z);
+            // Front faces - normal winding
+            frontPositions.push(v0.x, v0.y, v0.z);
+            frontPositions.push(v1.x, v1.y, v1.z);
+            frontPositions.push(v2.x, v2.y, v2.z);
+            // Back faces - reversed winding order for opposite normals
+            backPositions.push(v0.x, v0.y, v0.z);
+            backPositions.push(v2.x, v2.y, v2.z);
+            backPositions.push(v1.x, v1.y, v1.z);
         }
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-    geometry.computeVertexNormals();
+    const frontGeometry = new THREE.BufferGeometry();
+    frontGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(frontPositions), 3));
+    frontGeometry.computeVertexNormals();
 
-    // Front face material
+    const backGeometry = new THREE.BufferGeometry();
+    backGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(backPositions), 3));
+    backGeometry.computeVertexNormals();
+
+    // Both materials use FrontSide - back geometry has reversed winding
     const frontMaterial = new THREE.MeshPhysicalMaterial({
         color: frontColor,
         side: THREE.FrontSide,
@@ -331,19 +341,17 @@ function buildFaceMeshForGroup(
         clearcoat: 0.1
     });
 
-    // Back face material
     const backMaterial = new THREE.MeshPhysicalMaterial({
         color: backColor,
-        side: THREE.BackSide,
+        side: THREE.FrontSide,
         roughness: 0.5,
         metalness: 0.0,
         clearcoat: 0.1
     });
 
-    // Create group with both meshes sharing the same geometry
     const group = new THREE.Group();
-    const frontMesh = new THREE.Mesh(geometry, frontMaterial);
-    const backMesh = new THREE.Mesh(geometry, backMaterial);
+    const frontMesh = new THREE.Mesh(frontGeometry, frontMaterial);
+    const backMesh = new THREE.Mesh(backGeometry, backMaterial);
     frontMesh.frustumCulled = false;
     backMesh.frustumCulled = false;
     group.add(frontMesh);

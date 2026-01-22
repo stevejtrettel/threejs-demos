@@ -332,6 +332,17 @@ function buildFaceMeshForGroup(
     backGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(backPositions), 3));
     backGeometry.computeVertexNormals();
 
+    // Offset back geometry slightly inward to avoid coincident surfaces in path tracer
+    const backPosAttr = backGeometry.attributes.position as THREE.BufferAttribute;
+    const backNormAttr = backGeometry.attributes.normal as THREE.BufferAttribute;
+    const offset = 0.001; // tiny offset along normal direction
+    for (let i = 0; i < backPosAttr.count; i++) {
+        backPosAttr.setX(i, backPosAttr.getX(i) + backNormAttr.getX(i) * offset);
+        backPosAttr.setY(i, backPosAttr.getY(i) + backNormAttr.getY(i) * offset);
+        backPosAttr.setZ(i, backPosAttr.getZ(i) + backNormAttr.getZ(i) * offset);
+    }
+    backPosAttr.needsUpdate = true;
+
     // Both materials use FrontSide - back geometry has reversed winding
     const frontMaterial = new THREE.MeshPhysicalMaterial({
         color: frontColor,

@@ -9,6 +9,7 @@
  * - Physical spotlight lighting
  * - Clearcoat ground plane
  * - Load OBJ files with face groups
+ * - Two-sided face coloring (front/back)
  */
 
 import { App } from '@/app/App';
@@ -20,18 +21,12 @@ import { Slider } from '@/ui/inputs/Slider';
 import { ColorInput } from '@/ui/inputs/ColorInput';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   GradientEquirectTexture,
   PhysicalSpotLight,
 } from 'three-gpu-pathtracer';
-import {
-  parseGroupedOBJ,
-  loadGroupedOBJFile,
-  extractEdges,
-  type GroupedMesh,
-  type GroupedFace,
-} from '@/math/mesh/parseOBJ';
+import { OBJStructure } from '@/math/mesh/OBJStructure';
+import { saveAs } from 'file-saver';
 
 // Create app
 const app = new App({
@@ -101,254 +96,91 @@ app.scene.add(ground);
 // STATE
 // ===================================
 
-let meshGroup: THREE.Group | null = null;
-let currentMesh: GroupedMesh | null = null;
-
-const groupMaterials: Map<string, THREE.MeshPhysicalMaterial> = new Map();
-
-const vizOptions = {
-  sphereRadius: 0.04,
-  tubeRadius: 0.015,
-  showVertices: true,
-  showEdges: true,
-  showFaces: true
-};
-
-const groupColors: Record<string, number> = {
-  '1': 0xffe9ad,    // warm cream
-  '-1': 0xadd8e6,   // light blue
-  'default': 0xcccccc
-};
+let currentObjMesh: OBJStructure | null = null;
+let groupColorsFolder: Folder | null = null;
+let isPathTracing = false;
 
 // ===================================
-// MESH BUILDING UTILITIES
+// UI HELPERS
 // ===================================
 
-function buildVertexSpheres(vertices: THREE.Vector3[], radius: number, color: number): THREE.Mesh {
-  const template = new THREE.SphereGeometry(radius, 12, 12);
-  const geometries: THREE.BufferGeometry[] = [];
-  const matrix = new THREE.Matrix4();
-
-  for (const v of vertices) {
-    const geo = template.clone();
-    matrix.makeTranslation(v.x, v.y, v.z);
-    geo.applyMatrix4(matrix);
-    geometries.push(geo);
-  }
-
-  const merged = mergeGeometries(geometries, false);
-  template.dispose();
-  geometries.forEach(g => g.dispose());
-
-  const material = new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, metalness: 0.1 });
-  const mesh = new THREE.Mesh(merged, material);
-  mesh.frustumCulled = false;
-  return mesh;
-}
-
-function buildEdgeTubes(vertices: THREE.Vector3[], edges: [number, number][], radius: number, color: number): THREE.Mesh {
-  const template = new THREE.CylinderGeometry(radius, radius, 1, 8, 1);
-  const geometries: THREE.BufferGeometry[] = [];
-  const matrix = new THREE.Matrix4();
-  const start = new THREE.Vector3();
-  const end = new THREE.Vector3();
-  const mid = new THREE.Vector3();
-  const dir = new THREE.Vector3();
-  const quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3(1, 1, 1);
-  const up = new THREE.Vector3(0, 1, 0);
-
-  for (const [a, b] of edges) {
-    start.copy(vertices[a]);
-    end.copy(vertices[b]);
-    mid.addVectors(start, end).multiplyScalar(0.5);
-    dir.subVectors(end, start);
-    const length = dir.length();
-    dir.normalize();
-    quat.setFromUnitVectors(up, dir);
-    scale.set(1, length, 1);
-    matrix.compose(mid, quat, scale);
-
-    const geo = template.clone();
-    geo.applyMatrix4(matrix);
-    geometries.push(geo);
-  }
-
-  const merged = mergeGeometries(geometries, false);
-  template.dispose();
-  geometries.forEach(g => g.dispose());
-
-  const material = new THREE.MeshPhysicalMaterial({ color, roughness: 0.4, metalness: 0.2 });
-  const mesh = new THREE.Mesh(merged, material);
-  mesh.frustumCulled = false;
-  return mesh;
-}
-
-function buildFaceMeshForGroup(
-  vertices: THREE.Vector3[],
-  faces: GroupedFace[],
-  color: number
-): { mesh: THREE.Mesh; material: THREE.MeshPhysicalMaterial } {
-  const positions: number[] = [];
-
-  for (const face of faces) {
-    const indices = face.indices;
-    // Fan triangulation
-    for (let i = 1; i < indices.length - 1; i++) {
-      const v0 = vertices[indices[0]];
-      const v1 = vertices[indices[i]];
-      const v2 = vertices[indices[i + 1]];
-      positions.push(v0.x, v0.y, v0.z);
-      positions.push(v1.x, v1.y, v1.z);
-      positions.push(v2.x, v2.y, v2.z);
-    }
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-  geometry.computeVertexNormals();
-
-  const material = new THREE.MeshPhysicalMaterial({
-    color,
-    side: THREE.DoubleSide,
-    roughness: 0.5,
-    metalness: 0.0
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  return { mesh, material };
-}
-
-// ===================================
-// MESH LOADING AND DISPLAY
-// ===================================
-
-function computeBounds(vertices: THREE.Vector3[]) {
-  const min = new THREE.Vector3(Infinity, Infinity, Infinity);
-  const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-  for (const v of vertices) {
-    min.min(v);
-    max.max(v);
-  }
-  return {
-    min,
-    max,
-    size: new THREE.Vector3().subVectors(max, min),
-    center: new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5)
-  };
-}
-
-function getGroupColor(groupName: string | null): number {
-  if (groupName !== null && groupName in groupColors) {
-    return groupColors[groupName];
-  }
-  return groupColors['default'];
-}
-
-function showGroupedMesh(mesh: GroupedMesh): void {
-  // Remove existing
-  if (meshGroup) {
-    app.scene.remove(meshGroup);
-    meshGroup.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry.dispose();
-        if (obj.material instanceof THREE.Material) {
-          obj.material.dispose();
-        }
-      }
-    });
-    meshGroup = null;
-  }
-  groupMaterials.clear();
-
-  currentMesh = mesh;
-
-  console.log(`Loaded: ${mesh.vertices.length} vertices, ${mesh.faces.length} faces`);
-  console.log(`Groups: ${mesh.groups.join(', ') || 'none'}`);
-
-  // Center and scale vertices
-  const bounds = computeBounds(mesh.vertices);
-  const center = bounds.center;
-  const maxDim = Math.max(bounds.size.x, bounds.size.y, bounds.size.z);
-  const scale = 2.5 / maxDim;
-
-  const centeredVertices = mesh.vertices.map(v =>
-    new THREE.Vector3(
-      (v.x - center.x) * scale,
-      (v.y - center.y) * scale + 1.0,
-      (v.z - center.z) * scale
-    )
-  );
-
-  // Create group container
-  meshGroup = new THREE.Group();
-
-  // Build vertices
-  if (vizOptions.showVertices) {
-    const vertexMesh = buildVertexSpheres(centeredVertices, vizOptions.sphereRadius, 0x333333);
-    vertexMesh.name = 'vertices';
-    meshGroup.add(vertexMesh);
-  }
-
-  // Build edges
-  if (vizOptions.showEdges) {
-    const edges = extractEdges(mesh.faces);
-    const edgeMesh = buildEdgeTubes(centeredVertices, edges, vizOptions.tubeRadius, 0x555555);
-    edgeMesh.name = 'edges';
-    meshGroup.add(edgeMesh);
-  }
-
-  // Build faces - separate mesh per group
-  if (vizOptions.showFaces) {
-    const facesByGroup = new Map<string, GroupedFace[]>();
-    for (const face of mesh.faces) {
-      const key = face.group ?? 'default';
-      if (!facesByGroup.has(key)) {
-        facesByGroup.set(key, []);
-      }
-      facesByGroup.get(key)!.push(face);
-    }
-
-    for (const [groupName, faces] of facesByGroup) {
-      const color = getGroupColor(groupName === 'default' ? null : groupName);
-      const { mesh: faceMesh, material } = buildFaceMeshForGroup(centeredVertices, faces, color);
-      faceMesh.name = `faces-${groupName}`;
-      meshGroup.add(faceMesh);
-      groupMaterials.set(groupName, material);
-    }
-  }
-
-  app.scene.add(meshGroup);
-
+function notifyPathTracerIfNeeded(): void {
   if (app.renderManager.isPathTracing()) {
     app.renderManager.notifyMaterialsChanged();
     app.renderManager.resetAccumulation();
   }
 }
 
-function updateGroupColor(groupName: string, color: number): void {
-  const material = groupMaterials.get(groupName);
-  if (material) {
-    material.color.setHex(color);
-    if (app.renderManager.isPathTracing()) {
-      app.renderManager.notifyMaterialsChanged();
-      app.renderManager.resetAccumulation();
+function rebuildGroupColorUI(): void {
+  if (!groupColorsFolder || !currentObjMesh) return;
+
+  // Clear existing color inputs
+  groupColorsFolder.domElement.querySelectorAll('.cr-color-input').forEach(el => el.remove());
+
+  // Add color pickers for front and back of each group
+  for (const groupName of currentObjMesh.groups) {
+    const displayName = groupName === 'default' ? 'Default' : `Group ${groupName}`;
+
+    groupColorsFolder.add(new ColorInput(currentObjMesh.getFaceColor(groupName, 'front'), {
+      label: `${displayName} Front`,
+      onChange: (c: string) => {
+        currentObjMesh?.setFaceColor(groupName, 'front', c);
+        notifyPathTracerIfNeeded();
+      }
+    }));
+    groupColorsFolder.add(new ColorInput(currentObjMesh.getFaceColor(groupName, 'back'), {
+      label: `${displayName} Back`,
+      onChange: (c: string) => {
+        currentObjMesh?.setFaceColor(groupName, 'back', c);
+        notifyPathTracerIfNeeded();
+      }
+    }));
+  }
+}
+
+// ===================================
+// MESH LOADING AND DISPLAY
+// ===================================
+
+function showObjMesh(objString: string): void {
+  // Remove existing
+  if (currentObjMesh) {
+    app.scene.remove(currentObjMesh);
+    currentObjMesh.dispose();
+    currentObjMesh = null;
+  }
+
+  // Create new OBJStructure
+  currentObjMesh = OBJStructure.fromOBJ(objString);
+
+  // Position mesh
+  currentObjMesh.position.set(0, 1.0, 0);
+
+  app.scene.add(currentObjMesh);
+
+  console.log(`Loaded: ${currentObjMesh.vertexCount} vertices, ${currentObjMesh.faceCount} faces`);
+  if (currentObjMesh.groups.length > 0) {
+    console.log(`Groups: ${currentObjMesh.groups.join(', ')}`);
+  }
+
+  // Update UI with group colors
+  rebuildGroupColorUI();
+
+  notifyPathTracerIfNeeded();
+}
+
+async function loadObjFile(): Promise<void> {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.obj';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (file) {
+      const text = await file.text();
+      showObjMesh(text);
     }
-  }
-}
-
-function reloadMesh(): void {
-  if (currentMesh) {
-    showGroupedMesh(currentMesh);
-  }
-}
-
-async function loadGroupedFile(): Promise<void> {
-  const mesh = await loadGroupedOBJFile();
-  if (mesh) {
-    showGroupedMesh(mesh);
-  }
+  };
+  input.click();
 }
 
 // ===================================
@@ -374,8 +206,7 @@ f 2 4 3
 `;
 
 function loadSampleMesh(): void {
-  const mesh = parseGroupedOBJ(sampleCheckerboardOBJ);
-  showGroupedMesh(mesh);
+  showObjMesh(sampleCheckerboardOBJ);
 }
 
 // ===================================
@@ -394,109 +225,115 @@ loadSampleMesh();
 
 const panel = new Panel('Mesh Examples');
 
-// Model loading
-const modelFolder = new Folder('Model');
-modelFolder.add(new Button('Load OBJ File...', loadGroupedFile));
-modelFolder.add(new Button('Sample Tetrahedron', loadSampleMesh));
-panel.add(modelFolder);
+// Actions
+const actionsFolder = new Folder('Actions');
 
-// Helper functions
-function hexToString(hex: number): string {
-  return '#' + hex.toString(16).padStart(6, '0');
-}
+actionsFolder.add(new Button('Load OBJ File', loadObjFile));
+actionsFolder.add(new Button('Sample Tetrahedron', loadSampleMesh));
 
-function stringToHex(str: string): number {
-  return parseInt(str.slice(1), 16);
-}
-
-// Group colors
-const colorFolder = new Folder('Group Colors');
-colorFolder.add(new ColorInput(hexToString(groupColors['1']), {
-  label: 'Group +1',
-  onChange: (c: string) => {
-    groupColors['1'] = stringToHex(c);
-    updateGroupColor('1', groupColors['1']);
+const pathTraceButton = new Button('Start Path Trace', () => {
+  isPathTracing = !isPathTracing;
+  if (isPathTracing) {
+    app.enablePathTracing();
+    pathTraceButton.setLabel('Stop Path Trace');
+    pathTraceButton.domElement.style.backgroundColor = '#c94444';
+    console.log('Path tracing enabled');
+  } else {
+    app.disablePathTracing();
+    pathTraceButton.setLabel('Start Path Trace');
+    pathTraceButton.domElement.style.backgroundColor = '#44aa44';
+    console.log('WebGL rendering');
   }
-}));
-colorFolder.add(new ColorInput(hexToString(groupColors['-1']), {
-  label: 'Group -1',
-  onChange: (c: string) => {
-    groupColors['-1'] = stringToHex(c);
-    updateGroupColor('-1', groupColors['-1']);
-  }
-}));
-colorFolder.add(new ColorInput(hexToString(groupColors['default']), {
-  label: 'Default',
-  onChange: (c: string) => {
-    groupColors['default'] = stringToHex(c);
-    updateGroupColor('default', groupColors['default']);
-  }
-}));
-panel.add(colorFolder);
+});
+pathTraceButton.domElement.style.cssText = 'background:#44aa44;color:#fff;font-weight:bold;padding:8px 12px';
+actionsFolder.add(pathTraceButton);
 
-// Display
-const displayFolder = new Folder('Display');
-displayFolder.add(new Toggle(vizOptions.showVertices, {
-  label: 'Vertices',
+actionsFolder.add(new Button('Download Image', () => {
+  app.renderManager.render(app.scene, app.camera);
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+  app.renderManager.renderer.domElement.toBlob(blob => blob && saveAs(blob, `mesh-${ts}.png`));
+}));
+
+actionsFolder.add(new Button('Reset Accumulation', () => {
+  app.renderManager.resetAccumulation();
+}));
+
+panel.add(actionsFolder);
+
+// Mesh Appearance
+const appearanceFolder = new Folder('Mesh Appearance');
+appearanceFolder.add(new Toggle(true, {
+  label: 'Show Vertices',
   onChange: (v) => {
-    vizOptions.showVertices = v;
-    reloadMesh();
+    currentObjMesh?.setVerticesVisible(v);
+    notifyPathTracerIfNeeded();
   }
 }));
-displayFolder.add(new Toggle(vizOptions.showEdges, {
-  label: 'Edges',
+appearanceFolder.add(new Toggle(true, {
+  label: 'Show Edges',
   onChange: (v) => {
-    vizOptions.showEdges = v;
-    reloadMesh();
+    currentObjMesh?.setEdgesVisible(v);
+    notifyPathTracerIfNeeded();
   }
 }));
-displayFolder.add(new Toggle(vizOptions.showFaces, {
-  label: 'Faces',
+appearanceFolder.add(new Toggle(true, {
+  label: 'Show Faces',
   onChange: (v) => {
-    vizOptions.showFaces = v;
-    reloadMesh();
+    currentObjMesh?.setFacesVisible(v);
+    notifyPathTracerIfNeeded();
   }
 }));
-displayFolder.add(new Slider(vizOptions.sphereRadius, {
+appearanceFolder.add(new Slider(0.04, {
   min: 0.01,
   max: 0.1,
   step: 0.005,
   label: 'Vertex Size',
   onChange: (v: number) => {
-    vizOptions.sphereRadius = v;
-    reloadMesh();
+    currentObjMesh?.setSphereRadius(v);
+    notifyPathTracerIfNeeded();
   }
 }));
-displayFolder.add(new Slider(vizOptions.tubeRadius, {
+appearanceFolder.add(new Slider(0.015, {
   min: 0.005,
   max: 0.05,
   step: 0.002,
   label: 'Edge Size',
   onChange: (v: number) => {
-    vizOptions.tubeRadius = v;
-    reloadMesh();
+    currentObjMesh?.setTubeRadius(v);
+    notifyPathTracerIfNeeded();
   }
 }));
-panel.add(displayFolder);
+appearanceFolder.add(new ColorInput('#333333', {
+  label: 'Vertex Color',
+  onChange: (c: string) => {
+    currentObjMesh?.setVertexColor(c);
+    notifyPathTracerIfNeeded();
+  }
+}));
+appearanceFolder.add(new ColorInput('#555555', {
+  label: 'Edge Color',
+  onChange: (c: string) => {
+    currentObjMesh?.setEdgeColor(c);
+    notifyPathTracerIfNeeded();
+  }
+}));
+panel.add(appearanceFolder);
 
-// Rendering
-const renderFolder = new Folder('Rendering');
-renderFolder.add(new Toggle(false, {
-  label: 'Path Tracing',
-  onChange: (enabled) => {
-    if (enabled) {
-      app.enablePathTracing();
-      console.log('Path tracing enabled');
-    } else {
-      app.disablePathTracing();
-      console.log('WebGL rendering');
-    }
-  }
+// Group Colors (dynamically populated)
+groupColorsFolder = new Folder('Group Colors');
+panel.add(groupColorsFolder);
+
+// Path Tracer settings
+const ptFolder = new Folder('Path Tracer');
+ptFolder.add(new Slider(30, {
+  label: 'Bounces',
+  min: 1,
+  max: 50,
+  step: 1,
+  onChange: (v: number) => app.renderManager.setBounces(v)
 }));
-renderFolder.add(new Button('Reset PT', () => {
-  app.renderManager.resetAccumulation();
-}));
-panel.add(renderFolder);
+panel.add(ptFolder);
+ptFolder.close();
 
 // Spotlight controls
 const lightFolder = new Folder('Spotlight');
@@ -585,4 +422,4 @@ panel.mount(document.body);
 app.start();
 
 console.log('Mesh Examples - White Studio');
-console.log('Load OBJ files with face groups (g directive) for per-group coloring.');
+console.log('Load OBJ files with face groups (g directive) for per-group front/back coloring.');

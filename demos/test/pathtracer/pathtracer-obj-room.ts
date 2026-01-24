@@ -17,12 +17,11 @@ import { Button } from '@/ui/inputs/Button';
 import { Slider } from '@/ui/inputs/Slider';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
-import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
-import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
+import { OBJStructure } from '@/math/mesh/OBJStructure';
 
 // Import assets directly - Vite will only bundle what's imported
-import cubeObj from '@assets/models/cube.obj';
-import icosahedronObj from '@assets/models/icosahedron.obj';
+import cubeObj from '@assets/models/cube.obj?raw';
+import icosahedronObj from '@assets/models/icosahedron.obj?raw';
 
 // Create app
 const app = new App({
@@ -122,7 +121,7 @@ app.scene.add(floor);
 // MESH VISUALIZATION
 // ===================================
 
-let visualizer: MeshVisualizer | null = null;
+let visualizer: OBJStructure | null = null;
 
 // Visualization options
 const vizOptions = {
@@ -133,7 +132,7 @@ const vizOptions = {
   showFaces: true
 };
 
-function showMesh(parsed: ParsedMesh): void {
+function showMesh(objString: string): void {
   // Remove existing
   if (visualizer) {
     app.scene.remove(visualizer);
@@ -141,41 +140,24 @@ function showMesh(parsed: ParsedMesh): void {
     visualizer = null;
   }
 
-  console.log(`Loaded: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
+  // Create new visualizer (auto-centers and scales)
+  visualizer = OBJStructure.fromOBJ(objString, {
+    sphereRadius: vizOptions.sphereRadius,
+    tubeRadius: vizOptions.tubeRadius,
+    vertexColor: '#444444',
+    edgeColor: '#5588cc',
+    defaultFaceColors: { front: '#eecc88', back: '#bb9955' },
+    showVertices: vizOptions.showVertices,
+    showEdges: vizOptions.showEdges,
+    showFaces: vizOptions.showFaces,
+  });
 
-  // Center and scale the mesh
-  const bounds = computeBounds(parsed.vertices);
-  const center = bounds.center;
-  const maxDim = Math.max(bounds.size.x, bounds.size.y, bounds.size.z);
-  const scale = 2.5 / maxDim; // Fit in ~2.5 units
-
-  // Center vertices
-  const centeredVertices = parsed.vertices.map(v =>
-    new THREE.Vector3(
-      (v.x - center.x) * scale,
-      (v.y - center.y) * scale + 1.2, // Lift above floor
-      (v.z - center.z) * scale
-    )
-  );
-
-  visualizer = new MeshVisualizer(
-    { vertices: centeredVertices, faces: parsed.faces },
-    {
-      sphereRadius: vizOptions.sphereRadius,
-      tubeRadius: vizOptions.tubeRadius,
-      sphereSegments: 12,
-      tubeSegments: 8,
-      vertexColor: 0x444444,
-      edgeColor: 0x5588cc,
-      faceColor: 0xeecc88,
-      faceOpacity: 1.0,
-      showVertices: vizOptions.showVertices,
-      showEdges: vizOptions.showEdges,
-      showFaces: vizOptions.showFaces,
-    }
-  );
+  // Position above floor
+  visualizer.position.y = 1.2;
 
   app.scene.add(visualizer);
+
+  console.log(`Loaded: ${visualizer.vertexCount} vertices, ${visualizer.faceCount} faces`);
 
   // Reset path tracer
   if (app.renderManager.isPathTracing()) {
@@ -183,39 +165,28 @@ function showMesh(parsed: ParsedMesh): void {
   }
 }
 
-function computeBounds(vertices: THREE.Vector3[]) {
-  const min = new THREE.Vector3(Infinity, Infinity, Infinity);
-  const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-
-  for (const v of vertices) {
-    min.min(v);
-    max.max(v);
-  }
-
-  return {
-    min,
-    max,
-    size: new THREE.Vector3().subVectors(max, min),
-    center: new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5)
-  };
-}
-
 async function loadMeshFromURL(url: string): Promise<void> {
   try {
     const response = await fetch(url);
     const text = await response.text();
-    const parsed = parseOBJ(text);
-    showMesh(parsed);
+    showMesh(text);
   } catch (error) {
     console.error('Failed to load OBJ:', error);
   }
 }
 
 async function loadMeshFromFile(): Promise<void> {
-  const parsed = await loadOBJFile();
-  if (parsed) {
-    showMesh(parsed);
-  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.obj';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (file) {
+      const text = await file.text();
+      showMesh(text);
+    }
+  };
+  input.click();
 }
 
 // ===================================
@@ -226,7 +197,7 @@ app.camera.position.set(5, 3, 6);
 app.camera.lookAt(0, 1, 0);
 
 // Load default mesh
-loadMeshFromURL(icosahedronObj);
+showMesh(icosahedronObj);
 
 // ===================================
 // UI
@@ -237,8 +208,8 @@ const panel = new Panel('OBJ Room Viewer');
 // Model loading
 const modelFolder = new Folder('Model');
 modelFolder.add(new Button('Load File...', loadMeshFromFile));
-modelFolder.add(new Button('Cube', () => loadMeshFromURL(cubeObj)));
-modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL(icosahedronObj)));
+modelFolder.add(new Button('Cube', () => showMesh(cubeObj)));
+modelFolder.add(new Button('Icosahedron', () => showMesh(icosahedronObj)));
 panel.add(modelFolder);
 
 // Visibility

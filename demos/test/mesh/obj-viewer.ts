@@ -4,7 +4,7 @@
  * Load an OBJ file and visualize it with:
  * - Spheres at vertices
  * - Tubes on edges
- * - Face surface mesh
+ * - Face surface mesh (front/back colors)
  *
  * Supports path tracing for photorealistic rendering.
  */
@@ -15,13 +15,12 @@ import { Folder } from '@/ui/containers/Folder';
 import { Toggle } from '@/ui/inputs/Toggle';
 import { Button } from '@/ui/inputs/Button';
 import '@/ui/styles/index.css';
-import { parseOBJ, loadOBJFile, type ParsedMesh } from '@/math/mesh/parseOBJ';
-import { MeshVisualizer } from '@/math/mesh/MeshVisualizer';
+import { OBJStructure } from '@/math/mesh/OBJStructure';
 
 // Import assets directly - Vite will only bundle what's imported
 import studioHdr from '@assets/hdri/studio.hdr';
-import cubeObj from '@assets/models/cube.obj';
-import icosahedronObj from '@assets/models/icosahedron.obj';
+import cubeObj from '@assets/models/cube.obj?raw';
+import icosahedronObj from '@assets/models/icosahedron.obj?raw';
 
 // Create app
 const app = new App({
@@ -41,10 +40,10 @@ app.backgrounds.loadHDR(studioHdr, {
 });
 
 // Current visualizer
-let visualizer: MeshVisualizer | null = null;
+let visualizer: OBJStructure | null = null;
 
-// Create visualizer from parsed mesh
-function showMesh(parsed: ParsedMesh): void {
+// Create visualizer from OBJ string
+function showMesh(objString: string): void {
   // Remove existing visualizer
   if (visualizer) {
     app.scene.remove(visualizer);
@@ -52,19 +51,18 @@ function showMesh(parsed: ParsedMesh): void {
     visualizer = null;
   }
 
-  console.log(`Loaded: ${parsed.vertices.length} vertices, ${parsed.faces.length} faces`);
-
-  visualizer = new MeshVisualizer(parsed, {
+  visualizer = OBJStructure.fromOBJ(objString, {
     sphereRadius: 0.08,
     tubeRadius: 0.03,
-    vertexColor: 0x333333,
-    edgeColor: 0x4488cc,
-    faceColor: 0xffcc88,
-    faceOpacity: 0.9,
+    vertexColor: '#333333',
+    edgeColor: '#4488cc',
+    defaultFaceColors: { front: '#ffcc88', back: '#cc9955' },
     showVertices: true,
     showEdges: true,
     showFaces: true,
   });
+
+  console.log(`Loaded: ${visualizer.vertexCount} vertices, ${visualizer.faceCount} faces`);
 
   app.scene.add(visualizer);
 
@@ -79,8 +77,7 @@ async function loadMeshFromURL(url: string): Promise<void> {
   try {
     const response = await fetch(url);
     const text = await response.text();
-    const parsed = parseOBJ(text);
-    showMesh(parsed);
+    showMesh(text);
   } catch (error) {
     console.error('Failed to load OBJ:', error);
   }
@@ -88,10 +85,17 @@ async function loadMeshFromURL(url: string): Promise<void> {
 
 // Load OBJ from file picker
 async function loadMeshFromFile(): Promise<void> {
-  const parsed = await loadOBJFile();
-  if (parsed) {
-    showMesh(parsed);
-  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.obj';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (file) {
+      const text = await file.text();
+      showMesh(text);
+    }
+  };
+  input.click();
 }
 
 // Position camera
@@ -99,7 +103,7 @@ app.camera.position.set(4, 3, 5);
 app.camera.lookAt(0, 0, 0);
 
 // Load default mesh
-loadMeshFromURL(icosahedronObj);
+showMesh(icosahedronObj);
 
 // Create UI
 const panel = new Panel('OBJ Viewer');
@@ -107,8 +111,8 @@ const panel = new Panel('OBJ Viewer');
 // Model selection
 const modelFolder = new Folder('Model');
 modelFolder.add(new Button('Load File...', loadMeshFromFile));
-modelFolder.add(new Button('Cube', () => loadMeshFromURL(cubeObj)));
-modelFolder.add(new Button('Icosahedron', () => loadMeshFromURL(icosahedronObj)));
+modelFolder.add(new Button('Cube', () => showMesh(cubeObj)));
+modelFolder.add(new Button('Icosahedron', () => showMesh(icosahedronObj)));
 panel.add(modelFolder);
 
 // Visibility toggles

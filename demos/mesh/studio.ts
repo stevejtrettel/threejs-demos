@@ -25,6 +25,7 @@ import { PhysicalCamera, PhysicalSpotLight, GradientEquirectTexture } from 'thre
 import { saveAs } from 'file-saver';
 
 import { OBJStructure } from '@/math/mesh/OBJStructure';
+import { color } from 'three/tsl';
 
 // ===================================
 // APP SETUP
@@ -55,7 +56,8 @@ app.scene.background = envTexture;
 // ===================================
 
 const floorMat = new THREE.MeshPhysicalMaterial({
-    color: 0xfafafa,
+    color: 0x5ca3b5,
+    //0xfafafa,
     roughness: 0.4,
     metalness: 0.0,
     clearcoat: 0.2,
@@ -100,7 +102,7 @@ function createSpotlight(color: number, intensity: number, position: THREE.Vecto
 }
 
 const lightRig = {
-    keyDir: new THREE.Vector3(-1, 0, 0.8).normalize(),
+    keyDir: new THREE.Vector3(-10, 0, 0).normalize(),
     fillDir: new THREE.Vector3(1, 0, 0.6).normalize(),
     rimDir: new THREE.Vector3(0, 0, -1).normalize(),
     distance: 6,

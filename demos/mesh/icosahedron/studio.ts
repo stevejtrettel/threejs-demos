@@ -25,6 +25,7 @@ import { PhysicalCamera, PhysicalSpotLight, GradientEquirectTexture } from 'thre
 import { saveAs } from 'file-saver';
 
 import { OBJStructure } from '@/math/mesh/OBJStructure';
+import meshUrl from './mesh.obj?url';
 
 // ===================================
 // APP SETUP
@@ -248,7 +249,7 @@ function showObjMesh(objString: string): void {
 // LOAD MESH FROM FILE
 // ===================================
 
-fetch('./mesh.obj')
+fetch(meshUrl)
     .then(res => res.text())
     .then(text => showObjMesh(text))
     .catch(err => console.error('Failed to load mesh.obj:', err));

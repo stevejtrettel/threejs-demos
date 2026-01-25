@@ -240,7 +240,6 @@ function addMesh(objString: string, name: string): MeshInstance {
 
     meshInstances.set(id, instance);
     app.scene.add(mesh);
-    app.selection.addPickable(mesh);
 
     console.log(`Added mesh: ${name} (${mesh.vertexCount} vertices, ${mesh.faceCount} faces)`);
 
@@ -261,7 +260,6 @@ function removeMesh(id: string): void {
 
     // Remove from scene
     app.scene.remove(instance.mesh);
-    app.selection.removePickable(instance.mesh);
     instance.mesh.dispose();
 
     meshInstances.delete(id);
@@ -426,7 +424,7 @@ panel.add(meshListFolder);
 
 function rebuildMeshListUI(): void {
     // Clear existing content
-    const content = meshListFolder.domElement.querySelector('.folder-content');
+    const content = meshListFolder.domElement.querySelector('.cr-folder-content');
     if (!content) return;
 
     // Remove all mesh items
@@ -463,20 +461,20 @@ function rebuildMeshListUI(): void {
 
         // Visibility toggle
         const visBtn = document.createElement('button');
-        visBtn.textContent = instance.mesh.visible ? '👁' : '👁‍🗨';
-        visBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:14px;padding:2px;';
+        visBtn.textContent = instance.mesh.visible ? 'V' : '-';
+        visBtn.style.cssText = 'background:#555;color:#fff;border:none;cursor:pointer;font-size:12px;padding:2px 6px;border-radius:3px;';
         visBtn.title = 'Toggle visibility';
         visBtn.onclick = (e) => {
             e.stopPropagation();
             instance.mesh.visible = !instance.mesh.visible;
-            visBtn.textContent = instance.mesh.visible ? '👁' : '👁‍🗨';
+            visBtn.textContent = instance.mesh.visible ? 'V' : '-';
             notifyPathTracerIfNeeded();
         };
         item.appendChild(visBtn);
 
         // Delete button
         const delBtn = document.createElement('button');
-        delBtn.textContent = '✕';
+        delBtn.textContent = 'X';
         delBtn.style.cssText = 'background:#c44;color:#fff;border:none;cursor:pointer;padding:2px 6px;border-radius:3px;font-size:12px;';
         delBtn.title = 'Remove mesh';
         delBtn.onclick = (e) => {
@@ -498,7 +496,7 @@ let appearanceFolder: Folder | null = null;
 let colorsFolder: Folder | null = null;
 
 function rebuildSelectedMeshUI(): void {
-    const content = selectedMeshFolder.domElement.querySelector('.folder-content');
+    const content = selectedMeshFolder.domElement.querySelector('.cr-folder-content');
     if (!content) return;
 
     // Clear existing
@@ -562,7 +560,7 @@ function rebuildSelectedMeshUI(): void {
         onChange: v => { settings.scale = v; mesh.scale.setScalar(v); notifyPathTracerIfNeeded(); }
     }));
 
-    selectedMeshFolder.add(transformFolder);
+    content.appendChild(transformFolder.domElement);
 
     // Appearance folder
     appearanceFolder = new Folder('Appearance');
@@ -596,7 +594,7 @@ function rebuildSelectedMeshUI(): void {
         onChange: c => { settings.edgeColor = c; mesh.setEdgeColor(c); notifyPathTracerIfNeeded(); }
     }));
 
-    selectedMeshFolder.add(appearanceFolder);
+    content.appendChild(appearanceFolder.domElement);
 
     // Colors folder (per-group)
     colorsFolder = new Folder('Face Colors');
@@ -614,7 +612,7 @@ function rebuildSelectedMeshUI(): void {
         }));
     }
 
-    selectedMeshFolder.add(colorsFolder);
+    content.appendChild(colorsFolder.domElement);
 }
 
 // Initial UI state

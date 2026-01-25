@@ -1,11 +1,11 @@
 /**
  * Interactive Multi-Mesh Studio
  *
- * Load multiple OBJ files, select them by clicking, and manipulate via UI.
+ * Load multiple OBJ files and manipulate them via UI.
  *
  * Features:
  * - Load multiple meshes via file picker
- * - Click-to-select with visual highlighting
+ * - Select meshes from the list with visual highlighting
  * - Per-mesh transform controls (position, rotation, scale)
  * - Per-mesh appearance controls (colors, visibility)
  * - Path tracing support
@@ -112,10 +112,6 @@ const backWall = new THREE.Mesh(
 );
 backWall.position.set(0, 10, -15);
 app.scene.add(backWall);
-
-// Mark floor/wall as non-pickable
-app.selection.addIgnored(floor);
-app.selection.addIgnored(backWall);
 
 // ===================================
 // THREE-POINT LIGHTING SYSTEM
@@ -235,9 +231,6 @@ function addMesh(objString: string, name: string): MeshInstance {
     mesh.position.copy(position);
     mesh.scale.setScalar(1.0);
 
-    // Store instance id on mesh for selection lookup
-    (mesh as any).__instanceId = id;
-
     meshInstances.set(id, instance);
     app.scene.add(mesh);
 
@@ -295,37 +288,11 @@ function selectMesh(id: string | null): void {
         if (instance) {
             selectionBox = new THREE.BoxHelper(instance.mesh, 0xffff00);
             app.scene.add(selectionBox);
-            app.selection.addIgnored(selectionBox);
         }
     }
 
     rebuildSelectedMeshUI();
 }
-
-function findMeshInstanceFromObject(object: THREE.Object3D): MeshInstance | null {
-    // Walk up the hierarchy to find the OBJStructure with our instance id
-    let current: THREE.Object3D | null = object;
-    while (current) {
-        if ((current as any).__instanceId) {
-            return meshInstances.get((current as any).__instanceId) || null;
-        }
-        current = current.parent;
-    }
-    return null;
-}
-
-// Setup selection handler
-app.selection.enable();
-app.selection.onObjectClick((result) => {
-    if (result) {
-        const instance = findMeshInstanceFromObject(result.object);
-        if (instance) {
-            selectMesh(instance.id);
-            return;
-        }
-    }
-    selectMesh(null);
-});
 
 // Update selection box in animation loop
 app.addAnimateCallback(() => {

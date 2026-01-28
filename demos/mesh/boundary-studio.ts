@@ -174,7 +174,7 @@ const meshSettings = {
 const boundarySettings = {
     showBoundaries: true,
     tubeRadius: 0.03,
-    tubeSegments: 64,
+    tubeSegments: 1024,
     radialSegments: 8,
     boundaryColor: '#ff6644',
     // Smoothing
@@ -564,7 +564,7 @@ boundaryFolder.add(new Slider(boundarySettings.tubeRadius, { label: 'Tube Radius
     boundarySettings.tubeRadius = v;
     rebuildBoundaries();
 }}));
-boundaryFolder.add(new Slider(boundarySettings.tubeSegments, { label: 'Tube Segments', min: 8, max: 256, step: 8, onChange: v => {
+boundaryFolder.add(new Slider(boundarySettings.tubeSegments, { label: 'Tube Segments', min: 128, max: 4096, step: 128, onChange: v => {
     boundarySettings.tubeSegments = v;
     rebuildBoundaries();
 }}));
@@ -598,7 +598,7 @@ smoothingFolder.add(new Slider(boundarySettings.smoothingFactor, { label: 'Smoot
     boundarySettings.smoothingFactor = v;
     rebuildBoundaries();
 }}));
-smoothingFolder.add(new Slider(boundarySettings.resampleCount, { label: 'Resample Count', min: 0, max: 500, step: 10, onChange: v => {
+smoothingFolder.add(new Slider(boundarySettings.resampleCount, { label: 'Resample Count', min: 0, max: 2048, step: 32, onChange: v => {
     boundarySettings.resampleCount = v;
     rebuildBoundaries();
 }}));

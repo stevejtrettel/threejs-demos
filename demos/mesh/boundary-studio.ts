@@ -566,6 +566,14 @@ boundaryFolder.add(new Slider(boundarySettings.tubeRadius, { label: 'Tube Radius
     boundarySettings.tubeRadius = v;
     rebuildBoundaries();
 }}));
+boundaryFolder.add(new Slider(boundarySettings.tubeSegments, { label: 'Tube Segments', min: 8, max: 256, step: 8, onChange: v => {
+    boundarySettings.tubeSegments = v;
+    rebuildBoundaries();
+}}));
+boundaryFolder.add(new Slider(boundarySettings.radialSegments, { label: 'Radial Segments', min: 4, max: 16, step: 1, onChange: v => {
+    boundarySettings.radialSegments = v;
+    rebuildBoundaries();
+}}));
 panel.add(boundaryFolder);
 
 // Smoothing

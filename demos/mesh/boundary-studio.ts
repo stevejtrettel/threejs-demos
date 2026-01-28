@@ -232,8 +232,6 @@ function createBoundaryTubes(): void {
     const boundaries = getSmoothedBoundaries();
     if (boundaries.length === 0) return;
 
-    const colors = generateBoundaryColors(boundaries.length);
-
     for (let i = 0; i < boundaries.length; i++) {
         const loop = boundaries[i];
         if (loop.length < 2) continue;
@@ -249,7 +247,7 @@ function createBoundaryTubes(): void {
         );
 
         const tubeMaterial = new THREE.MeshPhysicalMaterial({
-            color: colors[i],
+            color: boundarySettings.boundaryColor,
             roughness: 0.3,
             metalness: 0.3,
             clearcoat: 0.8,
@@ -573,6 +571,16 @@ boundaryFolder.add(new Slider(boundarySettings.tubeSegments, { label: 'Tube Segm
 boundaryFolder.add(new Slider(boundarySettings.radialSegments, { label: 'Radial Segments', min: 4, max: 16, step: 1, onChange: v => {
     boundarySettings.radialSegments = v;
     rebuildBoundaries();
+}}));
+boundaryFolder.add(new ColorInput(boundarySettings.boundaryColor, { label: 'Boundary Color', onChange: c => {
+    boundarySettings.boundaryColor = c;
+    // Update all boundary tube materials
+    boundaryGroup.traverse(obj => {
+        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshPhysicalMaterial) {
+            obj.material.color.set(c);
+        }
+    });
+    notifyPathTracerIfNeeded();
 }}));
 panel.add(boundaryFolder);
 

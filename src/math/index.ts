@@ -50,6 +50,14 @@ export { RippleFunction } from './functions/RippleFunction';
 
 // Curves
 export * from './curves/types';
+export {
+  smoothCurve,
+  smoothBoundary,
+  laplacianSmooth,
+  chaikinSmooth,
+  resampleUniform,
+} from './curves/smoothCurve';
+export type { SmoothCurveOptions, SmoothingMethod } from './curves/smoothCurve';
 
 // Geodesics
 export * from './geodesics/types';

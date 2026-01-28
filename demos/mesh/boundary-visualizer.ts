@@ -4,6 +4,8 @@
  * Load an OBJ file and visualize its boundary loops as colored tubes.
  * Uses extractBoundary to find boundary edges and connects them into
  * closed CatmullRomCurve3 curves rendered with TubeGeometry.
+ *
+ * Includes curve smoothing options to reduce noise in extracted boundaries.
  */
 
 import { App } from '@/app/App';
@@ -15,7 +17,7 @@ import { Toggle } from '@/ui/inputs/Toggle';
 import '@/ui/styles/index.css';
 import * as THREE from 'three';
 
-import { loadGroupedOBJFile, extractBoundary } from '@/math';
+import { loadGroupedOBJFile, extractBoundary, smoothBoundary } from '@/math';
 import { OBJSurface } from '@/math/mesh/OBJSurface';
 
 // ===================================
@@ -55,16 +57,23 @@ app.scene.add(boundaryGroup);
 
 // Settings
 const settings = {
+    // Tube settings
     tubeRadius: 0.02,
     tubeSegments: 64,
     radialSegments: 8,
+    // Display settings
     showSurface: true,
     showBoundaries: true,
     surfaceOpacity: 0.7,
+    // Smoothing settings
+    smoothingEnabled: true,
+    smoothingIterations: 3,
+    smoothingFactor: 0.5,
+    resampleCount: 0, // 0 = use original count
 };
 
-// Cached boundaries for rebuilding tubes when settings change
-let lastBoundaries: THREE.Vector3[][] = [];
+// Raw boundaries (before smoothing)
+let rawBoundaries: THREE.Vector3[][] = [];
 
 // Color palette for boundary loops (golden ratio distribution)
 function generateBoundaryColors(count: number): THREE.Color[] {
@@ -76,6 +85,27 @@ function generateBoundaryColors(count: number): THREE.Color[] {
         colors.push(color.clone());
     }
     return colors;
+}
+
+// ===================================
+// SMOOTHING
+// ===================================
+
+function getSmoothedBoundaries(): THREE.Vector3[][] {
+    if (!settings.smoothingEnabled) {
+        return rawBoundaries.map(loop => loop.map(p => p.clone()));
+    }
+
+    return rawBoundaries.map(loop => {
+        const numSamples = settings.resampleCount > 0 ? settings.resampleCount : undefined;
+        return smoothBoundary(
+            loop,
+            numSamples,
+            settings.smoothingIterations,
+            settings.smoothingFactor,
+            true // closed
+        );
+    });
 }
 
 // ===================================
@@ -164,7 +194,8 @@ function scaleBoundariesToMatch(
 }
 
 function rebuildTubes(): void {
-    createBoundaryTubes(lastBoundaries);
+    const smoothed = getSmoothedBoundaries();
+    createBoundaryTubes(smoothed);
 }
 
 // ===================================
@@ -202,13 +233,20 @@ async function loadAndVisualize(): Promise<void> {
 
     app.scene.add(currentSurface);
 
-    // Extract and visualize boundaries
+    // Extract boundaries
     const boundaries = extractBoundary(result);
     console.log(`Found ${boundaries.length} boundary component(s)`);
 
-    // Scale boundaries to match the surface and cache them
-    lastBoundaries = scaleBoundariesToMatch(result.vertices, boundaries);
-    createBoundaryTubes(lastBoundaries);
+    // Scale and store raw boundaries
+    rawBoundaries = scaleBoundariesToMatch(result.vertices, boundaries);
+
+    // Log boundary point counts
+    for (let i = 0; i < rawBoundaries.length; i++) {
+        console.log(`  Boundary ${i}: ${rawBoundaries[i].length} points`);
+    }
+
+    // Create tubes with smoothing applied
+    rebuildTubes();
 
     // Update info display
     updateInfo(result.vertices.length, result.faces.length, boundaries.length);
@@ -279,6 +317,52 @@ displayFolder.add(new Slider(settings.surfaceOpacity, {
 }));
 
 panel.add(displayFolder);
+
+// Smoothing folder
+const smoothingFolder = new Folder('Smoothing');
+
+smoothingFolder.add(new Toggle(settings.smoothingEnabled, {
+    label: 'Enable Smoothing',
+    onChange: (v) => {
+        settings.smoothingEnabled = v;
+        rebuildTubes();
+    }
+}));
+
+smoothingFolder.add(new Slider(settings.smoothingIterations, {
+    label: 'Iterations',
+    min: 0,
+    max: 20,
+    step: 1,
+    onChange: (v) => {
+        settings.smoothingIterations = v;
+        rebuildTubes();
+    }
+}));
+
+smoothingFolder.add(new Slider(settings.smoothingFactor, {
+    label: 'Smooth Factor',
+    min: 0.1,
+    max: 0.9,
+    step: 0.05,
+    onChange: (v) => {
+        settings.smoothingFactor = v;
+        rebuildTubes();
+    }
+}));
+
+smoothingFolder.add(new Slider(settings.resampleCount, {
+    label: 'Resample Count',
+    min: 0,
+    max: 500,
+    step: 10,
+    onChange: (v) => {
+        settings.resampleCount = v;
+        rebuildTubes();
+    }
+}));
+
+panel.add(smoothingFolder);
 
 // Tube settings folder
 const tubeFolder = new Folder('Tube Settings');

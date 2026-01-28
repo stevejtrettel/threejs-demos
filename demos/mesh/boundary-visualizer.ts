@@ -63,6 +63,9 @@ const settings = {
     surfaceOpacity: 0.7,
 };
 
+// Cached boundaries for rebuilding tubes when settings change
+let lastBoundaries: THREE.Vector3[][] = [];
+
 // Color palette for boundary loops (golden ratio distribution)
 function generateBoundaryColors(count: number): THREE.Color[] {
     const colors: THREE.Color[] = [];
@@ -131,6 +134,39 @@ function createBoundaryTubes(boundaries: THREE.Vector3[][]): void {
     console.log(`Created ${boundaries.length} boundary tube(s)`);
 }
 
+// Scale boundary points to match OBJSurface's centering and scaling
+function scaleBoundariesToMatch(
+    originalVertices: THREE.Vector3[],
+    boundaries: THREE.Vector3[][]
+): THREE.Vector3[][] {
+    // Compute the same transform that OBJSurface applies
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+
+    for (const v of originalVertices) {
+        min.min(v);
+        max.max(v);
+    }
+
+    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+    const size = new THREE.Vector3().subVectors(max, min);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = maxDim > 0 ? 2.0 / maxDim : 1.0;
+
+    // Apply transform to boundary points
+    return boundaries.map(loop =>
+        loop.map(v => new THREE.Vector3(
+            (v.x - center.x) * scale,
+            (v.y - center.y) * scale,
+            (v.z - center.z) * scale
+        ))
+    );
+}
+
+function rebuildTubes(): void {
+    createBoundaryTubes(lastBoundaries);
+}
+
 // ===================================
 // OBJ LOADING
 // ===================================
@@ -170,94 +206,11 @@ async function loadAndVisualize(): Promise<void> {
     const boundaries = extractBoundary(result);
     console.log(`Found ${boundaries.length} boundary component(s)`);
 
-    // Scale boundaries to match the surface (OBJSurface centers and scales to unit box)
-    // We need to apply the same transformation
-    const scaledBoundaries = scaleBoundariesToMatch(result.vertices, boundaries);
-
-    createBoundaryTubes(scaledBoundaries);
-
-    // Update info
-    updateInfo(result.vertices.length, result.faces.length, boundaries.length);
-}
-
-// Scale boundary points to match OBJSurface's centering and scaling
-function scaleBoundariesToMatch(
-    originalVertices: THREE.Vector3[],
-    boundaries: THREE.Vector3[][]
-): THREE.Vector3[][] {
-    // Compute the same transform that OBJSurface applies
-    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
-    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-
-    for (const v of originalVertices) {
-        min.min(v);
-        max.max(v);
-    }
-
-    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
-    const size = new THREE.Vector3().subVectors(max, min);
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = maxDim > 0 ? 2.0 / maxDim : 1.0;
-
-    // Apply transform to boundary points
-    return boundaries.map(loop =>
-        loop.map(v => new THREE.Vector3(
-            (v.x - center.x) * scale,
-            (v.y - center.y) * scale,
-            (v.z - center.z) * scale
-        ))
-    );
-}
-
-// ===================================
-// REBUILD TUBES (when settings change)
-// ===================================
-
-let lastBoundaries: THREE.Vector3[][] = [];
-
-function rebuildTubes(): void {
-    createBoundaryTubes(lastBoundaries);
-}
-
-// Modified load function to store boundaries
-const originalLoadAndVisualize = loadAndVisualize;
-async function loadAndVisualizeWithCache(): Promise<void> {
-    const result = await loadGroupedOBJFile();
-    if (!result) return;
-
-    // Remove old surface
-    if (currentSurface) {
-        app.scene.remove(currentSurface);
-        currentSurface.dispose();
-        currentSurface = null;
-    }
-
-    // Create new surface
-    currentSurface = new OBJSurface(result, {
-        defaultColor: '#888899',
-        roughness: 0.5,
-        metalness: 0.0,
-        clearcoat: 0.1,
-        side: THREE.DoubleSide,
-    });
-    currentSurface.visible = settings.showSurface;
-
-    currentSurface.traverse((obj) => {
-        if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshPhysicalMaterial) {
-            obj.material.transparent = true;
-            obj.material.opacity = settings.surfaceOpacity;
-        }
-    });
-
-    app.scene.add(currentSurface);
-
-    // Extract and visualize boundaries
-    const boundaries = extractBoundary(result);
-    console.log(`Found ${boundaries.length} boundary component(s)`);
-
+    // Scale boundaries to match the surface and cache them
     lastBoundaries = scaleBoundariesToMatch(result.vertices, boundaries);
     createBoundaryTubes(lastBoundaries);
 
+    // Update info display
     updateInfo(result.vertices.length, result.faces.length, boundaries.length);
 }
 
@@ -267,7 +220,7 @@ async function loadAndVisualizeWithCache(): Promise<void> {
 
 const panel = new Panel({ title: 'Boundary Visualizer', container: app.container });
 
-// Info display
+// Info display element
 let infoElement: HTMLElement | null = null;
 
 function updateInfo(vertices: number, faces: number, boundaries: number): void {
@@ -277,48 +230,39 @@ function updateInfo(vertices: number, faces: number, boundaries: number): void {
 }
 
 // Load folder
-const loadFolder = new Folder({ title: 'Load', parent: panel, open: true });
+const loadFolder = new Folder('Load');
 
-new Button({
-    title: 'Load OBJ',
-    parent: loadFolder,
-    onClick: loadAndVisualizeWithCache
-});
+loadFolder.add(new Button('Load OBJ File', loadAndVisualize));
 
-// Create info display
+// Create info display and add to folder's content
 const infoDiv = document.createElement('div');
 infoDiv.style.cssText = 'padding: 8px 12px; color: #aaa; font-size: 11px;';
 infoDiv.textContent = 'No mesh loaded';
 infoElement = infoDiv;
-loadFolder.element.appendChild(infoDiv);
+
+panel.add(loadFolder);
 
 // Display folder
-const displayFolder = new Folder({ title: 'Display', parent: panel, open: true });
+const displayFolder = new Folder('Display');
 
-new Toggle({
-    title: 'Show Surface',
-    parent: displayFolder,
-    value: settings.showSurface,
+displayFolder.add(new Toggle(settings.showSurface, {
+    label: 'Show Surface',
     onChange: (v) => {
         settings.showSurface = v;
         if (currentSurface) currentSurface.visible = v;
     }
-});
+}));
 
-new Toggle({
-    title: 'Show Boundaries',
-    parent: displayFolder,
-    value: settings.showBoundaries,
+displayFolder.add(new Toggle(settings.showBoundaries, {
+    label: 'Show Boundaries',
     onChange: (v) => {
         settings.showBoundaries = v;
         boundaryGroup.visible = v;
     }
-});
+}));
 
-new Slider({
-    title: 'Surface Opacity',
-    parent: displayFolder,
-    value: settings.surfaceOpacity,
+displayFolder.add(new Slider(settings.surfaceOpacity, {
+    label: 'Surface Opacity',
     min: 0.1,
     max: 1.0,
     step: 0.05,
@@ -332,15 +276,15 @@ new Slider({
             });
         }
     }
-});
+}));
+
+panel.add(displayFolder);
 
 // Tube settings folder
-const tubeFolder = new Folder({ title: 'Tube Settings', parent: panel, open: false });
+const tubeFolder = new Folder('Tube Settings');
 
-new Slider({
-    title: 'Tube Radius',
-    parent: tubeFolder,
-    value: settings.tubeRadius,
+tubeFolder.add(new Slider(settings.tubeRadius, {
+    label: 'Tube Radius',
     min: 0.005,
     max: 0.1,
     step: 0.005,
@@ -348,12 +292,10 @@ new Slider({
         settings.tubeRadius = v;
         rebuildTubes();
     }
-});
+}));
 
-new Slider({
-    title: 'Tube Segments',
-    parent: tubeFolder,
-    value: settings.tubeSegments,
+tubeFolder.add(new Slider(settings.tubeSegments, {
+    label: 'Tube Segments',
     min: 8,
     max: 128,
     step: 8,
@@ -361,12 +303,10 @@ new Slider({
         settings.tubeSegments = v;
         rebuildTubes();
     }
-});
+}));
 
-new Slider({
-    title: 'Radial Segments',
-    parent: tubeFolder,
-    value: settings.radialSegments,
+tubeFolder.add(new Slider(settings.radialSegments, {
+    label: 'Radial Segments',
     min: 4,
     max: 16,
     step: 1,
@@ -374,7 +314,10 @@ new Slider({
         settings.radialSegments = v;
         rebuildTubes();
     }
-});
+}));
+
+tubeFolder.close();
+panel.add(tubeFolder);
 
 // ===================================
 // START
@@ -382,4 +325,4 @@ new Slider({
 
 app.start();
 
-console.log('Boundary Visualizer ready. Click "Load OBJ" to load a mesh.');
+console.log('Boundary Visualizer ready. Click "Load OBJ File" to load a mesh.');

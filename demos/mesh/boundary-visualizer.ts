@@ -319,6 +319,8 @@ tubeFolder.add(new Slider(settings.radialSegments, {
 tubeFolder.close();
 panel.add(tubeFolder);
 
+panel.mount(document.body);
+
 // ===================================
 // START
 // ===================================

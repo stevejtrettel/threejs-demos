@@ -218,7 +218,7 @@ async function loadAndVisualize(): Promise<void> {
 // UI
 // ===================================
 
-const panel = new Panel({ title: 'Boundary Visualizer', container: app.container });
+const panel = new Panel('Boundary Visualizer');
 
 // Info display element
 let infoElement: HTMLElement | null = null;

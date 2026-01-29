@@ -30,6 +30,9 @@
 // Shared types
 export * from './types';
 
+// Spaces
+export * from './spaces';
+
 // Domain-specific exports
 // (These will be populated as we implement each domain)
 
@@ -47,6 +50,12 @@ export type { EllipticCurveMeshOptions } from './surfaces/EllipticCurveMesh';
 // Functions (scalar fields)
 export * from './functions/types';
 export { RippleFunction } from './functions/RippleFunction';
+
+// Mesh
+export * from './mesh';
+
+// Linear Algebra
+export * from './linear-algebra';
 
 // Curves
 export * from './curves/types';

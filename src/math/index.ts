@@ -50,6 +50,14 @@ export { RippleFunction } from './functions/RippleFunction';
 
 // Curves
 export * from './curves/types';
+export { NumericalCurve } from './curves/NumericalCurve';
+export type { NumericalCurveOptions } from './curves/NumericalCurve';
+export { ParametricCurve } from './curves/ParametricCurve';
+export type { ParametricCurveOptions, Parameterization } from './curves/ParametricCurve';
+export { CurveTube } from './curves/CurveTube';
+export type { CurveTubeOptions } from './curves/CurveTube';
+export { buildTubeGeometry } from './curves/buildTubeGeometry';
+export type { BuildTubeGeometryOptions } from './curves/buildTubeGeometry';
 export {
   smoothCurve,
   smoothBoundary,

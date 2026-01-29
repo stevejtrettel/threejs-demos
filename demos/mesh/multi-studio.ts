@@ -24,6 +24,7 @@ import { PhysicalCamera, PhysicalSpotLight, GradientEquirectTexture } from 'thre
 import { saveAs } from 'file-saver';
 
 import { OBJStructure } from '@/math/mesh/OBJStructure';
+import { parseGroupedOBJ, extractBoundary, smoothBoundary } from '@/math';
 
 // ===================================
 // TYPES
@@ -33,6 +34,8 @@ interface MeshInstance {
     id: string;
     name: string;
     mesh: OBJStructure;
+    boundaryGroup: THREE.Group;
+    rawBoundaries: THREE.Vector3[][];
     settings: {
         positionX: number;
         positionY: number;
@@ -44,12 +47,25 @@ interface MeshInstance {
         showVertices: boolean;
         showEdges: boolean;
         showFaces: boolean;
+        showBoundaries: boolean;
         vertexColor: string;
         edgeColor: string;
+        boundaryColor: string;
         sphereRadius: number;
         tubeRadius: number;
     };
 }
+
+// Global boundary settings (shared across all meshes)
+const boundarySettings = {
+    tubeRadius: 0.03,
+    tubeSegments: 1024,
+    radialSegments: 8,
+    smoothingEnabled: true,
+    smoothingIterations: 5,
+    smoothingFactor: 0.5,
+    resampleCount: 0,
+};
 
 // ===================================
 // STATE
@@ -196,12 +212,122 @@ function getNextPosition(): THREE.Vector3 {
 }
 
 // ===================================
+// BOUNDARY HELPERS
+// ===================================
+
+function scaleBoundariesToMatch(
+    originalVertices: THREE.Vector3[],
+    boundaries: THREE.Vector3[][]
+): THREE.Vector3[][] {
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+
+    for (const v of originalVertices) {
+        min.min(v);
+        max.max(v);
+    }
+
+    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+    const size = new THREE.Vector3().subVectors(max, min);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = maxDim > 0 ? 2.0 / maxDim : 1.0;
+
+    return boundaries.map(loop =>
+        loop.map(v => new THREE.Vector3(
+            (v.x - center.x) * scale,
+            (v.y - center.y) * scale,
+            (v.z - center.z) * scale
+        ))
+    );
+}
+
+function getSmoothedBoundaries(rawBoundaries: THREE.Vector3[][]): THREE.Vector3[][] {
+    if (!boundarySettings.smoothingEnabled) {
+        return rawBoundaries.map(loop => loop.map(p => p.clone()));
+    }
+
+    return rawBoundaries.map(loop => {
+        const numSamples = boundarySettings.resampleCount > 0 ? boundarySettings.resampleCount : undefined;
+        return smoothBoundary(
+            loop,
+            numSamples,
+            boundarySettings.smoothingIterations,
+            boundarySettings.smoothingFactor,
+            true
+        );
+    });
+}
+
+function createBoundaryTubesForInstance(instance: MeshInstance): void {
+    const group = instance.boundaryGroup;
+
+    // Clear existing
+    while (group.children.length > 0) {
+        const child = group.children[0];
+        if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            if (child.material instanceof THREE.Material) {
+                child.material.dispose();
+            }
+        }
+        group.remove(child);
+    }
+
+    const boundaries = getSmoothedBoundaries(instance.rawBoundaries);
+    if (boundaries.length === 0) return;
+
+    for (let i = 0; i < boundaries.length; i++) {
+        const loop = boundaries[i];
+        if (loop.length < 2) continue;
+
+        const curve = new THREE.CatmullRomCurve3(loop, true, 'catmullrom', 0.5);
+
+        const tubeGeometry = new THREE.TubeGeometry(
+            curve,
+            boundarySettings.tubeSegments,
+            boundarySettings.tubeRadius,
+            boundarySettings.radialSegments,
+            true
+        );
+
+        const tubeMaterial = new THREE.MeshPhysicalMaterial({
+            color: instance.settings.boundaryColor,
+            roughness: 0.3,
+            metalness: 0.3,
+            clearcoat: 0.8,
+        });
+
+        const tubeMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+        tubeMesh.name = `boundary-${i}`;
+        group.add(tubeMesh);
+    }
+}
+
+function rebuildAllBoundaries(): void {
+    for (const instance of meshInstances.values()) {
+        createBoundaryTubesForInstance(instance);
+    }
+    notifyPathTracerIfNeeded();
+}
+
+// ===================================
 // MESH MANAGEMENT
 // ===================================
 
 function addMesh(objString: string, name: string): MeshInstance {
     const id = generateMeshId();
-    const mesh = OBJStructure.fromOBJ(objString);
+
+    // Parse OBJ for both mesh and boundary extraction
+    const parsed = parseGroupedOBJ(objString);
+    const mesh = new OBJStructure(parsed);
+
+    // Extract and scale boundaries
+    const boundaries = extractBoundary(parsed);
+    const rawBoundaries = scaleBoundariesToMatch(parsed.vertices, boundaries);
+
+    // Create boundary group
+    const boundaryGroup = new THREE.Group();
+    boundaryGroup.name = `boundaries-${id}`;
 
     const position = getNextPosition();
 
@@ -209,6 +335,8 @@ function addMesh(objString: string, name: string): MeshInstance {
         id,
         name,
         mesh,
+        boundaryGroup,
+        rawBoundaries,
         settings: {
             positionX: position.x,
             positionY: position.y,
@@ -220,8 +348,10 @@ function addMesh(objString: string, name: string): MeshInstance {
             showVertices: true,
             showEdges: true,
             showFaces: true,
+            showBoundaries: true,
             vertexColor: '#1a1a1a',
             edgeColor: '#4488cc',
+            boundaryColor: '#ff6644',
             sphereRadius: 0.06,
             tubeRadius: 0.025,
         }
@@ -230,11 +360,17 @@ function addMesh(objString: string, name: string): MeshInstance {
     // Apply initial transform
     mesh.position.copy(position);
     mesh.scale.setScalar(1.0);
+    boundaryGroup.position.copy(position);
+    boundaryGroup.scale.setScalar(1.0);
+
+    // Create boundary tubes
+    createBoundaryTubesForInstance(instance);
 
     meshInstances.set(id, instance);
     app.scene.add(mesh);
+    app.scene.add(boundaryGroup);
 
-    console.log(`Added mesh: ${name} (${mesh.vertexCount} vertices, ${mesh.faceCount} faces)`);
+    console.log(`Added mesh: ${name} (${mesh.vertexCount} vertices, ${mesh.faceCount} faces, ${boundaries.length} boundary loops)`);
 
     notifyPathTracerIfNeeded();
     rebuildMeshListUI();
@@ -251,9 +387,20 @@ function removeMesh(id: string): void {
         selectMesh(null);
     }
 
-    // Remove from scene
+    // Remove mesh from scene
     app.scene.remove(instance.mesh);
     instance.mesh.dispose();
+
+    // Remove boundary group
+    app.scene.remove(instance.boundaryGroup);
+    instance.boundaryGroup.traverse(obj => {
+        if (obj instanceof THREE.Mesh) {
+            obj.geometry.dispose();
+            if (obj.material instanceof THREE.Material) {
+                obj.material.dispose();
+            }
+        }
+    });
 
     meshInstances.delete(id);
 
@@ -498,33 +645,35 @@ function rebuildSelectedMeshUI(): void {
     // Transform folder
     transformFolder = new Folder('Transform');
 
+    const boundaryGrp = instance.boundaryGroup;
+
     transformFolder.add(new Slider(settings.positionX, {
         label: 'Position X', min: -10, max: 10, step: 0.1,
-        onChange: v => { settings.positionX = v; mesh.position.x = v; notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.positionX = v; mesh.position.x = v; boundaryGrp.position.x = v; notifyPathTracerIfNeeded(); }
     }));
     transformFolder.add(new Slider(settings.positionY, {
         label: 'Position Y', min: 0, max: 5, step: 0.1,
-        onChange: v => { settings.positionY = v; mesh.position.y = v; notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.positionY = v; mesh.position.y = v; boundaryGrp.position.y = v; notifyPathTracerIfNeeded(); }
     }));
     transformFolder.add(new Slider(settings.positionZ, {
         label: 'Position Z', min: -10, max: 10, step: 0.1,
-        onChange: v => { settings.positionZ = v; mesh.position.z = v; notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.positionZ = v; mesh.position.z = v; boundaryGrp.position.z = v; notifyPathTracerIfNeeded(); }
     }));
     transformFolder.add(new Slider(settings.rotationX, {
         label: 'Rotate X', min: -Math.PI, max: Math.PI, step: 0.05,
-        onChange: v => { settings.rotationX = v; mesh.rotation.x = v; notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.rotationX = v; mesh.rotation.x = v; boundaryGrp.rotation.x = v; notifyPathTracerIfNeeded(); }
     }));
     transformFolder.add(new Slider(settings.rotationY, {
         label: 'Rotate Y', min: -Math.PI, max: Math.PI, step: 0.05,
-        onChange: v => { settings.rotationY = v; mesh.rotation.y = v; notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.rotationY = v; mesh.rotation.y = v; boundaryGrp.rotation.y = v; notifyPathTracerIfNeeded(); }
     }));
     transformFolder.add(new Slider(settings.rotationZ, {
         label: 'Rotate Z', min: -Math.PI, max: Math.PI, step: 0.05,
-        onChange: v => { settings.rotationZ = v; mesh.rotation.z = v; notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.rotationZ = v; mesh.rotation.z = v; boundaryGrp.rotation.z = v; notifyPathTracerIfNeeded(); }
     }));
     transformFolder.add(new Slider(settings.scale, {
         label: 'Scale', min: 0.1, max: 3, step: 0.1,
-        onChange: v => { settings.scale = v; mesh.scale.setScalar(v); notifyPathTracerIfNeeded(); }
+        onChange: v => { settings.scale = v; mesh.scale.setScalar(v); boundaryGrp.scale.setScalar(v); notifyPathTracerIfNeeded(); }
     }));
 
     content.appendChild(transformFolder.domElement);
@@ -560,6 +709,22 @@ function rebuildSelectedMeshUI(): void {
         label: 'Edge Color',
         onChange: c => { settings.edgeColor = c; mesh.setEdgeColor(c); notifyPathTracerIfNeeded(); }
     }));
+    appearanceFolder.add(new Toggle(settings.showBoundaries, {
+        label: 'Show Boundaries',
+        onChange: v => { settings.showBoundaries = v; boundaryGrp.visible = v; notifyPathTracerIfNeeded(); }
+    }));
+    appearanceFolder.add(new ColorInput(settings.boundaryColor, {
+        label: 'Boundary Color',
+        onChange: c => {
+            settings.boundaryColor = c;
+            boundaryGrp.traverse(obj => {
+                if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshPhysicalMaterial) {
+                    obj.material.color.set(c);
+                }
+            });
+            notifyPathTracerIfNeeded();
+        }
+    }));
 
     content.appendChild(appearanceFolder.domElement);
 
@@ -585,6 +750,39 @@ function rebuildSelectedMeshUI(): void {
 // Initial UI state
 rebuildMeshListUI();
 rebuildSelectedMeshUI();
+
+// Global Boundary Settings (affects all meshes)
+const boundarySettingsFolder = new Folder('Boundary Settings');
+
+boundarySettingsFolder.add(new Slider(boundarySettings.tubeRadius, {
+    label: 'Tube Radius', min: 0.01, max: 0.1, step: 0.005,
+    onChange: v => { boundarySettings.tubeRadius = v; rebuildAllBoundaries(); }
+}));
+boundarySettingsFolder.add(new Slider(boundarySettings.tubeSegments, {
+    label: 'Tube Segments', min: 128, max: 4096, step: 128,
+    onChange: v => { boundarySettings.tubeSegments = v; rebuildAllBoundaries(); }
+}));
+boundarySettingsFolder.add(new Slider(boundarySettings.radialSegments, {
+    label: 'Radial Segments', min: 4, max: 16, step: 1,
+    onChange: v => { boundarySettings.radialSegments = v; rebuildAllBoundaries(); }
+}));
+boundarySettingsFolder.add(new Toggle(boundarySettings.smoothingEnabled, {
+    label: 'Enable Smoothing',
+    onChange: v => { boundarySettings.smoothingEnabled = v; rebuildAllBoundaries(); }
+}));
+boundarySettingsFolder.add(new Slider(boundarySettings.smoothingIterations, {
+    label: 'Smooth Iterations', min: 0, max: 20, step: 1,
+    onChange: v => { boundarySettings.smoothingIterations = v; rebuildAllBoundaries(); }
+}));
+boundarySettingsFolder.add(new Slider(boundarySettings.smoothingFactor, {
+    label: 'Smooth Factor', min: 0.1, max: 0.9, step: 0.05,
+    onChange: v => { boundarySettings.smoothingFactor = v; rebuildAllBoundaries(); }
+}));
+boundarySettingsFolder.add(new Slider(boundarySettings.resampleCount, {
+    label: 'Resample Count', min: 0, max: 2048, step: 32,
+    onChange: v => { boundarySettings.resampleCount = v; rebuildAllBoundaries(); }
+}));
+panel.add(boundarySettingsFolder);
 
 // Lighting folder
 const lightingFolder = new Folder('Lighting');

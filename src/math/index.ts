@@ -50,6 +50,22 @@ export { RippleFunction } from './functions/RippleFunction';
 
 // Curves
 export * from './curves/types';
+export { NumericalCurve } from './curves/NumericalCurve';
+export type { NumericalCurveOptions } from './curves/NumericalCurve';
+export { ParametricCurve } from './curves/ParametricCurve';
+export type { ParametricCurveOptions, Parameterization } from './curves/ParametricCurve';
+export { CurveTube } from './curves/CurveTube';
+export type { CurveTubeOptions } from './curves/CurveTube';
+export { buildTubeGeometry } from './curves/buildTubeGeometry';
+export type { BuildTubeGeometryOptions } from './curves/buildTubeGeometry';
+export {
+  smoothCurve,
+  smoothBoundary,
+  laplacianSmooth,
+  chaikinSmooth,
+  resampleUniform,
+} from './curves/smoothCurve';
+export type { SmoothCurveOptions, SmoothingMethod } from './curves/smoothCurve';
 
 // Geodesics
 export * from './geodesics/types';
@@ -57,6 +73,35 @@ export { GeodesicIntegrator } from './geodesics/GeodesicIntegrator';
 export type { GeodesicIntegratorOptions } from './geodesics/GeodesicIntegrator';
 export { GeodesicTrail } from './geodesics/GeodesicTrail';
 export type { GeodesicTrailOptions } from './geodesics/GeodesicTrail';
+
+// Mesh utilities
+export { extractBoundary, extractBoundaryEdges, extractBoundaryIndices } from './mesh/extractBoundary';
+export type { BoundaryLoop } from './mesh/extractBoundary';
+export {
+  parseOBJ,
+  parseGroupedOBJ,
+  parseMTL,
+  groupedToSimple,
+  extractEdges,
+  groupColorsFromMap,
+  materialColorsFromMap,
+  generateGroupPalette,
+  loadOBJFile,
+  loadGroupedOBJFile,
+  loadGroupedOBJWithColors,
+  DEFAULT_GROUP_COLORS,
+} from './mesh/parseOBJ';
+export type {
+  ParsedMesh,
+  GroupedMesh,
+  GroupedFace,
+  ParsedMaterial,
+  LoadedGroupedMesh,
+} from './mesh/parseOBJ';
+export { OBJStructure } from './mesh/OBJStructure';
+export type { OBJStructureOptions } from './mesh/OBJStructure';
+export { OBJSurface } from './mesh/OBJSurface';
+export type { OBJSurfaceOptions } from './mesh/OBJSurface';
 
 // For convenience, re-export Params from the framework
 export { Params } from '@/Params';

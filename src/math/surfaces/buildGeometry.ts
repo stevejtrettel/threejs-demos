@@ -109,9 +109,10 @@ export function buildGeometry(
       const v2 = i * (uSegments + 1) + (j + 1);     // Bottom-right
       const v3 = (i + 1) * (uSegments + 1) + (j + 1); // Top-right
 
-      // Two triangles per quad (counter-clockwise winding)
-      indices.push(v0, v1, v2);  // Lower-left triangle
-      indices.push(v1, v3, v2);  // Upper-right triangle
+      // Two triangles per quad
+      // Winding consistent with normal = du × dv (outward)
+      indices.push(v0, v2, v1);
+      indices.push(v1, v2, v3);
     }
   }
 

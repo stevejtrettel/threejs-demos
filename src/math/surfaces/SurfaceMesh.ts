@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
 import { Params } from '@/Params';
 import type { Surface, DifferentialSurface, SurfaceDomain, SurfacePartials, FirstFundamentalForm } from './types';
 import { buildGeometry } from './buildGeometry';
@@ -52,6 +53,24 @@ export interface SurfaceMeshOptions {
    * Render as wireframe (default: false)
    */
   wireframe?: boolean;
+
+  /**
+   * Custom fragment shader (GLSL).
+   * When provided, the material uses CustomShaderMaterial wrapping MeshPhysicalMaterial.
+   * The shader can set csm_DiffuseColor, csm_Roughness, csm_Metalness, etc.
+   */
+  fragmentShader?: string;
+
+  /**
+   * Custom vertex shader (GLSL).
+   * Can modify csm_Position, csm_Normal, etc.
+   */
+  vertexShader?: string;
+
+  /**
+   * Shader uniforms. Only used when fragmentShader or vertexShader is provided.
+   */
+  uniforms?: Record<string, { value: any }>;
 }
 
 /**
@@ -87,6 +106,12 @@ export class SurfaceMesh extends THREE.Mesh {
   readonly params = new Params(this);
 
   private surface: Surface;
+
+  /**
+   * Shader uniforms. Mutate .value properties to animate.
+   * Empty object when no shader is active.
+   */
+  readonly uniforms: Record<string, { value: any }>;
 
   /**
    * Number of segments in u direction
@@ -137,6 +162,9 @@ export class SurfaceMesh extends THREE.Mesh {
     // Store surface reference
     this.surface = surface;
 
+    // Store uniforms
+    this.uniforms = options.uniforms ?? {};
+
     // Define parameters and dependencies
     this.params
       .define('uSegments', options.uSegments ?? 32, { triggers: 'rebuild' })
@@ -148,10 +176,28 @@ export class SurfaceMesh extends THREE.Mesh {
       .define('wireframe', options.wireframe ?? false, { triggers: 'update' })
       .dependOn(surface);
 
-    // Create initial material
-    this.material = new THREE.MeshPhysicalMaterial({
-      side: THREE.DoubleSide
-    });
+    // Create material: CSM if shaders provided, plain MeshPhysicalMaterial otherwise
+    if (options.fragmentShader || options.vertexShader) {
+      // A 1x1 white texture assigned as `map` forces Three.js to enable the UV
+      // pipeline (USE_UV, vUv varying). The white color has no visual effect.
+      const uvEnableTexture = new THREE.DataTexture(
+        new Uint8Array([255, 255, 255, 255]), 1, 1
+      );
+      uvEnableTexture.needsUpdate = true;
+
+      this.material = new CustomShaderMaterial({
+        baseMaterial: THREE.MeshPhysicalMaterial,
+        vertexShader: options.vertexShader,
+        fragmentShader: options.fragmentShader,
+        uniforms: this.uniforms,
+        side: THREE.DoubleSide,
+        map: uvEnableTexture,
+      });
+    } else {
+      this.material = new THREE.MeshPhysicalMaterial({
+        side: THREE.DoubleSide,
+      });
+    }
 
     // Initial build
     this.rebuild();

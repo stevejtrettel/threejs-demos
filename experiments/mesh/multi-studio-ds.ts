@@ -33,6 +33,7 @@ import { OBJSurfaceDoubleSide, type FaceColors } from '@/math/mesh/OBJSurfaceDou
 interface MeshInstance {
     id: string;
     name: string;
+    objString: string;
     mesh: OBJSurfaceDoubleSide;
     settings: {
         positionX: number;
@@ -193,10 +194,10 @@ function getNextPosition(): THREE.Vector3 {
 // MESH MANAGEMENT
 // ===================================
 
-function addMesh(objString: string, name: string): MeshInstance {
+function addMesh(objString: string, name: string, positionOverride?: THREE.Vector3): MeshInstance {
     const id = generateMeshId();
     const mesh = OBJSurfaceDoubleSide.fromOBJ(objString);
-    const position = getNextPosition();
+    const position = positionOverride ?? getNextPosition();
 
     // Initialize group colors from the mesh's defaults
     const groupColors: Record<string, FaceColors> = {};
@@ -210,6 +211,7 @@ function addMesh(objString: string, name: string): MeshInstance {
     const instance: MeshInstance = {
         id,
         name,
+        objString,
         mesh,
         settings: {
             positionX: position.x,
@@ -339,6 +341,44 @@ const panel = new Panel('Surface Studio');
 const actionsFolder = new Folder('Actions');
 
 actionsFolder.add(new Button('Add Meshes...', openFilePicker));
+
+const stackSettings = { count: 5, spacing: 0.15 };
+
+actionsFolder.add(new Slider(5, {
+    label: 'Stack Count', min: 2, max: 30, step: 1,
+    onChange: v => { stackSettings.count = v; }
+}));
+actionsFolder.add(new Slider(0.15, {
+    label: 'Stack Spacing', min: 0.02, max: 1.0, step: 0.01,
+    onChange: v => { stackSettings.spacing = v; }
+}));
+
+actionsFolder.add(new Button('Duplicate Stack', () => {
+    if (!selectedMeshId) return;
+    const source = meshInstances.get(selectedMeshId);
+    if (!source) return;
+
+    const s = source.settings;
+    for (let i = 1; i <= stackSettings.count; i++) {
+        const pos = new THREE.Vector3(s.positionX, s.positionY + i * stackSettings.spacing, s.positionZ);
+        const dup = addMesh(source.objString, `${source.name}_${i}`, pos);
+        dup.settings.rotationX = s.rotationX;
+        dup.settings.rotationY = s.rotationY;
+        dup.settings.rotationZ = s.rotationZ;
+        dup.settings.scale = s.scale;
+        dup.mesh.rotation.set(s.rotationX, s.rotationY, s.rotationZ);
+        dup.mesh.scale.setScalar(s.scale);
+        // Copy colors
+        for (const group of dup.mesh.groups) {
+            if (s.groupColors[group]) {
+                dup.mesh.setGroupColor(group, 'front', s.groupColors[group].front);
+                dup.mesh.setGroupColor(group, 'back', s.groupColors[group].back);
+                dup.settings.groupColors[group] = { ...s.groupColors[group] };
+            }
+        }
+    }
+    notifyPathTracerIfNeeded();
+}));
 
 actionsFolder.add(new Button('Clear All', () => {
     if (meshInstances.size === 0) return;

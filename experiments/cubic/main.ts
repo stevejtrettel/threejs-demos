@@ -355,6 +355,7 @@ const app = new App({ antialias: true, debug: true });
 app.camera.position.set(0, 3, 8);
 app.controls.target.set(0, 0, 0);
 app.scene.add(Lights.threePoint());
+app.scene.add(Lights.ambient(0xffffff, 0.4));
 app.backgrounds.setColor(0x1a1a2e);
 
 
@@ -382,7 +383,7 @@ surface.singularRadiusSq = (2 * gridStep) ** 2;
 const mesh = new SurfaceMesh(surface, { uSegments: uSegs, vSegments: vSegs });
 app.scene.add(mesh);
 
-surface.angle = 3.6;
+surface.angle = 3.9;
 mesh.rebuild();
 stripNaNTriangles(mesh.geometry);
 

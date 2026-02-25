@@ -1,0 +1,41 @@
+/* Overlay controls — floating UI elements on top of the canvas */
+
+.cr-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 24px;
+    gap: 8px;
+    z-index: 100;
+}
+
+.cr-overlay-slider {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--cr-border, #333);
+    min-width: 280px;
+}
+
+.cr-overlay-slider-label {
+    font-family: var(--cr-font-mono, monospace);
+    font-size: 13px;
+    color: var(--cr-text-primary, #e0e0e0);
+    white-space: nowrap;
+}
+
+.cr-overlay-slider-input {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--cr-accent, #0077ff);
+}

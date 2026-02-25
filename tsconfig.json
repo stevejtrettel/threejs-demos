@@ -25,6 +25,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "demos/**/*"],
+  "include": ["src/**/*", "demos/**/*", "demos/spindle-earth"],
   "exclude": ["node_modules", "dist"]
 }

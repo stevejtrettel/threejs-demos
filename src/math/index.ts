@@ -76,6 +76,10 @@ export {
 } from './curves/smoothCurve';
 export type { SmoothCurveOptions, SmoothingMethod } from './curves/smoothCurve';
 
+// ODE integration
+export { euler, rk4, integrate } from './ode';
+export type { DerivFn, Stepper, IntegrateOptions, Trajectory } from './ode';
+
 // Geodesics
 export * from './geodesics/types';
 export { GeodesicIntegrator } from './geodesics/GeodesicIntegrator';
@@ -111,6 +115,10 @@ export { OBJStructure } from './mesh/OBJStructure';
 export type { OBJStructureOptions } from './mesh/OBJStructure';
 export { OBJSurface } from './mesh/OBJSurface';
 export type { OBJSurfaceOptions } from './mesh/OBJSurface';
+
+// Weave
+export { buildWeave } from './weave/buildWeave';
+export type { WeaveOptions, WeaveResult } from './weave/types';
 
 // For convenience, re-export Params from the framework
 export { Params } from '@/Params';

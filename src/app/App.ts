@@ -10,6 +10,7 @@ import { TimelineManager } from './TimelineManager';
 import { CameraManager } from './CameraManager';
 import { ExportManager } from './ExportManager';
 import { RenderManager } from './RenderManager';
+import { OverlayManager } from '../ui/overlay/OverlayManager';
 import { Params } from '../Params';
 import type { AnimateCallback, AppOptions, Animatable, Disposable, AddOptions, ParamOptions, ToneMappingType, ColorSpace, ShadowConfig } from '../types';
 
@@ -31,6 +32,9 @@ export class App {
 
   // Export (unified API for screenshots, video, geometry)
   export: ExportManager;
+
+  // Overlay controls (floating on canvas)
+  overlay: OverlayManager;
 
   // Object tracking
   private animatables: Animatable[] = [];
@@ -80,6 +84,9 @@ export class App {
 
     // Default fullscreen layout
     this.layout.setFullscreen();
+
+    // Initialize overlay controls (after layout so DOM is ready)
+    this.overlay = new OverlayManager(document.body);
 
     // Enable debug in development (can be disabled via options)
     if (options.debug !== false) {
@@ -460,7 +467,8 @@ export class App {
     // Dispose export manager
     this.export.dispose();
 
-    // Dispose other managers
+    // Dispose overlay and other managers
+    this.overlay.dispose();
     this.selection.dispose();
     this.renderManager.dispose();
     this.backgrounds.dispose();

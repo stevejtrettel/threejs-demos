@@ -1,5 +1,5 @@
 /**
- * traceStrands — Stage 4: Strand Tracing
+ * traceStrands — Strand Tracing
  *
  * Traces continuous strands through the mesh. Each face has two segments
  * (one per edge family), connecting midpoints of same-family edges.
@@ -8,6 +8,7 @@
 
 import type { HalfEdgeMesh } from '../mesh/HalfEdgeMesh';
 import type { Face, HalfEdge } from '../mesh/types';
+import { familyEdges } from './helpers';
 
 /** A segment of a strand crossing one face */
 export interface StrandSegment {
@@ -24,39 +25,17 @@ export interface Strand {
 }
 
 /**
- * Collect the half-edges of a face into an array.
- */
-function faceEdgeArray(mesh: HalfEdgeMesh, face: Face): HalfEdge[] {
-  const edges: HalfEdge[] = [];
-  for (const he of mesh.faceEdges(face)) edges.push(he);
-  return edges;
-}
-
-/**
- * Find the two half-edges of a given family on a quad face.
- * Returns [edgeA, edgeB] where edgeB = edgeA.next.next (opposite edge).
- */
-function familyEdges(
-  mesh: HalfEdgeMesh,
-  face: Face,
-  edgeFamilies: number[],
-  family: number
-): [HalfEdge, HalfEdge] {
-  const edges = faceEdgeArray(mesh, face);
-  const matches: HalfEdge[] = [];
-  for (const e of edges) {
-    if (edgeFamilies[e.index] === family) matches.push(e);
-  }
-  return [matches[0], matches[1]];
-}
-
-/**
  * Trace in one direction from a face, exiting through exitEdge.
  * Does NOT include the starting face in the result.
+ *
+ * @param startFace - The face we're tracing from (used to detect closure)
+ * @param exitEdge - The edge to exit through
+ * @param visitedFaces - Set of face indices already in the current strand (for O(1) cycle check)
  */
 function traceDirection(
   startFace: Face,
   exitEdge: HalfEdge,
+  visitedFaces: Set<number>,
 ): StrandSegment[] {
   const result: StrandSegment[] = [];
   let currentExit = exitEdge;
@@ -69,7 +48,7 @@ function traceDirection(
     if (!nextFace || nextFace === startFace) break; // loop closed or shouldn't happen
 
     // Check if we've looped back to a face already in result
-    if (result.some(s => s.face === nextFace)) break;
+    if (visitedFaces.has(nextFace.index)) break;
 
     // In the next face, we enter through `twin`.
     // Exit through the opposite edge (same family, other side of quad).
@@ -77,6 +56,7 @@ function traceDirection(
     const exitEdge = twin.next.next; // opposite edge on quad
 
     result.push({ face: nextFace, entryEdge, exitEdge });
+    visitedFaces.add(nextFace.index);
     currentExit = exitEdge;
   }
 
@@ -88,30 +68,35 @@ function traceDirection(
  *
  * @param mesh - A quad half-edge mesh
  * @param edgeFamilies - Edge family classification from classifyEdges()
+ * @param families - Which families to trace (default: both [0, 1])
  * @returns Array of Strand objects
  */
 export function traceStrands(
   mesh: HalfEdgeMesh,
-  edgeFamilies: number[]
+  edgeFamilies: number[],
+  families: (0 | 1)[] = [0, 1]
 ): Strand[] {
   const strands: Strand[] = [];
 
-  // Track visited face+family slots
-  const visited = new Set<string>();
+  // Track visited face+family slots: index = face.index * 2 + family
+  const visited = new Uint8Array(mesh.faces.length * 2);
 
   for (const face of mesh.faces) {
-    for (const family of [0, 1] as const) {
-      const key = `${face.index}-${family}`;
-      if (visited.has(key)) continue;
+    for (const family of families) {
+      const slot = face.index * 2 + family;
+      if (visited[slot]) continue;
 
       // Find the two same-family edges on this face
       const [edgeA, edgeB] = familyEdges(mesh, face, edgeFamilies, family);
 
+      // Track faces in the current strand for O(1) cycle detection
+      const strandFaces = new Set<number>([face.index]);
+
       // Trace forward (exit through edgeA)
-      const forward = traceDirection(face, edgeA);
+      const forward = traceDirection(face, edgeA, strandFaces);
 
       // Trace backward (exit through edgeB)
-      const backward = traceDirection(face, edgeB);
+      const backward = traceDirection(face, edgeB, strandFaces);
 
       // Build the start face's segment
       // Convention: if we traced backward exiting through edgeB,
@@ -141,7 +126,7 @@ export function traceStrands(
 
       // Mark all face+family slots as visited
       for (const seg of segments) {
-        visited.add(`${seg.face.index}-${family}`);
+        visited[seg.face.index * 2 + family] = 1;
       }
 
       strands.push({ segments, family, closed });

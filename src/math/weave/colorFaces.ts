@@ -23,8 +23,10 @@ export function colorFaces(mesh: HalfEdgeMesh): number[] {
   color[mesh.faces[0].index] = 0;
   queue.push(mesh.faces[0]);
 
-  while (queue.length > 0) {
-    const face = queue.shift()!;
+  // Index-based BFS to avoid O(n) shift
+  let head = 0;
+  while (head < queue.length) {
+    const face = queue[head++]!;
     const myColor = color[face.index];
     const neighborColor = 1 - myColor;
 
@@ -41,5 +43,5 @@ export function colorFaces(mesh: HalfEdgeMesh): number[] {
     }
   }
 
-  return Array.from(color);
+  return color as unknown as number[];
 }

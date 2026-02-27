@@ -116,9 +116,6 @@ export type { OBJStructureOptions } from './mesh/OBJStructure';
 export { OBJSurface } from './mesh/OBJSurface';
 export type { OBJSurfaceOptions } from './mesh/OBJSurface';
 
-// Weave
-export { buildWeave } from './weave/buildWeave';
-export type { WeaveOptions, WeaveResult } from './weave/types';
 
 // For convenience, re-export Params from the framework
 export { Params } from '@/Params';

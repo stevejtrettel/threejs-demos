@@ -1,5 +1,5 @@
 /**
- * classifyEdges — Stage 2: Edge Family Classification
+ * classifyEdges — Edge Family Classification
  *
  * Classifies every edge of a quad mesh into one of two families (U=0, V=1).
  * On each quad face, opposite edges share a family and adjacent edges differ.
@@ -7,16 +7,8 @@
  */
 
 import type { HalfEdgeMesh } from '../mesh/HalfEdgeMesh';
-import type { Face, HalfEdge } from '../mesh/types';
-
-/**
- * Collect the half-edges of a face into an array (assumes quad = 4 edges).
- */
-function faceEdgeArray(mesh: HalfEdgeMesh, face: Face): HalfEdge[] {
-  const edges: HalfEdge[] = [];
-  for (const he of mesh.faceEdges(face)) edges.push(he);
-  return edges;
-}
+import type { Face } from '../mesh/types';
+import { faceEdgeArray } from './helpers';
 
 /**
  * Classify edges of a quad mesh into two families.
@@ -57,9 +49,10 @@ export function classifyEdges(mesh: HalfEdgeMesh): number[] {
     }
   }
 
-  // BFS
-  while (queue.length > 0) {
-    const face = queue.shift()!;
+  // BFS (index-based to avoid O(n) shift)
+  let head = 0;
+  while (head < queue.length) {
+    const face = queue[head++]!;
     if (visited[face.index]) continue;
     visited[face.index] = 1;
 
@@ -107,5 +100,5 @@ export function classifyEdges(mesh: HalfEdgeMesh): number[] {
     }
   }
 
-  return Array.from(family);
+  return family as unknown as number[];
 }

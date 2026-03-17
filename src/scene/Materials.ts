@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
+import gridFrag from '@/shaders/grid.frag.glsl?raw';
 
 /**
  * Material factory utilities for creating materials with sensible defaults
@@ -171,6 +173,58 @@ function points(options: Partial<THREE.PointsMaterialParameters> = {}): THREE.Po
 }
 
 /**
+ * Grid surface material — MeshPhysicalMaterial with a two-level anti-aliased grid pattern.
+ * Returns the material and its uniforms so grid parameters can be tweaked at runtime.
+ */
+export interface GridSurfaceOptions {
+  gridCount?: number;
+  lineWidth?: number;
+  subCount?: number;
+  subWidth?: number;
+  gridColor?: number;
+  subColor?: number;
+  fillColor?: number;
+  roughness?: number;
+  metalness?: number;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  side?: THREE.Side;
+}
+
+function gridSurface(options: GridSurfaceOptions = {}): {
+  material: CustomShaderMaterial;
+  uniforms: Record<string, { value: any }>;
+} {
+  const uniforms = {
+    uGridCount: { value: options.gridCount ?? 10 },
+    uLineWidth: { value: options.lineWidth ?? 0.03 },
+    uSubCount:  { value: options.subCount ?? 5 },
+    uSubWidth:  { value: options.subWidth ?? 0.02 },
+    uGridColor: { value: new THREE.Color(options.gridColor ?? 0x333333) },
+    uSubColor:  { value: new THREE.Color(options.subColor ?? 0x888888) },
+    uFillColor: { value: new THREE.Color(options.fillColor ?? 0xf0ece8) },
+  };
+
+  // 1x1 white texture to enable Three.js UV pipeline (required for vMapUv)
+  const uvTex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+  uvTex.needsUpdate = true;
+
+  const material = new CustomShaderMaterial({
+    baseMaterial: THREE.MeshPhysicalMaterial,
+    fragmentShader: gridFrag,
+    uniforms,
+    side: options.side ?? THREE.DoubleSide,
+    roughness: options.roughness ?? 0.1,
+    metalness: options.metalness ?? 0.1,
+    clearcoat: options.clearcoat ?? 1.0,
+    clearcoatRoughness: options.clearcoatRoughness ?? 0.05,
+    map: uvTex,
+  });
+
+  return { material, uniforms };
+}
+
+/**
  * Clone a material with optional property overrides
  *
  * @example
@@ -212,6 +266,9 @@ export const Materials = {
   normal,
   line,
   points,
+
+  // Shader materials
+  gridSurface,
 
   // Utilities
   clone

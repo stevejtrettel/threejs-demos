@@ -74,6 +74,8 @@ export { buildGeometry } from './surfaces/buildGeometry';
 export type { BuildGeometryOptions } from './surfaces/buildGeometry';
 export { SurfaceMesh } from './surfaces/SurfaceMesh';
 export type { SurfaceMeshOptions, FromFunctionOptions } from './surfaces/SurfaceMesh';
+export { RollUpMesh } from './surfaces/RollUpMesh';
+export type { RollUpMeshOptions } from './surfaces/RollUpMesh';
 export { EllipticCurveMesh } from './surfaces/EllipticCurveMesh';
 export type { EllipticCurveMeshOptions } from './surfaces/EllipticCurveMesh';
 

@@ -14,9 +14,16 @@ import { buildTubeGeometry } from './buildTubeGeometry';
 export interface CurveTubeOptions {
   curve: Curve;
   radius?: number;
+  /**
+   * Optional variable radius function. Takes t ∈ [0, 1] and returns radius.
+   * When provided, takes priority over the fixed `radius` value.
+   */
+  radiusFn?: (t: number) => number;
   tubularSegments?: number;
   radialSegments?: number;
   showEndpoints?: boolean;
+  /** Provide a custom material. Overrides color/roughness/metalness. */
+  material?: THREE.Material;
   color?: THREE.ColorRepresentation;
   roughness?: number;
   metalness?: number;
@@ -43,6 +50,7 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
 
   declare curve: Curve;
   declare radius: number;
+  declare radiusFn: ((t: number) => number) | undefined;
   declare tubularSegments: number;
   declare radialSegments: number;
   declare showEndpoints: boolean;
@@ -51,20 +59,27 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
   declare metalness: number;
 
   private tubeMesh: THREE.Mesh;
-  private material: THREE.MeshPhysicalMaterial;
+  private material: THREE.Material;
+  private _ownsMaterial: boolean;
   private startSphere?: THREE.Mesh;
   private endSphere?: THREE.Mesh;
 
   constructor(options: CurveTubeOptions) {
     super();
 
-    // Create material
-    this.material = new THREE.MeshPhysicalMaterial({
-      color: options.color ?? 0xffffff,
-      roughness: options.roughness ?? 0,
-      metalness: options.metalness ?? 0,
-      clearcoat: 1,
-    });
+    // Use provided material or create a default one
+    if (options.material) {
+      this.material = options.material;
+      this._ownsMaterial = false;
+    } else {
+      this.material = new THREE.MeshPhysicalMaterial({
+        color: options.color ?? 0xffffff,
+        roughness: options.roughness ?? 0,
+        metalness: options.metalness ?? 0,
+        clearcoat: 1,
+      });
+      this._ownsMaterial = true;
+    }
 
     // Create initial tube mesh
     this.tubeMesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
@@ -74,6 +89,7 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
     this.params
       .define('curve', options.curve, { triggers: 'rebuild' })
       .define('radius', options.radius ?? 0.1, { triggers: 'rebuild' })
+      .define('radiusFn', options.radiusFn, { triggers: 'rebuild' })
       .define('tubularSegments', options.tubularSegments ?? 128, { triggers: 'rebuild' })
       .define('radialSegments', options.radialSegments ?? 8, { triggers: 'rebuild' })
       .define('showEndpoints', options.showEndpoints ?? true, { triggers: 'rebuild' })
@@ -100,6 +116,7 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
 
     this.tubeMesh.geometry = buildTubeGeometry(this.curve, {
       radius: this.radius,
+      radiusFn: this.radiusFn,
       tubularSegments: this.tubularSegments,
       radialSegments: this.radialSegments,
       closed,
@@ -110,11 +127,13 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
   }
 
   update(): void {
-    // Update material properties
-    this.material.color.set(this.color);
-    this.material.roughness = this.roughness;
-    this.material.metalness = this.metalness;
-    this.material.needsUpdate = true;
+    // Update material properties (only for default material)
+    if (this._ownsMaterial && this.material instanceof THREE.MeshPhysicalMaterial) {
+      this.material.color.set(this.color);
+      this.material.roughness = this.roughness;
+      this.material.metalness = this.metalness;
+      this.material.needsUpdate = true;
+    }
   }
 
   private _updateEndpoints(): void {
@@ -132,15 +151,20 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
 
     if (!this.showEndpoints) return;
 
-    // Create new endpoint spheres
-    const sphereGeometry = new THREE.SphereGeometry(this.radius * 2, 16, 16);
+    // Create new endpoint spheres (sized by radiusFn at endpoints if available)
     const domain = this.curve.getDomain();
+    const startRadius = (this.radiusFn ? this.radiusFn(0) : this.radius) * 2;
+    const endRadius = (this.radiusFn ? this.radiusFn(1) : this.radius) * 2;
 
-    this.startSphere = new THREE.Mesh(sphereGeometry, this.material);
+    this.startSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(startRadius, 16, 16), this.material
+    );
     this.startSphere.position.copy(this.curve.evaluate(domain.tMin));
     this.add(this.startSphere);
 
-    this.endSphere = new THREE.Mesh(sphereGeometry.clone(), this.material);
+    this.endSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(endRadius, 16, 16), this.material
+    );
     this.endSphere.position.copy(this.curve.evaluate(domain.tMax));
     this.add(this.endSphere);
   }
@@ -154,7 +178,7 @@ export class CurveTube extends THREE.Group implements Parametric, Rebuildable, U
 
   dispose(): void {
     this.tubeMesh.geometry.dispose();
-    this.material.dispose();
+    if (this._ownsMaterial) this.material.dispose();
 
     if (this.startSphere) {
       this.startSphere.geometry.dispose();

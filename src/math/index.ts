@@ -30,6 +30,36 @@
 // Shared types
 export * from './types';
 
+// Algebra
+export * from './algebra';
+
+// Lattices
+export { Lattice2D } from './lattices/Lattice2D';
+export type { TauData, TauReducedData } from './lattices/Lattice2D';
+export { G4, G6, g2, g3, g2g3, discriminant, jInvariant, sigmak } from './lattices/eisenstein';
+export { latticeG2, latticeG3, latticeInvariants } from './lattices/invariants';
+export { toS3, toR3 } from './lattices/projections';
+export { weierstrassSum, weierstrassTheta, weierstrassP } from './lattices/weierstrass';
+export type { WeierstrassResult } from './lattices/weierstrass';
+export { LatticeFlow } from './lattices/LatticeFlow';
+export type { Mat2 } from './lattices/LatticeFlow';
+export { LatticePlane } from './lattices/LatticePlane';
+export type { LatticePlaneOptions, LatticeLayer } from './lattices/LatticePlane';
+export {
+  toWorld,
+  domainPoint,
+  latticeSlab,
+  latticeBoundary,
+  latticeGridlines,
+  latticeTiling,
+  latticePoints,
+} from './lattices/fundamentalDomain';
+
+// Hopf fibration
+export { HopfTorus, fromSpherical, hopfFiber, hopfPreimage } from './hopf';
+export { toSpherical, fromSphericalCoords, toroidalCoords, stereoProj } from './hopf';
+export type { HopfTorusOptions } from './hopf';
+
 // Spaces
 export * from './spaces';
 

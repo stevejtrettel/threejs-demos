@@ -9,6 +9,11 @@ import * as THREE from 'three';
 
 export interface BuildTubeGeometryOptions {
   radius?: number;
+  /**
+   * Optional variable radius function. Takes t ∈ [0, 1] and returns radius at that point.
+   * When provided, takes priority over the fixed `radius` value.
+   */
+  radiusFn?: (t: number) => number;
   tubularSegments?: number;
   radialSegments?: number;
   closed?: boolean;
@@ -34,6 +39,7 @@ export function buildTubeGeometry(
 ): THREE.BufferGeometry {
 
   const radius = options.radius ?? 0.1;
+  const radiusFn = options.radiusFn;
   const tubularSegments = options.tubularSegments ?? 128;
   const radialSegments = options.radialSegments ?? 8;
   const closed = options.closed ?? false;
@@ -55,15 +61,15 @@ export function buildTubeGeometry(
   // Generate vertices for each segment
   for (let i = 0; i <= tubularSegments; i++) {
     // Sample curve at this point
-    const P = curve.getPoint(i / tubularSegments);
+    const P = curve.getPointAt(i / tubularSegments);
     const N = frames.normals[i];
     const B = frames.binormals[i];
 
     // Create radial ring of vertices
     for (let j = 0; j <= radialSegments; j++) {
       const v = (j / radialSegments) * Math.PI * 2;
-      const cos = Math.cos(v);
       const sin = Math.sin(v);
+      const cos = -Math.cos(v);
 
       // Normal points radially outward
       normal.x = cos * N.x + sin * B.x;
@@ -71,8 +77,9 @@ export function buildTubeGeometry(
       normal.z = cos * N.z + sin * B.z;
       normal.normalize();
 
-      // Vertex is offset from curve by radius
-      vertex.copy(P).addScaledVector(normal, radius);
+      // Vertex is offset from curve by radius (variable or fixed)
+      const r = radiusFn ? radiusFn(i / tubularSegments) : radius;
+      vertex.copy(P).addScaledVector(normal, r);
 
       vertices.push(vertex.x, vertex.y, vertex.z);
       normals.push(normal.x, normal.y, normal.z);

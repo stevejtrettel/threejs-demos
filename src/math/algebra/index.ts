@@ -6,7 +6,10 @@ export {
 } from './complex';
 
 export { FiniteField } from './finiteField';
-export { ProjectivePlane, torusEmbedding, gridEmbedding } from './ProjectivePlane';
-export type { Embedding, EmbeddedPoint } from './ProjectivePlane';
+export type { ProjectivePoint } from './finiteField';
+export { ProjectivePlane, torusEmbedding, gridEmbedding, scaledTorusEmbedding, scaledGridEmbedding } from './ProjectivePlane';
+export type { ProjectiveEmbedding, EmbeddedPoint } from './ProjectivePlane';
 export { ProjectivePlaneMesh } from './ProjectivePlaneMesh';
-export type { ProjectivePlaneMeshOptions } from './ProjectivePlaneMesh';
+export type { ProjectivePlaneMeshOptions, PointLayer, LineSpec } from './ProjectivePlaneMesh';
+
+export { momentMap, unitaryAction, givensRotation, matMul, identity } from './CPN';

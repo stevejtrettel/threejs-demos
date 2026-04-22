@@ -35,7 +35,7 @@ app.scene.add(dirLight);
 // ═══════════════════════════════════════════════════════
 
 // ── Option A: Closed geodesic from a hyperbolic SL(2,ℤ) matrix ──
-const flow = LatticeFlow.fromMatrix([[2, 1], [1, 1]]);   // tr=3
+const flow = LatticeFlow.fromMatrix([[7, 2], [17, 5]]);   // tr=3
 //   LatticeFlow.fromMatrix([[3, 2], [1, 1]])   tr=4
 //   LatticeFlow.fromMatrix([[5, 2], [2, 1]])   tr=6
 //   LatticeFlow.fromMatrix([[7, 2], [3, 1]])   tr=8

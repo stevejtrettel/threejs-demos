@@ -26,22 +26,11 @@ export interface TangentVector {
 /**
  * Christoffel symbols for a surface
  *
- * These encode how the coordinate system changes as you move around the surface.
- * Used in the geodesic equation to compute acceleration.
- *
- * Γᵏᵢⱼ represents how ∂ₖ changes when moving in the ∂ᵢ and ∂ⱼ directions.
+ * Re-exported from `@/math/surfaces/types` — the symbols are metric-derived,
+ * so they live alongside the metric type. Kept here as a re-export so existing
+ * imports from `@/math/geodesics` continue to work.
  */
-export interface ChristoffelSymbols {
-  // Γ¹₁₁, Γ¹₁₂, Γ¹₂₂
-  gamma_1_11: number;
-  gamma_1_12: number;
-  gamma_1_22: number;
-
-  // Γ²₁₁, Γ²₁₂, Γ²₂₂
-  gamma_2_11: number;
-  gamma_2_12: number;
-  gamma_2_22: number;
-}
+export type { ChristoffelSymbols } from '@/math/surfaces/types';
 
 /**
  * Result of a geodesic integration step

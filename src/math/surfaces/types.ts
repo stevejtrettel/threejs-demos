@@ -77,71 +77,110 @@ export interface SecondFundamentalForm {
 }
 
 /**
+ * Christoffel symbols of a 2D Riemannian metric
+ *
+ * Γᵏᵢⱼ encodes how the coordinate system changes as you move around the patch.
+ * Purely derived from the metric tensor and its first partials; symmetric in (i, j).
+ *
+ * Lives here (not in geodesics/) because it is metric-derived data, shared by
+ * geodesic integration, parallel transport, intrinsic curvature, etc.
+ */
+export interface ChristoffelSymbols {
+  // Γ¹₁₁, Γ¹₁₂, Γ¹₂₂
+  gamma_1_11: number;
+  gamma_1_12: number;
+  gamma_1_22: number;
+
+  // Γ²₁₁, Γ²₁₂, Γ²₂₂
+  gamma_2_11: number;
+  gamma_2_12: number;
+  gamma_2_22: number;
+}
+
+/**
+ * A coordinate patch carrying a Riemannian metric.
+ *
+ * Intrinsic-only: knows its domain and its metric tensor g(u, v). It does
+ * NOT carry any embedding or know where the patch sits in an ambient space.
+ *
+ * This is the input type for intrinsic geometric operations — geodesic
+ * integration, parallel transport, Gaussian curvature. Those consumers
+ * never need evaluate(), computeNormal(), or any extrinsic data.
+ *
+ * `DifferentialSurface` (embedding + induced metric) satisfies this
+ * automatically; an abstract metric (e.g. pullback of a kinetic-energy
+ * metric, or a hand-written metric on a rectangle) satisfies it directly.
+ *
+ * Optional methods are analytic overrides of quantities the library can
+ * derive numerically from `computeMetric`. Provide them for speed or when
+ * finite differences would be unstable.
+ */
+export interface MetricPatch {
+  /**
+   * Get the parameter domain for this patch
+   */
+  getDomain(): SurfaceDomain;
+
+  /**
+   * Compute the metric tensor at (u, v)
+   */
+  computeMetric(u: number, v: number): FirstFundamentalForm;
+
+  /**
+   * Compute Christoffel symbols at (u, v) analytically.
+   *
+   * Optional — the library derives this numerically from `computeMetric`
+   * when absent. Provide an analytic version for speed or near singularities.
+   */
+  computeChristoffel?(u: number, v: number): ChristoffelSymbols;
+
+  /**
+   * Compute Gaussian curvature at (u, v) analytically.
+   *
+   * Optional — derivable from `computeMetric` via the Brioschi formula
+   * (purely intrinsic). For `DifferentialSurface` this agrees with
+   * (LN − M²)/(EG − F²) by Theorema Egregium.
+   */
+  computeGaussianCurvature?(u: number, v: number): number;
+}
+
+/**
  * Differential surface with geometry computations
  *
- * Extends basic Surface with differential geometry operations:
- * normals, tangents, curvatures, etc.
+ * A parametric surface in R³ (extends `Surface`) that additionally carries
+ * the standard differential-geometric operations on that embedding —
+ * partials, normals, and the induced Riemannian metric.
+ *
+ * Because it also satisfies `MetricPatch`, every `DifferentialSurface` works
+ * directly with geodesic / curvature / parallel-transport code. The induced
+ * metric is computed as g_ij = ∂r/∂xⁱ · ∂r/∂xʲ (Euclidean pullback from R³).
+ *
+ * Extrinsic curvature data (second fundamental form, mean curvature) lives
+ * on this interface, not on `MetricPatch`, because it requires the embedding.
  */
-export interface DifferentialSurface extends Surface {
+export interface DifferentialSurface extends Surface, MetricPatch {
   /**
    * Compute unit normal vector at (u, v)
-   *
-   * @param u - First parameter coordinate
-   * @param v - Second parameter coordinate
-   * @returns Unit normal vector
    */
   computeNormal(u: number, v: number): THREE.Vector3;
 
   /**
    * Compute partial derivatives at (u, v)
-   *
-   * @param u - First parameter coordinate
-   * @param v - Second parameter coordinate
-   * @returns Object with du and dv tangent vectors
    */
   computePartials(u: number, v: number): SurfacePartials;
 
   /**
-   * Compute first fundamental form (metric tensor) at (u, v)
-   *
-   * @param u - First parameter coordinate
-   * @param v - Second parameter coordinate
-   * @returns Metric coefficients { E, F, G }
-   */
-  computeMetric(u: number, v: number): FirstFundamentalForm;
-
-  /**
    * Compute second fundamental form at (u, v)
    *
-   * Optional - not all surfaces need this.
-   *
-   * @param u - First parameter coordinate
-   * @param v - Second parameter coordinate
-   * @returns Second fundamental form coefficients { L, M, N }
+   * Optional — extrinsic, requires the embedding.
    */
   computeSecondFundamentalForm?(u: number, v: number): SecondFundamentalForm;
 
   /**
-   * Compute Gaussian curvature at (u, v)
-   *
-   * Optional - can be derived from fundamental forms.
-   * K = (LN - M²) / (EG - F²)
-   *
-   * @param u - First parameter coordinate
-   * @param v - Second parameter coordinate
-   * @returns Gaussian curvature
-   */
-  computeGaussianCurvature?(u: number, v: number): number;
-
-  /**
    * Compute mean curvature at (u, v)
    *
-   * Optional - can be derived from fundamental forms.
-   * H = (EN - 2FM + GL) / (2(EG - F²))
-   *
-   * @param u - First parameter coordinate
-   * @param v - Second parameter coordinate
-   * @returns Mean curvature
+   * Optional — extrinsic, requires the embedding.
+   * H = (EN − 2FM + GL) / (2(EG − F²))
    */
   computeMeanCurvature?(u: number, v: number): number;
 }

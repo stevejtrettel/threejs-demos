@@ -1,16 +1,19 @@
 /**
- * Elliptic Curve over F_p Demo
+ * F_25 Galois Orbits
  *
- * Visualizes solutions to y² = x³ + ax + b on the projective plane P²(F_p),
- * rendered as spheres on a torus (or grid).
+ * Visualizes F_25 = F_5[α]/(α² + α + 1) as a 5×5 grid.
+ * Ground field F_5 (fixed by Frobenius) in red.
+ * Each Galois orbit {x, x⁵} gets a distinct color.
  */
 
 import * as THREE from 'three';
 import { PhysicalSpotLight, GradientEquirectTexture } from 'three-gpu-pathtracer';
 import { App } from '@/app/App';
 import { FiniteField } from '@/math/algebra/finiteField';
-import { ProjectivePlane, gridEmbedding } from '@/math/algebra/ProjectivePlane';
+import { FiniteFieldExtension } from '@/math/algebra/finiteFieldExtension';
+import { ProjectivePlane, torusEmbedding } from '@/math/algebra/ProjectivePlane';
 import { ProjectivePlaneMesh } from '@/math/algebra/ProjectivePlaneMesh';
+import type { PointLayer } from '@/math/algebra/ProjectivePlaneMesh';
 
 // --- App setup ---
 
@@ -19,10 +22,10 @@ const app = new App({
   pathTracerDefaults: { bounces: 30, samples: 1 },
 });
 
-app.camera.position.set(0, 8, -12);
+app.camera.position.set(0, 4, -6);
 app.controls.target.set(0, 0, 0);
 
-// Environment (works with both WebGL and path tracer)
+// Environment
 const envTexture = new GradientEquirectTexture();
 envTexture.bottomColor.set(0xffffff);
 envTexture.topColor.set(0x666666);
@@ -30,7 +33,7 @@ envTexture.update();
 app.scene.environment = envTexture;
 app.scene.background = envTexture;
 
-// Physical spot light (works with path tracer)
+// Spot light
 const spotLight = new PhysicalSpotLight(0xffffff);
 spotLight.position.set(2, 10, 0);
 spotLight.angle = Math.PI / 2;
@@ -46,34 +49,47 @@ const spotTarget = spotLight.target;
 spotTarget.position.set(0, 0, 0);
 app.scene.add(spotTarget);
 
-// --- Finite field and equation ---
+// --- F_25 = F_5[α]/(α² + α + 1) ---
 
-const p = 5;
-const a = 1; // y² = x³ + x + 1 (mod 5)
-const b = 1;
+const base = new FiniteField(5);
+const ext = new FiniteFieldExtension(base, 1, 1); // α² + α + 1 = 0
+const { baseField, orbits } = ext.galoisOrbits();
 
-const field = new FiniteField(p);
-const solutions = field.solveProjective(
-  (X, Y, Z) => Y * Y * Z - (X * X * X + a * X * Z * Z + b * Z * Z * Z),
-);
+console.log(`F_25: ${baseField.length} ground field elements, ${orbits.length} Galois orbits of size 2`);
 
-console.log(`F_${p}: found ${solutions.length} projective solutions to y² = x³ + ${a}x + ${b}`);
-console.log('Solutions:', solutions);
+// --- Build layers ---
 
-// --- Projective plane ---
+const layers: PointLayer[] = [];
 
-// Swap to gridEmbedding for the grid view
-const plane = new ProjectivePlane(field, gridEmbedding);
+// Ground field — red, larger
+layers.push({
+  points: baseField,
+  material: new THREE.MeshPhysicalMaterial({
+    color: 0xe34034, clearcoat: 1, roughness: 0.1, metalness: 0.3,
+  }),
+  radius: 0.3,
+});
+
+// Galois orbits — distinct colors from HSL wheel, avoiding red
+for (let i = 0; i < orbits.length; i++) {
+  const hue = (30 + i * 30) / 360;
+  const color = new THREE.Color().setHSL(hue, 0.8, 0.55);
+  layers.push({
+    points: orbits[i],
+    material: new THREE.MeshPhysicalMaterial({
+      color, clearcoat: 1, roughness: 0.1, metalness: 0.3,
+    }),
+    radius: 0.25,
+  });
+}
+
+// --- Grid visualization ---
+
+const plane = new ProjectivePlane(base, torusEmbedding);
 
 const mesh = new ProjectivePlaneMesh(plane, {
-  layers: [{
-    points: solutions,
-    material: new THREE.MeshPhysicalMaterial({
-      color: 0x9b30ff, clearcoat: 1, roughness: 0.1, metalness: 0.3,
-    }),
-    radius: 0.2,
-  }],
-  bgRadius: 0.12,
+  layers,
+  bgRadius: 0.1,
   showGridLines: true,
 });
 app.scene.add(mesh);

@@ -111,7 +111,7 @@ export class SurfaceMesh extends THREE.Mesh {
    * Shader uniforms. Mutate .value properties to animate.
    * Empty object when no shader is active.
    */
-  readonly uniforms: Record<string, { value: any }>;
+  uniforms: Record<string, { value: any }>;
 
   /**
    * Number of segments in u direction
@@ -246,6 +246,37 @@ export class SurfaceMesh extends THREE.Mesh {
     mat.wireframe = this.wireframe;
 
     mat.needsUpdate = true;
+  }
+
+  /**
+   * Replace the shader on this mesh at runtime.
+   *
+   * Disposes the old material and creates a new CustomShaderMaterial
+   * with the given shaders and uniforms. Useful for switching
+   * between shader configurations (e.g. different slice modes).
+   */
+  setShader(options: {
+    fragmentShader: string;
+    vertexShader?: string;
+    uniforms: Record<string, { value: any }>;
+  }): void {
+    (this.material as THREE.Material).dispose();
+
+    this.uniforms = options.uniforms;
+
+    const uvTex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    uvTex.needsUpdate = true;
+
+    this.material = new CustomShaderMaterial({
+      baseMaterial: THREE.MeshPhysicalMaterial,
+      fragmentShader: options.fragmentShader,
+      vertexShader: options.vertexShader,
+      uniforms: options.uniforms,
+      side: THREE.DoubleSide,
+      map: uvTex,
+    });
+
+    this.update();
   }
 
   /**

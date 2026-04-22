@@ -41,6 +41,8 @@ export { latticeG2, latticeG3, latticeInvariants } from './lattices/invariants';
 export { toS3, toR3 } from './lattices/projections';
 export { weierstrassSum, weierstrassTheta, weierstrassP } from './lattices/weierstrass';
 export type { WeierstrassResult } from './lattices/weierstrass';
+export { createTheta, jacobi, thetaLevel } from './lattices/theta';
+export type { ThetaFunction, ThetaLevel } from './lattices/theta';
 export { LatticeFlow } from './lattices/LatticeFlow';
 export type { Mat2 } from './lattices/LatticeFlow';
 export { LatticePlane } from './lattices/LatticePlane';
@@ -69,6 +71,8 @@ export * from './spaces';
 // Surfaces
 export * from './surfaces/types';
 export { Torus } from './surfaces/Torus';
+export { BoysSurface } from './surfaces/BoysSurface';
+export { KleinBottle } from './surfaces/KleinBottle';
 export { FunctionGraph } from './surfaces/FunctionGraph';
 export { buildGeometry } from './surfaces/buildGeometry';
 export type { BuildGeometryOptions } from './surfaces/buildGeometry';
@@ -78,6 +82,13 @@ export { RollUpMesh } from './surfaces/RollUpMesh';
 export type { RollUpMeshOptions } from './surfaces/RollUpMesh';
 export { EllipticCurveMesh } from './surfaces/EllipticCurveMesh';
 export type { EllipticCurveMeshOptions } from './surfaces/EllipticCurveMesh';
+export { NumericSurface } from './surfaces/NumericSurface';
+export type { NumericSurfaceOptions } from './surfaces/NumericSurface';
+export { MetricSurface } from './surfaces/MetricSurface';
+export type { MetricSurfaceOptions } from './surfaces/MetricSurface';
+export { pullbackMetric } from './surfaces/pullback';
+export type { PullbackMetricOptions } from './surfaces/pullback';
+export { christoffelFromMetric, gaussianCurvatureFromMetric } from './surfaces/christoffel';
 
 // Functions (scalar fields)
 export * from './functions/types';
@@ -118,6 +129,17 @@ export { GeodesicIntegrator } from './geodesics/GeodesicIntegrator';
 export type { GeodesicIntegratorOptions } from './geodesics/GeodesicIntegrator';
 export { GeodesicTrail } from './geodesics/GeodesicTrail';
 export type { GeodesicTrailOptions } from './geodesics/GeodesicTrail';
+
+// Linkages
+export type { Joint, JointId, Rod } from './linkages/types';
+export { Linkage } from './linkages/Linkage';
+export type { LinkageOptions, JacobianEntry } from './linkages/Linkage';
+export { LinkageMesh } from './linkages/LinkageMesh';
+export type { LinkageMeshOptions } from './linkages/LinkageMesh';
+export { buildPlanarChain, setChainAngles } from './linkages/PlanarChain';
+export type { PlanarChainOptions } from './linkages/PlanarChain';
+export { LinkagePath } from './linkages/LinkagePath';
+export type { PathFunction } from './linkages/LinkagePath';
 
 // Mesh utilities
 export { extractBoundary, extractBoundaryEdges, extractBoundaryIndices } from './mesh/extractBoundary';

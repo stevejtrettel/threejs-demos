@@ -1,70 +1,123 @@
 /**
- * Projective plane P²(F_p): the affine plane F_p × F_p plus a point at infinity,
+ * Projective plane P²(F_p): all p²+p+1 points in homogeneous coordinates,
  * embedded into R³ via a chosen embedding function.
  *
  * Pure math — no Three.js dependency.
  */
 
-import { FiniteField } from './finiteField';
+import { FiniteField, type ProjectivePoint } from './finiteField';
 
+export type ProjectiveEmbedding = (p: number, pt: ProjectivePoint) => [number, number, number];
+
+/** @deprecated Use ProjectiveEmbedding instead. */
 export type Embedding = (p: number, pt: [number, number]) => [number, number, number];
+
+// ── Helpers ───────────────────────────────────────────────
+
+/** Place an affine [x,y] on a torus with given R, r. */
+function torusAffine(p: number, x: number, y: number, R: number, r: number): [number, number, number] {
+  const u = (2 * Math.PI * x) / p;
+  const v = (2 * Math.PI * y) / p;
+  const ring = r * Math.cos(u) + R;
+  return [ring * Math.cos(v), -r * Math.sin(u), ring * Math.sin(v)];
+}
+
+/**
+ * Angle of the direction a point at infinity represents.
+ * [1:m:0] → direction (1, m) → atan2(m, 1)
+ * [0:1:0] → direction (0, 1) → π/2
+ */
+function infinityAngle(_p: number, pt: ProjectivePoint): number {
+  if (pt[0] === 0) return Math.PI / 2;
+  return Math.atan2(pt[1], 1);
+}
+
+// ── Embeddings ────────────────────────────────────────────
 
 /**
  * Standard donut torus embedding.
- * F_p is a circle, so F_p × F_p maps to a torus with major radius R=2, minor radius r=1.
+ * Affine points on the torus, infinity points on a halo circle
+ * placed at the angle matching their slope direction.
  */
-export const torusEmbedding: Embedding = (p, pt) => {
-  const u = (2 * Math.PI * pt[0]) / p;
-  const v = (2 * Math.PI * pt[1]) / p;
-  const R = 2;
-  const r = 1;
-  const ring = r * Math.cos(u) + R;
-  const x = ring * Math.cos(v);
-  const y = ring * Math.sin(v);
-  const z = r * Math.sin(u);
-  return [x, -z, y];
+export const torusEmbedding: ProjectiveEmbedding = (p, pt) => {
+  if (pt[2] !== 0) return torusAffine(p, pt[0], pt[1], 2, 1);
+  const angle = infinityAngle(p, pt);
+  return [2 * Math.cos(angle), 2.5, 2 * Math.sin(angle)];
 };
 
 /**
  * Flat grid embedding.
- * F_p laid out on a line, so F_p × F_p is a planar grid at y=0.
+ * Affine points on the xz-plane, infinity points placed on a circle
+ * around the grid at the angle corresponding to their slope.
  */
-export const gridEmbedding: Embedding = (_p, pt) => {
-  return [pt[0], 0, pt[1]];
+export const gridEmbedding: ProjectiveEmbedding = (p, pt) => {
+  if (pt[2] !== 0) return [pt[0], 0, pt[1]];
+  const half = (p - 1) / 2;
+  const radius = half * Math.SQRT2 + 2; // clear of grid corners
+  const angle = infinityAngle(p, pt);
+  return [radius * Math.cos(angle), 0, radius * Math.sin(angle)];
 };
 
-/** Grid embedding with custom spacing. */
-export function scaledGridEmbedding(scale: number): Embedding {
-  return (_p, pt) => [pt[0] * scale, 0, pt[1] * scale];
+/** Torus embedding with radii scaled so point spacing stays ~constant. */
+export function scaledTorusEmbedding(scale: number): ProjectiveEmbedding {
+  return (p, pt) => {
+    const R = 2 * scale;
+    const r = 1 * scale;
+    if (pt[2] !== 0) return torusAffine(p, pt[0], pt[1], R, r);
+    const angle = infinityAngle(p, pt);
+    const haloY = (r + R) * 0.7;
+    return [R * Math.cos(angle), haloY, R * Math.sin(angle)];
+  };
 }
 
+/** Grid embedding with custom spacing. */
+export function scaledGridEmbedding(scale: number): ProjectiveEmbedding {
+  return (p, pt) => {
+    if (pt[2] !== 0) return [pt[0] * scale, 0, pt[1] * scale];
+    const half = (p - 1) / 2;
+    const radius = (half * Math.SQRT2 + 2) * scale;
+    const angle = infinityAngle(p, pt);
+    return [radius * Math.cos(angle), 0, radius * Math.sin(angle)];
+  };
+}
+
+// ── Data types ────────────────────────────────────────────
+
 export interface EmbeddedPoint {
-  fp: [number, number];
+  proj: ProjectivePoint;
   pos: [number, number, number];
+  isInfinity: boolean;
 }
 
 export class ProjectivePlane {
   readonly field: FiniteField;
-  readonly embed: Embedding;
+  readonly embed: ProjectiveEmbedding;
 
-  constructor(field: FiniteField, embed: Embedding) {
+  constructor(field: FiniteField, embed: ProjectiveEmbedding) {
     this.field = field;
     this.embed = embed;
   }
 
-  /** Map a single F_p × F_p point to R³. */
-  pointAt(x: number, y: number): [number, number, number] {
-    return this.embed(this.field.p, [x, y]);
+  /** Map a projective point to R³. */
+  pointAt(pt: ProjectivePoint): [number, number, number];
+  /** Map an affine point [x,y] (shorthand for [x:y:1]) to R³. */
+  pointAt(x: number, y: number): [number, number, number];
+  pointAt(a: ProjectivePoint | number, b?: number): [number, number, number] {
+    if (typeof a === 'number') {
+      return this.embed(this.field.p, [a, b!, 1]);
+    }
+    return this.embed(this.field.p, a);
   }
 
-  /** All p² affine points with their R³ positions. */
+  /** All p²+p+1 projective points with their R³ positions. */
   allPoints(): EmbeddedPoint[] {
-    const els = this.field.elements();
     const pts: EmbeddedPoint[] = [];
-    for (const x of els) {
-      for (const y of els) {
-        pts.push({ fp: [x, y], pos: this.embed(this.field.p, [x, y]) });
-      }
+    for (const proj of this.field.projectivePoints()) {
+      pts.push({
+        proj,
+        pos: this.embed(this.field.p, proj),
+        isInfinity: proj[2] === 0,
+      });
     }
     return pts;
   }

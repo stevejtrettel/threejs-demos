@@ -61,10 +61,14 @@ export class FlowIntegrator implements Parametric {
 
   /**
    * Advance the flow by one `stepSize` step.
+   *
+   * The integrator is 2D-locked on its `FlowState.position` type, but calls
+   * `field.evaluate` through the n-D interface (single-element array in,
+   * `Float64Array` out).
    */
   integrate(state: FlowState): FlowState {
     const deriv = (s: number[], t: number): number[] => {
-      const v = this.field.evaluate(s[0], s[1], t);
+      const v = this.field.evaluate(s, t);
       return [v[0], v[1]];
     };
 

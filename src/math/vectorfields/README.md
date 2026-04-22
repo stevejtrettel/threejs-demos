@@ -58,8 +58,10 @@ scene.add(new CurveLine(patch, curve, { color: 0x00aaff }));
 See [`math/patchcurves/`](../patchcurves/) for:
 
 - `FlowCurve` — integrates a `VectorField` into a `(u, v)[]` trajectory.
-- `CurveLine` — renders any `PatchCurve` on any `Surface`.
-- `Trail` / `TrailTube` — streaming trail: push `(u, v)` each frame.
+- `CurveOnSurface` — adapter that maps a `PatchCurve` through a `Surface`.
+- `StreamLine` / `StreamTube` — streaming trail: push `(u, v)` each frame.
+
+Render with the existing `CurveLine` / `CurveTube` from `math/curves/`.
 
 ## What is **not** here
 

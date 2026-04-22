@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 import { Params } from '@/Params';
 import type { Parametric } from '@/math/types';
-import type {
-  DifferentialSurface,
-  SurfaceDomain,
-  SurfacePartials,
-  FirstFundamentalForm,
-} from './types';
+import type { DifferentialSurface, SurfaceDomain, SurfacePartials } from './types';
+import { boundsFromSurfaceDomain } from './types';
+import type { ManifoldDomain } from '@/math/manifolds';
+import { Matrix } from '@/math/linear-algebra';
 
 /**
  * Options for `NumericSurface`
@@ -24,29 +22,12 @@ export interface NumericSurfaceOptions {
  * A `DifferentialSurface` built from just a parameterization.
  *
  * You supply `evaluate(u, v)`; everything else — partials, normal, induced
- * metric — is derived numerically by central differences. Christoffel symbols
- * and Gaussian curvature are handled by the library's intrinsic helpers (which
- * finite-difference `computeMetric`), so no extra work is needed here.
- *
- * Use this for quick sketches and experimentation. For performance-sensitive
- * or precision-sensitive work (e.g. geodesics near a pole), promote the surface
- * to a hand-written `DifferentialSurface` with analytic partials.
- *
- * @example
- *   const sphere = new NumericSurface({
- *     domain: { uMin: 0, uMax: 2*Math.PI, vMin: 0, vMax: Math.PI },
- *     evaluate: (u, v) => new THREE.Vector3(
- *       Math.sin(v) * Math.cos(u),
- *       Math.sin(v) * Math.sin(u),
- *       Math.cos(v),
- *     ),
- *   });
- *   const integrator = new GeodesicIntegrator(sphere);
+ * metric — is derived numerically by central differences.
  */
 export class NumericSurface implements DifferentialSurface, Parametric {
+  readonly dim = 2;
   readonly params = new Params(this);
 
-  /** Finite-difference step. */
   declare h: number;
 
   private readonly _evaluate: (u: number, v: number) => THREE.Vector3;
@@ -54,7 +35,7 @@ export class NumericSurface implements DifferentialSurface, Parametric {
 
   constructor(options: NumericSurfaceOptions) {
     this._evaluate = options.evaluate;
-    this._domain = options.domain;
+    this._domain = { ...options.domain };
     this.params.define('h', options.h ?? 1e-4);
   }
 
@@ -64,6 +45,10 @@ export class NumericSurface implements DifferentialSurface, Parametric {
 
   getDomain(): SurfaceDomain {
     return this._domain;
+  }
+
+  getDomainBounds(): ManifoldDomain {
+    return boundsFromSurfaceDomain(this._domain);
   }
 
   computePartials(u: number, v: number): SurfacePartials {
@@ -82,12 +67,14 @@ export class NumericSurface implements DifferentialSurface, Parametric {
     return du.cross(dv).normalize();
   }
 
-  computeMetric(u: number, v: number): FirstFundamentalForm {
-    const { du, dv } = this.computePartials(u, v);
-    return {
-      E: du.dot(du),
-      F: du.dot(dv),
-      G: dv.dot(dv),
-    };
+  computeMetric(p: number[]): Matrix {
+    const { du, dv } = this.computePartials(p[0], p[1]);
+    const E = du.dot(du);
+    const F = du.dot(dv);
+    const G = dv.dot(dv);
+    const m = new Matrix(2, 2);
+    m.data[0] = E; m.data[1] = F;
+    m.data[2] = F; m.data[3] = G;
+    return m;
   }
 }

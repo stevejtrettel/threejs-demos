@@ -1,40 +1,25 @@
 /**
  * Patch curves — curves in a 2D coordinate patch.
  *
- * A `PatchCurve` is any object that produces a list of `(u, v)` points in
- * some domain. It's the mathematical object; rendering components (like
- * `CurveLine`) project each `(u, v)` through a `Surface` to get a 3D
- * polyline.
- *
- * Producers:
- *   - `FlowCurve`     — integrates a `VectorField`
- *   - `Trail` / `TrailTube` — user-managed streaming buffer (also implement
- *                             `PatchCurve` internally, though they are also
- *                             their own renderer, so you typically don't
- *                             handle them via this interface)
- *   - future: `GeodesicCurve`, parametric curves in patch coordinates, etc.
+ * A `PatchCurve` is any object that produces a list of `(u, v)` points.
+ * The adapter `CurveOnSurface` maps those through a `Surface` into a 3D
+ * `NumericalCurve` that existing renderers (`CurveTube`, `CurveLine`)
+ * consume.
  */
 
-import type { SurfaceDomain } from '@/math/surfaces/types';
 import type { Params } from '@/Params';
 
 export interface PatchCurve {
   /**
-   * Parameter-domain bounds. Consumers use this to sanity-check that a
-   * renderer's surface covers the same domain as the curve's producer.
-   */
-  getDomain(): SurfaceDomain;
-
-  /**
-   * Current list of `(u, v)` points. Always fresh when called after a
-   * reactive cascade (topological ordering in `Params` guarantees sources
-   * have been rebuilt before their dependents).
+   * Current list of `(u, v)` points. Called by the reactive cascade;
+   * topological ordering guarantees the list is fresh whenever a
+   * renderer pulls it.
    */
   getPoints(): ReadonlyArray<[number, number]>;
 
   /**
-   * `Params` for reactive wiring. Renderers `dependOn(curve)` so they
-   * rebuild when the curve changes.
+   * `Params` for reactive wiring. Consumers `dependOn(curve)` so they
+   * rebuild when the point list changes.
    */
   readonly params: Params;
 }

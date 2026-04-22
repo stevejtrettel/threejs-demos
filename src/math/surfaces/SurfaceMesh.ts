@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
 import { Params } from '@/Params';
-import type { Surface, DifferentialSurface, SurfaceDomain, SurfacePartials, FirstFundamentalForm } from './types';
+import type { Surface, DifferentialSurface, SurfaceDomain, SurfacePartials } from './types';
+import { boundsFromSurfaceDomain } from './types';
+import type { ManifoldDomain } from '@/math/manifolds';
+import { Matrix } from '@/math/linear-algebra';
 import { buildGeometry } from './buildGeometry';
 
 /**
@@ -354,6 +357,8 @@ export class SurfaceMesh extends THREE.Mesh {
 
     // Create an inline DifferentialSurface from the function
     const surface: DifferentialSurface = {
+      dim: 2,
+
       evaluate(u: number, v: number): THREE.Vector3 {
         return new THREE.Vector3(u, v, fn(u, v));
       },
@@ -362,15 +367,14 @@ export class SurfaceMesh extends THREE.Mesh {
         return { uMin: xMin, uMax: xMax, vMin: yMin, vMax: yMax };
       },
 
+      getDomainBounds(): ManifoldDomain {
+        return boundsFromSurfaceDomain(this.getDomain());
+      },
+
       computePartials(u: number, v: number): SurfacePartials {
-        // Numerical derivatives for the surface partials
         const h = 0.0001;
         const fu = (fn(u + h, v) - fn(u - h, v)) / (2 * h);
         const fv = (fn(u, v + h) - fn(u, v - h)) / (2 * h);
-
-        // For graph (u, v, f(u,v)):
-        // ∂/∂u = (1, 0, ∂f/∂u)
-        // ∂/∂v = (0, 1, ∂f/∂v)
         return {
           du: new THREE.Vector3(1, 0, fu),
           dv: new THREE.Vector3(0, 1, fv)
@@ -382,13 +386,15 @@ export class SurfaceMesh extends THREE.Mesh {
         return du.cross(dv).normalize();
       },
 
-      computeMetric(u: number, v: number): FirstFundamentalForm {
-        const { du, dv } = this.computePartials(u, v);
-        return {
-          E: du.dot(du),
-          F: du.dot(dv),
-          G: dv.dot(dv)
-        };
+      computeMetric(p: number[]): Matrix {
+        const { du, dv } = this.computePartials(p[0], p[1]);
+        const E = du.dot(du);
+        const F = du.dot(dv);
+        const G = dv.dot(dv);
+        const m = new Matrix(2, 2);
+        m.data[0] = E; m.data[1] = F;
+        m.data[2] = F; m.data[3] = G;
+        return m;
       }
     };
 

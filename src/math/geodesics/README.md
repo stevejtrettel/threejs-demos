@@ -18,7 +18,7 @@ Geodesic *visualization* lives in [`math/patchcurves/`](../patchcurves/):
 - **Streaming** (watch a geodesic grow as state evolves, e.g.
   `linkage-4-geodesic`): own a `TangentVector`, call
   `integrator.integrate(state)` each frame, push `state.position` to a
-  `Trail` or `TrailTube`.
+  `StreamLine` or `StreamTube`.
 - **Precomputed** (draw a geodesic on one or more surfaces): a future
   `GeodesicCurve` primitive in `patchcurves/` will play the role
   `FlowCurve` plays for vector fields. Add it when a demo wants it —
@@ -28,19 +28,19 @@ Geodesic *visualization* lives in [`math/patchcurves/`](../patchcurves/):
 
 ```ts
 import { GeodesicIntegrator } from '@/math/geodesics/GeodesicIntegrator';
-import { TrailTube } from '@/math';  // from patchcurves/
+import { StreamTube } from '@/math';  // from patchcurves/
 ```
 
 ## Usage — streaming a geodesic on a torus
 
 ```ts
-import { Torus, SurfaceMesh, GeodesicIntegrator, TrailTube } from '@/math';
+import { Torus, SurfaceMesh, GeodesicIntegrator, StreamTube } from '@/math';
 import type { TangentVector } from '@/math/geodesics/types';
 
 const torus = new Torus({ R: 2, r: 1 });
 scene.add(new SurfaceMesh(torus));
 
-const trail = new TrailTube(torus, { maxPoints: 2000, radius: 0.02, color: 0xff0000 });
+const trail = new StreamTube(torus, { maxPoints: 2000, radius: 0.02, color: 0xff0000 });
 scene.add(trail);
 
 const integrator = new GeodesicIntegrator(torus, { stepSize: 0.01 });

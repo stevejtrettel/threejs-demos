@@ -151,9 +151,7 @@ export class HopfTorus implements Surface, Parametric, Rebuildable {
       evaluate: (u: number, v: number): THREE.Vector3 => {
         return this.isometricImage(parameterization(u, v));
       },
-      getDomain: (): SurfaceDomain => ({
-        uMin: 0, uMax: 1, vMin: 0, vMax: 1,
-      }),
+      getDomain: (): SurfaceDomain => ({ uMin: 0, uMax: 1, vMin: 0, vMax: 1 }),
     };
   }
 

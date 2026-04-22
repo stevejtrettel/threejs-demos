@@ -29,46 +29,45 @@ import {
   SurfaceMesh,
   GradientField,
   FlowCurve,
+  CurveOnSurface,
   CurveLine,
   FieldArrows,
 } from '@/math';
 import type { Parametric } from '@/math/types';
-import type { DifferentiableScalarField2D } from '@/math/functions/types';
+import { ScalarField2D, type Hessian2D } from '@/math/functions';
 
 // --- Parametric scalar field ------------------------------------------------
 
-class BumpyField implements DifferentiableScalarField2D, Parametric {
+class BumpyField extends ScalarField2D implements Parametric {
   readonly params = new Params(this);
 
   declare phase: number;
   declare omega: number;
 
   constructor(options: { phase?: number; omega?: number } = {}) {
+    super();
     this.params
       .define('phase', options.phase ?? 0, { triggers: 'rebuild' })
       .define('omega', options.omega ?? 1, { triggers: 'rebuild' });
   }
 
-  evaluate(u: number, v: number): number {
+  evaluateAt(u: number, v: number): number {
     return Math.cos(u + this.phase) + Math.cos(this.omega * v);
   }
 
-  computePartials(u: number, v: number) {
-    return {
-      du: -Math.sin(u + this.phase),
-      dv: -this.omega * Math.sin(this.omega * v),
-    };
+  partialsAt(u: number, v: number): [number, number] {
+    return [-Math.sin(u + this.phase), -this.omega * Math.sin(this.omega * v)];
   }
 
-  computeSecondPartials(u: number, v: number) {
-    return {
-      duu: -Math.cos(u + this.phase),
-      duv: 0,
-      dvv: -this.omega * this.omega * Math.cos(this.omega * v),
-    };
+  hessianAt(u: number, v: number): Hessian2D {
+    return [
+      -Math.cos(u + this.phase),
+      0,
+      -this.omega * this.omega * Math.cos(this.omega * v),
+    ];
   }
 
-  getDomain() {
+  domain2D() {
     return { uMin: 0, uMax: 2 * Math.PI, vMin: 0, vMax: 2 * Math.PI };
   }
 }
@@ -78,7 +77,10 @@ const height = new BumpyField({ phase: 0, omega: 1 });
 // --- Surfaces (domain-sharing) ----------------------------------------------
 
 const graph = new FunctionGraph(height, { xyScale: 1, zScale: 1 });
-const flat = new FlatPatch({ domain: height.getDomain(), height: -4 });
+const flat = new FlatPatch({
+  domain: { uMin: 0, uMax: 2 * Math.PI, vMin: 0, vMax: 2 * Math.PI },
+  height: -4,
+});
 
 // --- The gradient field — in the plane, not on any surface ------------------
 // GradientField takes a MetricPatch only because the pushforward pipeline
@@ -144,8 +146,8 @@ for (let i = 1; i <= N; i++) {
       steps: STEPS,
     });
 
-    app.scene.add(new CurveLine(graph, curve, { color: 0xff5500 }));
-    app.scene.add(new CurveLine(flat, curve, { color: 0xff5500 }));
+    app.scene.add(new CurveLine({ curve: new CurveOnSurface(curve, graph).curve, color: 0xff5500 }));
+    app.scene.add(new CurveLine({ curve: new CurveOnSurface(curve, flat ).curve, color: 0xff5500 }));
   }
 }
 

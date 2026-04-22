@@ -4,9 +4,9 @@
  * Public API. See README.md for design notes and the planning doc
  * `docs/planning/vector-fields-and-flows.md` for the rationale.
  *
- * Note: curve rendering lives in `math/patchcurves/` — `Trail`, `TrailTube`,
- * `FlowCurve`, `CurveLine`. This module now only covers the fields
- * themselves and their glyph visualizers.
+ * Note: curve rendering lives in `math/patchcurves/` — `FlowCurve`,
+ * `StreamPoints`, `CurveOnSurface`, `StreamLine`, `StreamTube`. This
+ * module only covers the fields themselves and their glyph visualizers.
  */
 
 export type { VectorField, FlowState, BoundedFlowResult } from './types';

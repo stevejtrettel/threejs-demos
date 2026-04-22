@@ -1,41 +1,46 @@
 import { Params } from '@/Params';
 import type { Parametric } from '@/math/types';
-import type { SurfaceDomain } from '@/math/surfaces/types';
+import type { ManifoldDomain } from '@/math/manifolds';
 import type { VectorField } from './types';
 
 export interface ConstantFieldOptions {
-  direction: [number, number];
-  domain: SurfaceDomain;
+  /** Length-`dim` vector of components. Stored; components are reactive via `params`. */
+  direction: number[];
+  domain: ManifoldDomain;
 }
 
 /**
- * A uniform field: `(u, v) ↦ (a, b)`.
+ * A uniform n-D field: `(p) ↦ direction`.
  *
- * Useful for sanity checks and baseline demos. On a flat patch the flow is
- * straight lines; on a curved surface it pushes forward to a coordinate flow
- * that generally is *not* geodesic.
+ * Useful for sanity checks and baseline demos. Components are reactive
+ * (named `c0`, `c1`, …, `c{dim-1}` on the `params` system).
  */
 export class ConstantField implements VectorField, Parametric {
+  readonly dim: number;
   readonly params = new Params(this);
 
-  declare a: number;
-  declare b: number;
-
-  private readonly domain: SurfaceDomain;
+  private readonly domain: ManifoldDomain;
+  private readonly buf: Float64Array;
 
   constructor(options: ConstantFieldOptions) {
-    this.domain = { ...options.domain };
+    this.dim = options.direction.length;
+    this.domain = { min: options.domain.min.slice(), max: options.domain.max.slice() };
+    this.buf = new Float64Array(this.dim);
 
-    this.params
-      .define('a', options.direction[0])
-      .define('b', options.direction[1]);
+    for (let i = 0; i < this.dim; i++) {
+      const name = `c${i}`;
+      this.params.define(name, options.direction[i]);
+    }
   }
 
-  evaluate(_u: number, _v: number, _t?: number): [number, number] {
-    return [this.a, this.b];
+  evaluate(_p: number[], _t?: number): Float64Array {
+    for (let i = 0; i < this.dim; i++) {
+      this.buf[i] = (this as unknown as Record<string, number>)[`c${i}`];
+    }
+    return this.buf;
   }
 
-  getDomain(): SurfaceDomain {
+  getDomain(): ManifoldDomain {
     return this.domain;
   }
 }

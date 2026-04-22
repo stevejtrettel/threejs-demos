@@ -1,26 +1,35 @@
 /**
- * Patch curves — curves in a 2D coordinate patch, plus renderers that
- * draw them on arbitrary surfaces.
+ * Patch curves — curves in a 2D coordinate patch, with decomposed
+ * producer → adapter → renderer architecture.
  *
- * Two common shapes:
+ *   Producers (store `(u, v)[]`):
+ *     - `FlowCurve`      — integrates a VectorField
+ *     - `StreamPoints`   — user-pushable list (ring buffer)
+ *     - (future: GeodesicCurve, etc.)
  *
- *   Streaming  — `Trail` / `TrailTube`. One surface, push `(u, v)` per
- *                frame, trail grows. Reset with `clear()`.
+ *   Adapter (maps through a surface):
+ *     - `CurveOnSurface` — exposes `.curve: NumericalCurve`
  *
- *   Precomputed — `FlowCurve` + `CurveLine`. One integration, one or more
- *                 renderings (draw the same trajectory on several
- *                 surfaces simultaneously).
+ *   Renderers: existing `CurveTube` + `CurveLine` from `math/curves/`.
+ *
+ *   Ergonomic wrappers for the common single-surface streaming case:
+ *     - `StreamLine`     — line rendering
+ *     - `StreamTube`     — tube rendering
  */
 
 export type { PatchCurve } from './types';
 
-export { Trail } from './Trail';
-export type { TrailOptions } from './Trail';
-export { TrailTube } from './TrailTube';
-export type { TrailTubeOptions } from './TrailTube';
-
 export { FlowCurve } from './FlowCurve';
 export type { FlowCurveOptions } from './FlowCurve';
 
-export { CurveLine } from './CurveLine';
-export type { CurveLineOptions } from './CurveLine';
+export { StreamPoints } from './StreamPoints';
+export type { StreamPointsOptions } from './StreamPoints';
+
+export { CurveOnSurface } from './CurveOnSurface';
+export type { CurveOnSurfaceOptions } from './CurveOnSurface';
+
+export { StreamLine } from './StreamLine';
+export type { StreamLineOptions } from './StreamLine';
+
+export { StreamTube } from './StreamTube';
+export type { StreamTubeOptions } from './StreamTube';

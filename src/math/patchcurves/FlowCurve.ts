@@ -27,14 +27,14 @@ export interface FlowCurveOptions {
  *
  * On any upstream param change, re-integrates eagerly during its
  * `rebuild()`. The cascade (topological order) guarantees this happens
- * before any dependent renderer reads `getPoints()`.
+ * before any dependent adapter (`CurveOnSurface`) reads `getPoints()`.
  *
  * @example
  *   const curve = new FlowCurve(gradient, {
  *     initialPosition: [1, 2], steps: 500, stepSize: 0.02,
  *   });
- *   scene.add(new CurveLine(graphSurface, curve));
- *   scene.add(new CurveLine(flatPatch,    curve));
+ *   scene.add(new CurveLine({ curve: new CurveOnSurface(curve, graph).curve }));
+ *   scene.add(new CurveLine({ curve: new CurveOnSurface(curve, flat ).curve }));
  */
 export class FlowCurve implements PatchCurve {
   readonly params = new Params(this);
@@ -77,10 +77,6 @@ export class FlowCurve implements PatchCurve {
     return this.points;
   }
 
-  getDomain(): SurfaceDomain {
-    return this.field.getDomain();
-  }
-
   get stopped(): boolean {
     return this._stopped;
   }
@@ -94,9 +90,20 @@ export class FlowCurve implements PatchCurve {
     this._stopped = false;
     this._stoppedAtBoundary = undefined;
 
-    const domain = this.bounded
-      ? (this.domain ?? this.field.getDomain())
-      : null;
+    // The n-D VectorField returns a ManifoldDomain; the 2D integrator here
+    // expects a SurfaceDomain. Convert when using the default.
+    let domain: SurfaceDomain | null = null;
+    if (this.bounded) {
+      if (this.domain) {
+        domain = this.domain;
+      } else {
+        const b = this.field.getDomain();
+        domain = {
+          uMin: b.min[0], uMax: b.max[0],
+          vMin: b.min[1], vMax: b.max[1],
+        };
+      }
+    }
 
     let state = {
       position: [...this.initialPosition] as [number, number],

@@ -23,10 +23,11 @@ import {
   SurfaceMesh,
   MetricSurface,
   GeodesicIntegrator,
-  TrailTube,
+  StreamTube,
 } from '@/math';
 import type { Joint } from '@/math/linkages';
-import type { Surface, SurfaceDomain, FirstFundamentalForm } from '@/math/surfaces/types';
+import type { Surface, SurfaceDomain } from '@/math/surfaces/types';
+import { Matrix } from '@/math/linear-algebra';
 
 // --- Configuration-space map ---
 
@@ -169,9 +170,12 @@ const abstractShell: Surface = {
 function buildConfigSpace(Lval: number): MetricSurface {
   return new MetricSurface({
     domain: CONFIG_DOMAIN,
-    metric: (phi: number, t: number): FirstFundamentalForm => {
+    metric: (phi: number, t: number): Matrix => {
       const { h_pp, h_pt, h_tt } = chainKineticPullback(phi, t, Lval);
-      return { E: h_pp, F: h_pt, G: h_tt };
+      const m = new Matrix(2, 2);
+      m.data[0] = h_pp; m.data[1] = h_pt;
+      m.data[2] = h_pt; m.data[3] = h_tt;
+      return m;
     },
     display: abstractShell,
   });
@@ -272,7 +276,7 @@ abstractGroup.add(abstractBall);
 
 // --- Trail ---
 
-const trail = new TrailTube(abstractShell, {
+const trail = new StreamTube(abstractShell, {
   maxPoints: 5000,
   radius: 0.12,
   radialSegments: 6,
@@ -399,11 +403,12 @@ function releaseDrag(e: PointerEvent) {
 
   // Normalize to unit speed in the metric: geodesic traces at speed 1
   // regardless of drag magnitude, so only direction matters.
-  const g = patch.computeMetric(geoState[0], geoState[1]);
+  const g = patch.computeMetric([geoState[0], geoState[1]]).data;
+  const E = g[0], F = g[1], G = g[3];
   const v2 =
-    g.E * phiDot * phiDot +
-    2 * g.F * phiDot * tDot +
-    g.G * tDot * tDot;
+    E * phiDot * phiDot +
+    2 * F * phiDot * tDot +
+    G * tDot * tDot;
   const EPS = 1e-8;
   if (v2 < EPS) {
     mode = 'idle';

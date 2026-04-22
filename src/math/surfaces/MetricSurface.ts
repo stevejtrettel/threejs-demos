@@ -1,21 +1,21 @@
-import type {
-  Surface,
-  SurfaceDomain,
-  FirstFundamentalForm,
-  ChristoffelSymbols,
-  MetricPatch,
-} from './types';
+import type { Surface, SurfaceDomain } from './types';
+import { boundsFromSurfaceDomain } from './types';
+import { Matrix } from '@/math/linear-algebra';
+import type { Manifold, ManifoldDomain } from '@/math/manifolds';
 
 /**
- * Options for `MetricSurface`
+ * Options for `MetricSurface`.
  */
 export interface MetricSurfaceOptions {
-  /** Domain of (u, v) */
+  /** Domain of (u, v). */
   domain: SurfaceDomain;
-  /** Metric tensor g(u, v) in coordinates. */
-  metric: (u: number, v: number) => FirstFundamentalForm;
-  /** Optional analytic Christoffel symbols. Falls back to finite differences. */
-  christoffel?: (u: number, v: number) => ChristoffelSymbols;
+  /** Metric tensor g(u, v) as a 2×2 matrix. */
+  metric: (u: number, v: number) => Matrix;
+  /**
+   * Optional analytic Christoffel symbols at (u, v), flat layout
+   * `Γ[k*4 + i*2 + j]` (length 8). Falls back to numerical when absent.
+   */
+  christoffel?: (u: number, v: number) => Float64Array;
   /** Optional analytic Gaussian curvature. Falls back to Brioschi. */
   gaussianCurvature?: (u: number, v: number) => number;
 
@@ -37,41 +37,35 @@ export interface MetricSurfaceOptions {
 }
 
 /**
- * An intrinsic Riemannian patch with an optional decorative R³ embedding.
+ * An intrinsic Riemannian 2D patch with an optional decorative R³ embedding.
  *
- * Satisfies `MetricPatch` — plug directly into `GeodesicIntegrator`,
+ * Satisfies `Manifold` at `dim = 2` — plug directly into `GeodesicIntegrator`,
  * `gaussianCurvatureFromMetric`, parallel transport, etc. The `display`
  * field, if set, is a `Surface` used only for drawing; it is *not* used by
  * any intrinsic computation and its induced metric is generally unrelated
  * to this patch's metric.
- *
- * @example
- *   // Abstract metric on a rectangle; round-sphere shell just for picture
- *   const patch = new MetricSurface({
- *     domain: { uMin: -Math.PI/2, uMax: Math.PI/2, vMin: 0, vMax: 2*Math.PI },
- *     metric: (phi, t) => myPullbackMetric(phi, t, L),
- *     display: unitSphereEmbedding,
- *   });
- *   const mesh = new SurfaceMesh(patch.display!);
- *   const integrator = new GeodesicIntegrator(patch);
  */
-export class MetricSurface implements MetricPatch {
+export class MetricSurface implements Manifold {
+  readonly dim = 2;
   readonly display?: Surface;
 
   /** Present only when an analytic `christoffel` was supplied. */
-  readonly computeChristoffel?: (u: number, v: number) => ChristoffelSymbols;
+  readonly computeChristoffel?: (p: number[]) => Float64Array;
 
   /** Present only when an analytic `gaussianCurvature` was supplied. */
   readonly computeGaussianCurvature?: (u: number, v: number) => number;
 
   private readonly _domain: SurfaceDomain;
-  private readonly _metric: (u: number, v: number) => FirstFundamentalForm;
+  private readonly _metric: (u: number, v: number) => Matrix;
 
   constructor(options: MetricSurfaceOptions) {
     this._domain = options.domain;
     this._metric = options.metric;
     if (options.display) this.display = options.display;
-    if (options.christoffel) this.computeChristoffel = options.christoffel;
+    if (options.christoffel) {
+      const chr = options.christoffel;
+      this.computeChristoffel = (p: number[]) => chr(p[0], p[1]);
+    }
     if (options.gaussianCurvature) this.computeGaussianCurvature = options.gaussianCurvature;
   }
 
@@ -79,7 +73,11 @@ export class MetricSurface implements MetricPatch {
     return this._domain;
   }
 
-  computeMetric(u: number, v: number): FirstFundamentalForm {
-    return this._metric(u, v);
+  getDomainBounds(): ManifoldDomain {
+    return boundsFromSurfaceDomain(this._domain);
+  }
+
+  computeMetric(p: number[]): Matrix {
+    return this._metric(p[0], p[1]);
   }
 }

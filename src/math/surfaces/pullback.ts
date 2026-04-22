@@ -1,4 +1,5 @@
-import type { Surface, SurfaceDomain, FirstFundamentalForm } from './types';
+import type { Surface, SurfaceDomain } from './types';
+import { Matrix } from '@/math/linear-algebra';
 import { MetricSurface } from './MetricSurface';
 
 /**
@@ -51,7 +52,7 @@ export function pullbackMetric(
     return [du, dv];
   });
 
-  const metric = (u: number, v: number): FirstFundamentalForm => {
+  const metric = (u: number, v: number): Matrix => {
     const [du, dv] = jacobian(u, v);
     let E = 0, F = 0, G = 0;
     const n = du.length;
@@ -60,7 +61,10 @@ export function pullbackMetric(
       F += du[i] * dv[i];
       G += dv[i] * dv[i];
     }
-    return { E, F, G };
+    const m = new Matrix(2, 2);
+    m.data[0] = E; m.data[1] = F;
+    m.data[2] = F; m.data[3] = G;
+    return m;
   };
 
   return new MetricSurface({ domain, metric, display: opts.display });

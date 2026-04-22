@@ -30,7 +30,7 @@ Rather than deep folder nesting, we use naming conventions:
 |------------|-----------------------------|-----------------------------------------|
 | Primitives | Mathematical name only      | `Helicoid.ts`, `Torus.ts`, `GeodesicIntegrator.ts` |
 | Builders   | `build*` or verb prefix     | `buildGeometry.ts`, `extractBoundary.ts` |
-| Components | Ends with visual type       | `SurfaceMesh.ts`, `CurveLine.ts`, `TrailTube.ts` |
+| Components | Ends with visual type       | `SurfaceMesh.ts`, `CurveLine.ts`, `StreamTube.ts` |
 | Helpers    | Descriptive of purpose      | `withNormals.ts`, `syncGeometry.ts` |
 | Types      | Always `types.ts`           | `types.ts` |
 
@@ -53,12 +53,12 @@ torus.params.set('R', 3);  // Mesh rebuilds automatically
 ```typescript
 import { Torus } from '@/math/surfaces/Torus';
 import { SurfaceMesh } from '@/math/surfaces/SurfaceMesh';
-import { TrailTube, GeodesicIntegrator } from '@/math';
+import { StreamTube, GeodesicIntegrator } from '@/math';
 
 const torus = new Torus({ R: 2, r: 1 });
 scene.add(new SurfaceMesh(torus));
 
-const trail = new TrailTube(torus, { maxPoints: 2000, radius: 0.02, color: 0xff0000 });
+const trail = new StreamTube(torus, { maxPoints: 2000, radius: 0.02, color: 0xff0000 });
 scene.add(trail);
 
 // Own the integrator and state yourself; push points each frame.
@@ -212,6 +212,6 @@ Currently implemented:
 - ✅ Surface builders (buildGeometry)
 - ✅ Surface components (SurfaceMesh, SurfaceMesh.fromFunction)
 - ✅ Geodesic integration (GeodesicIntegrator with bounded support)
-- ✅ Curve rendering (patchcurves: FlowCurve, CurveLine, Trail, TrailTube)
+- ✅ Curve rendering (patchcurves: FlowCurve, StreamPoints, CurveOnSurface, StreamLine, StreamTube; renderers: CurveLine, CurveTube)
 
 See [design document](../../docs/math-type-design.md) for full architecture details.

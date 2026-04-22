@@ -158,7 +158,8 @@ export class FieldArrows extends THREE.InstancedMesh {
 
         const p = this.surface.evaluate(u, v);
         const { du, dv } = this.surface.computePartials(u, v);
-        const [a, b] = this.field.evaluate(u, v);
+        const fv = this.field.evaluate([u, v]);
+        const a = fv[0], b = fv[1];
 
         // Pushforward: v3 = a · ∂r/∂u + b · ∂r/∂v
         const v3 = new THREE.Vector3(

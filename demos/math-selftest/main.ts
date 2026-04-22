@@ -24,12 +24,9 @@ import {
   MetricSurface,
   GeodesicIntegrator,
 } from '@/math';
-import type {
-  MetricPatch,
-  FirstFundamentalForm,
-  ChristoffelSymbols,
-  SurfaceDomain,
-} from '@/math/surfaces/types';
+import type { Manifold } from '@/math/manifolds';
+import type { SurfaceDomain } from '@/math/surfaces/types';
+import { Matrix } from '@/math/linear-algebra';
 
 // --- Reference implementations -------------------------------------------
 
@@ -37,39 +34,39 @@ import type {
  * Tensor-loop reference for Christoffel symbols. Direct transcription of
  *   Γ^k_ij = ½ g^kl (∂_i g_jl + ∂_j g_il − ∂_l g_ij)
  * Uses central differences on `patch.computeMetric`. Read the math off the code.
+ * Returns a flat Float64Array (length 8): `Γ[k*4 + i*2 + j]`.
  */
 function christoffelTensorLoop(
-  patch: MetricPatch,
+  patch: Manifold,
   u: number,
   v: number,
   h: number = 1e-4,
-): ChristoffelSymbols {
-  // g at center
-  const g0 = patch.computeMetric(u, v);
-  const G = [[g0.E, g0.F], [g0.F, g0.G]];
+): Float64Array {
+  // g at center, extracted as a nested matrix for index-notation readability.
+  const g0 = patch.computeMetric([u, v]).data;
+  const G = [[g0[0], g0[1]], [g0[2], g0[3]]];
 
-  // Inverse
   const det = G[0][0] * G[1][1] - G[0][1] * G[1][0];
   const Ginv = [
     [ G[1][1] / det, -G[0][1] / det],
     [-G[1][0] / det,  G[0][0] / det],
   ];
 
-  // dG[a][i][j] = ∂_a g_ij, computed by central differences along axis a
+  // dG[a][i][j] = ∂_a g_ij
   const dG: number[][][] = [[[0, 0], [0, 0]], [[0, 0], [0, 0]]];
-  const samplePlus = [patch.computeMetric(u + h, v), patch.computeMetric(u, v + h)];
-  const sampleMinus = [patch.computeMetric(u - h, v), patch.computeMetric(u, v - h)];
+  const samplePlus = [patch.computeMetric([u + h, v]).data, patch.computeMetric([u, v + h]).data];
+  const sampleMinus = [patch.computeMetric([u - h, v]).data, patch.computeMetric([u, v - h]).data];
   for (let a = 0; a < 2; a++) {
     const gp = samplePlus[a];
     const gm = sampleMinus[a];
     const inv2h = 1 / (2 * h);
-    dG[a][0][0] = (gp.E - gm.E) * inv2h;
-    dG[a][0][1] = (gp.F - gm.F) * inv2h;
+    dG[a][0][0] = (gp[0] - gm[0]) * inv2h;
+    dG[a][0][1] = (gp[1] - gm[1]) * inv2h;
     dG[a][1][0] = dG[a][0][1];
-    dG[a][1][1] = (gp.G - gm.G) * inv2h;
+    dG[a][1][1] = (gp[3] - gm[3]) * inv2h;
   }
 
-  const Gamma: number[][][] = [[[0, 0], [0, 0]], [[0, 0], [0, 0]]];
+  const out = new Float64Array(8);
   for (let k = 0; k < 2; k++) {
     for (let i = 0; i < 2; i++) {
       for (let j = 0; j < 2; j++) {
@@ -77,63 +74,63 @@ function christoffelTensorLoop(
         for (let l = 0; l < 2; l++) {
           s += Ginv[k][l] * (dG[i][j][l] + dG[j][i][l] - dG[l][i][j]);
         }
-        Gamma[k][i][j] = 0.5 * s;
+        out[k * 4 + i * 2 + j] = 0.5 * s;
       }
     }
   }
 
-  return {
-    gamma_1_11: Gamma[0][0][0],
-    gamma_1_12: Gamma[0][0][1],
-    gamma_1_22: Gamma[0][1][1],
-    gamma_2_11: Gamma[1][0][0],
-    gamma_2_12: Gamma[1][0][1],
-    gamma_2_22: Gamma[1][1][1],
-  };
+  return out;
 }
 
 // --- Test metrics ---------------------------------------------------------
 
 const DOMAIN: SurfaceDomain = { uMin: -10, uMax: 10, vMin: -10, vMax: 10 };
 
+/** Pack `(E, F, G)` into a 2×2 `Matrix`. */
+function mat2(E: number, F: number, G: number): Matrix {
+  const m = new Matrix(2, 2);
+  m.data[0] = E; m.data[1] = F;
+  m.data[2] = F; m.data[3] = G;
+  return m;
+}
+
 function patchFromMetric(
-  metric: (u: number, v: number) => FirstFundamentalForm,
+  metric: (u: number, v: number) => Matrix,
   domain: SurfaceDomain = DOMAIN,
 ): MetricSurface {
   return new MetricSurface({ domain, metric });
 }
 
 // Flat plane: g = du² + dv². All Christoffels zero, K = 0.
-const flatPlane = patchFromMetric(() => ({ E: 1, F: 0, G: 1 }));
+const flatPlane = patchFromMetric(() => mat2(1, 0, 1));
 
 // Unit 2-sphere chart (θ, φ): g = dθ² + sin²θ dφ². F = 0, K = 1.
-const unitSphere = patchFromMetric((theta, _phi) => ({
-  E: 1,
-  F: 0,
-  G: Math.sin(theta) ** 2,
-}), { uMin: 0.1, uMax: Math.PI - 0.1, vMin: 0, vMax: 2 * Math.PI });
+const unitSphere = patchFromMetric(
+  (theta, _phi) => mat2(1, 0, Math.sin(theta) ** 2),
+  { uMin: 0.1, uMax: Math.PI - 0.1, vMin: 0, vMax: 2 * Math.PI },
+);
 
 // Saddle z = u² − v²: induced metric in R³. F ≠ 0 in general.
-const saddle = patchFromMetric((u, v) => ({
-  E: 1 + 4 * u * u,
-  F: -4 * u * v,
-  G: 1 + 4 * v * v,
-}));
+const saddle = patchFromMetric((u, v) => mat2(1 + 4 * u * u, -4 * u * v, 1 + 4 * v * v));
 
-// Hyperbolic upper half-plane (Poincaré): g = (du² + dv²)/v². K = -1 everywhere.
-// Restrict domain to v > 0 region comfortably.
-const hyperbolic = patchFromMetric((_u: number, v: number) => {
-  const inv = 1 / (v * v);
-  return { E: inv, F: 0, G: inv };
-}, { uMin: -10, uMax: 10, vMin: 0.5, vMax: 5 });
+// Hyperbolic upper half-plane (Poincaré): g = (du² + dv²)/v². K = -1.
+const hyperbolic = patchFromMetric(
+  (_u: number, v: number) => {
+    const inv = 1 / (v * v);
+    return mat2(inv, 0, inv);
+  },
+  { uMin: -10, uMax: 10, vMin: 0.5, vMax: 5 },
+);
 
-// Torus of revolution in R³: (u, v) → ((R + r cos v) cos u, (R + r cos v) sin u, r sin v).
-// E = (R + r cos v)², F = 0, G = r². K = cos(v) / (r·(R + r cos v)).
+// Torus of revolution in R³. E = (R + r cos v)², F = 0, G = r².
 const R = 2, r = 1;
-const torus = patchFromMetric((_u: number, v: number) => {
-  const b = R + r * Math.cos(v);
-  return { E: b * b, F: 0, G: r * r };
-}, { uMin: 0, uMax: 2 * Math.PI, vMin: 0, vMax: 2 * Math.PI });
+const torus = patchFromMetric(
+  (_u: number, v: number) => {
+    const b = R + r * Math.cos(v);
+    return mat2(b * b, 0, r * r);
+  },
+  { uMin: 0, uMax: 2 * Math.PI, vMin: 0, vMax: 2 * Math.PI },
+);
 
 // --- Test harness ---------------------------------------------------------
 
@@ -145,17 +142,16 @@ function approxEqual(a: number, b: number, tol: number): boolean {
 }
 
 function christoffelClose(
-  a: ChristoffelSymbols,
-  b: ChristoffelSymbols,
+  a: Float64Array,
+  b: Float64Array,
   tol: number,
 ): { ok: boolean; worst: number } {
-  const keys: (keyof ChristoffelSymbols)[] = [
-    'gamma_1_11', 'gamma_1_12', 'gamma_1_22',
-    'gamma_2_11', 'gamma_2_12', 'gamma_2_22',
-  ];
+  // Compare the 6 distinct entries (symmetric in i, j): [k=0, (i,j) ∈ {00, 01, 11}],
+  // [k=1, (i,j) ∈ {00, 01, 11}]. Indices into flat Γ[k*4 + i*2 + j]:
+  const indices = [0, 1, 3, 4, 5, 7];
   let worst = 0;
-  for (const k of keys) {
-    const diff = Math.abs(a[k] - b[k]);
+  for (const idx of indices) {
+    const diff = Math.abs(a[idx] - b[idx]);
     if (diff > worst) worst = diff;
   }
   return { ok: worst <= tol, worst };
@@ -169,9 +165,9 @@ function record(name: string, pass: boolean, detail?: string) {
 
 const christoffelTol = 1e-6;
 
-function testChristoffel(name: string, patch: MetricPatch, samples: [number, number][]) {
+function testChristoffel(name: string, patch: Manifold, samples: [number, number][]) {
   for (const [u, v] of samples) {
-    const a = christoffelFromMetric(patch, u, v);
+    const a = christoffelFromMetric((p) => patch.computeMetric(p), [u, v]);
     const b = christoffelTensorLoop(patch, u, v);
     const { ok, worst } = christoffelClose(a, b, christoffelTol);
     record(
@@ -194,7 +190,7 @@ const curvatureTol = 1e-4;
 
 function testCurvature(
   name: string,
-  patch: MetricPatch,
+  patch: Manifold,
   samples: [number, number][],
   expected: (u: number, v: number) => number,
 ) {
@@ -226,18 +222,19 @@ testCurvature('torus K=cos v / (r·(R+r cos v))', torus, [[1, 0.5], [0.3, 2.1]],
  */
 function testEnergyConservation(
   name: string,
-  patch: MetricPatch,
+  patch: Manifold,
   start: [number, number],
   initialVelocity: [number, number],
   steps: number,
   tol: number,
 ) {
-  // Normalize to unit speed in the metric
-  const g0 = patch.computeMetric(start[0], start[1]);
+  // Normalize to unit speed in the metric.
+  const g0 = patch.computeMetric([start[0], start[1]]).data;
+  const E0 = g0[0], F0 = g0[1], G0 = g0[3];
   const v2_start =
-    g0.E * initialVelocity[0] * initialVelocity[0] +
-    2 * g0.F * initialVelocity[0] * initialVelocity[1] +
-    g0.G * initialVelocity[1] * initialVelocity[1];
+    E0 * initialVelocity[0] * initialVelocity[0] +
+    2 * F0 * initialVelocity[0] * initialVelocity[1] +
+    G0 * initialVelocity[1] * initialVelocity[1];
   const s = 1 / Math.sqrt(v2_start);
   const vel: [number, number] = [initialVelocity[0] * s, initialVelocity[1] * s];
 
@@ -247,11 +244,12 @@ function testEnergyConservation(
   let worstDrift = 0;
   for (let i = 0; i < steps; i++) {
     state = integrator.integrate(state);
-    const g = patch.computeMetric(state.position[0], state.position[1]);
+    const g = patch.computeMetric([state.position[0], state.position[1]]).data;
+    const E = g[0], F = g[1], G = g[3];
     const v2 =
-      g.E * state.velocity[0] * state.velocity[0] +
-      2 * g.F * state.velocity[0] * state.velocity[1] +
-      g.G * state.velocity[1] * state.velocity[1];
+      E * state.velocity[0] * state.velocity[0] +
+      2 * F * state.velocity[0] * state.velocity[1] +
+      G * state.velocity[1] * state.velocity[1];
     const drift = Math.abs(v2 - 1);
     if (drift > worstDrift) worstDrift = drift;
   }

@@ -7,7 +7,7 @@
  *
  * - **Primitives**: Pure mathematical abstractions (Helicoid, Torus, GeodesicIntegrator)
  * - **Builders**: Functions that transform math → THREE.js (buildGeometry, buildMesh)
- * - **Components**: Scene objects that extend THREE.js classes (SurfaceMesh, CurveLine, TrailTube)
+ * - **Components**: Scene objects that extend THREE.js classes (SurfaceMesh, CurveLine, CurveTube, StreamLine, StreamTube)
  * - **Helpers**: Utilities for composition and decoration (withNormals, syncGeometry)
  *
  * ## Organization
@@ -65,6 +65,15 @@ export type { HopfTorusOptions } from './hopf';
 // Spaces
 export * from './spaces';
 
+// Manifolds (n-D intrinsic geometry)
+export * from './manifolds';
+
+// Differential forms
+export * from './forms';
+
+// Symplectic geometry and Hamiltonian mechanics
+export * from './symplectic';
+
 // Domain-specific exports
 // (These will be populated as we implement each domain)
 
@@ -89,7 +98,7 @@ export { MetricSurface } from './surfaces/MetricSurface';
 export type { MetricSurfaceOptions } from './surfaces/MetricSurface';
 export { pullbackMetric } from './surfaces/pullback';
 export type { PullbackMetricOptions } from './surfaces/pullback';
-export { christoffelFromMetric, gaussianCurvatureFromMetric } from './surfaces/christoffel';
+export { gaussianCurvatureFromMetric } from './surfaces/christoffel';
 
 // Functions (scalar fields)
 export * from './functions/types';
@@ -109,6 +118,8 @@ export { ParametricCurve } from './curves/ParametricCurve';
 export type { ParametricCurveOptions, Parameterization } from './curves/ParametricCurve';
 export { CurveTube } from './curves/CurveTube';
 export type { CurveTubeOptions } from './curves/CurveTube';
+export { CurveLine } from './curves/CurveLine';
+export type { CurveLineOptions } from './curves/CurveLine';
 export { buildTubeGeometry } from './curves/buildTubeGeometry';
 export type { BuildTubeGeometryOptions } from './curves/buildTubeGeometry';
 export {
@@ -121,7 +132,7 @@ export {
 export type { SmoothCurveOptions, SmoothingMethod } from './curves/smoothCurve';
 
 // ODE integration
-export { euler, rk4, integrate } from './ode';
+export { euler, rk4, implicitMidpoint, gaussLegendre4, integrate } from './ode';
 export type { DerivFn, Stepper, IntegrateOptions, Trajectory } from './ode';
 
 // Geodesics

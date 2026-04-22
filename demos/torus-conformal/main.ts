@@ -9,7 +9,10 @@
 import * as THREE from 'three';
 import { App } from '@/app/App';
 import { RollUpMesh } from '@/math/surfaces/RollUpMesh';
-import type { DifferentialSurface, SurfaceDomain, SurfacePartials, FirstFundamentalForm } from '@/math/surfaces/types';
+import type { DifferentialSurface, SurfaceDomain, SurfacePartials } from '@/math/surfaces/types';
+import { boundsFromSurfaceDomain } from '@/math/surfaces/types';
+import type { ManifoldDomain } from '@/math/manifolds';
+import { Matrix } from '@/math/linear-algebra';
 
 const TWO_PI = 2 * Math.PI;
 const S = 1 / Math.SQRT2;
@@ -17,6 +20,8 @@ const S = 1 / Math.SQRT2;
 // --- Clifford torus: (cos u, sin u, cos v, sin v)/√2 ∈ S³ → stereo proj ---
 
 const clifford: DifferentialSurface = {
+  dim: 2,
+
   evaluate(u: number, v: number): THREE.Vector3 {
     const x1 = S * Math.cos(u);
     const x2 = S * Math.sin(u);
@@ -28,6 +33,10 @@ const clifford: DifferentialSurface = {
 
   getDomain(): SurfaceDomain {
     return { uMin: 0, uMax: TWO_PI, vMin: 0, vMax: TWO_PI };
+  },
+
+  getDomainBounds(): ManifoldDomain {
+    return boundsFromSurfaceDomain(this.getDomain());
   },
 
   computeNormal(u: number, v: number): THREE.Vector3 {
@@ -44,9 +53,12 @@ const clifford: DifferentialSurface = {
     return { du, dv };
   },
 
-  computeMetric(u: number, v: number): FirstFundamentalForm {
-    const { du, dv } = this.computePartials(u, v);
-    return { E: du.dot(du), F: du.dot(dv), G: dv.dot(dv) };
+  computeMetric(p: number[]): Matrix {
+    const { du, dv } = this.computePartials(p[0], p[1]);
+    const E = du.dot(du), F = du.dot(dv), G = dv.dot(dv);
+    const m = new Matrix(2, 2);
+    m.data[0] = E; m.data[1] = F; m.data[2] = F; m.data[3] = G;
+    return m;
   },
 };
 

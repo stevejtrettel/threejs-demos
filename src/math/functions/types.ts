@@ -1,65 +1,39 @@
 /**
- * Type definitions for scalar fields and functions
+ * Scalar-field interfaces.
+ *
+ * A scalar field is a function from a manifold (represented as a box in
+ * parameter space) to the reals. These are the n-D interfaces — consumers
+ * that need 2D-specific sugar unpack `[u, v] = p` at the top of their
+ * methods.
+ *
+ * Partials and Hessian are optional because finite-difference fallbacks are
+ * available whenever an analytic form isn't provided.
  */
+
+import type { ManifoldDomain } from '@/math/manifolds';
+import type { Matrix } from '@/math/linear-algebra';
 
 /**
- * A scalar field: R² → R
- *
- * Represents a function f(u, v) that takes two parameters and returns a number.
- * Used for function graphs z = f(x,y), height fields, and other scalar-valued functions.
+ * A scalar field `f: Ω ⊂ ℝⁿ → ℝ`.
  */
-export interface ScalarField2D {
-  /**
-   * Evaluate the function at a point
-   *
-   * @param u - First coordinate
-   * @param v - Second coordinate
-   * @returns Function value f(u, v)
-   */
-  evaluate(u: number, v: number): number;
-
-  /**
-   * Get the domain of the function
-   *
-   * @returns Rectangular domain bounds
-   */
-  getDomain(): {
-    uMin: number;
-    uMax: number;
-    vMin: number;
-    vMax: number;
-  };
+export interface ScalarField {
+  readonly dim: number;
+  getDomain(): ManifoldDomain;
+  evaluate(p: number[]): number;
 }
 
 /**
- * A differentiable scalar field with partial derivatives
+ * A scalar field with derivative data.
  *
- * Extends ScalarField2D with derivative information needed for
- * differential geometry computations.
+ * `computePartials` is required — that's what distinguishes a differentiable
+ * scalar field from a plain one. `computeHessian` is optional; when absent,
+ * consumers fall back to central finite differences on `evaluate` (or on
+ * `computePartials`).
  */
-export interface DifferentiableScalarField2D extends ScalarField2D {
-  /**
-   * Compute partial derivatives at a point
-   *
-   * @param u - First coordinate
-   * @param v - Second coordinate
-   * @returns Object containing ∂f/∂u and ∂f/∂v
-   */
-  computePartials(u: number, v: number): {
-    du: number;  // ∂f/∂u
-    dv: number;  // ∂f/∂v
-  };
+export interface DifferentiableScalarField extends ScalarField {
+  /** ∂f/∂x^i at `p`, returned as a length-`dim` `Float64Array`. */
+  computePartials(p: number[]): Float64Array;
 
-  /**
-   * Compute second partial derivatives at a point
-   *
-   * @param u - First coordinate
-   * @param v - Second coordinate
-   * @returns Object containing ∂²f/∂u², ∂²f/∂u∂v, ∂²f/∂v²
-   */
-  computeSecondPartials(u: number, v: number): {
-    duu: number;  // ∂²f/∂u²
-    duv: number;  // ∂²f/∂u∂v
-    dvv: number;  // ∂²f/∂v²
-  };
+  /** Hessian `H_ij = ∂²f / (∂x^i ∂x^j)` at `p`, a symmetric `dim × dim` matrix. */
+  computeHessian?(p: number[]): Matrix;
 }

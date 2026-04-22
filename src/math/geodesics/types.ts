@@ -23,14 +23,9 @@ export interface TangentVector {
   velocity: [number, number];
 }
 
-/**
- * Christoffel symbols for a surface
- *
- * Re-exported from `@/math/surfaces/types` — the symbols are metric-derived,
- * so they live alongside the metric type. Kept here as a re-export so existing
- * imports from `@/math/geodesics` continue to work.
- */
-export type { ChristoffelSymbols } from '@/math/surfaces/types';
+// Christoffel symbols are now returned as `Float64Array` (flat layout
+// `Γ[k*n*n + i*n + j]`) by `Manifold.computeChristoffel`. No re-export
+// needed here — consumers import from `@/math/manifolds`.
 
 /**
  * Result of a geodesic integration step

@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 import { Params } from '@/Params';
 import type { Parametric } from '@/math/types';
-import type {
-  DifferentialSurface,
-  SurfaceDomain,
-  SurfacePartials,
-  FirstFundamentalForm
-} from './types';
+import type { DifferentialSurface, SurfaceDomain, SurfacePartials } from './types';
+import { boundsFromSurfaceDomain } from './types';
+import type { ManifoldDomain } from '@/math/manifolds';
+import { Matrix } from '@/math/linear-algebra';
 
 /**
  * Torus surface
@@ -28,6 +26,7 @@ import type {
  *   const normal = torus.computeNormal(Math.PI, Math.PI);
  */
 export class Torus implements DifferentialSurface, Parametric {
+  readonly dim = 2;
   readonly params = new Params(this);
 
   /**
@@ -56,12 +55,11 @@ export class Torus implements DifferentialSurface, Parametric {
   }
 
   getDomain(): SurfaceDomain {
-    return {
-      uMin: 0,
-      uMax: 2 * Math.PI,
-      vMin: 0,
-      vMax: 2 * Math.PI
-    };
+    return { uMin: 0, uMax: 2 * Math.PI, vMin: 0, vMax: 2 * Math.PI };
+  }
+
+  getDomainBounds(): ManifoldDomain {
+    return boundsFromSurfaceDomain(this.getDomain());
   }
 
   computePartials(u: number, v: number): SurfacePartials {
@@ -87,12 +85,14 @@ export class Torus implements DifferentialSurface, Parametric {
     return du.cross(dv).normalize();
   }
 
-  computeMetric(u: number, v: number): FirstFundamentalForm {
-    const { du, dv } = this.computePartials(u, v);
-    return {
-      E: du.dot(du),
-      F: du.dot(dv),
-      G: dv.dot(dv)
-    };
+  computeMetric(p: number[]): Matrix {
+    const { du, dv } = this.computePartials(p[0], p[1]);
+    const E = du.dot(du);
+    const F = du.dot(dv);
+    const G = dv.dot(dv);
+    const m = new Matrix(2, 2);
+    m.data[0] = E; m.data[1] = F;
+    m.data[2] = F; m.data[3] = G;
+    return m;
   }
 }

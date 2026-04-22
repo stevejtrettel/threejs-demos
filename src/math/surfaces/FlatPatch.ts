@@ -1,38 +1,34 @@
 import * as THREE from 'three';
 import { Params } from '@/Params';
 import type { Parametric } from '@/math/types';
-import type {
-  DifferentialSurface,
-  SurfaceDomain,
-  SurfacePartials,
-  FirstFundamentalForm,
-} from './types';
+import type { DifferentialSurface, SurfaceDomain, SurfacePartials } from './types';
+import { boundsFromSurfaceDomain } from './types';
+import type { ManifoldDomain } from '@/math/manifolds';
+import { Matrix } from '@/math/linear-algebra';
 
 /**
  * A flat rectangular patch in the plane `z = height`.
  *
  * Maps `(u, v) ↦ (u, v, height)`, matching `FunctionGraph`'s coordinate
  * convention so a `FlatPatch` is structurally the graph of a constant
- * function. Useful for:
- *
- *   - dual-view demos: draw the same `VectorField` on a graph surface
- *     *and* on a flat rectangle below it
- *   - phase portraits where the domain is R² and no curvature is wanted
- *   - reference planes / ambient grids
- *
- * Fully satisfies `DifferentialSurface`, so `FieldArrows` and `CurveLine`
- * work on it out of the box. The induced metric is Euclidean, which means
- * geodesics here are literally straight lines and pushforward is the identity.
+ * function.
  */
 export class FlatPatch implements DifferentialSurface, Parametric {
+  readonly dim = 2;
   readonly params = new Params(this);
 
   declare height: number;
 
   private readonly domain: SurfaceDomain;
 
+  // Cached constant metric — identity in the standard (u, v) chart.
+  private readonly _metric: Matrix;
+
   constructor(options: { domain: SurfaceDomain; height?: number }) {
     this.domain = { ...options.domain };
+
+    this._metric = new Matrix(2, 2);
+    this._metric.data[0] = 1; this._metric.data[3] = 1;
 
     this.params.define('height', options.height ?? 0, { triggers: 'rebuild' });
   }
@@ -43,6 +39,10 @@ export class FlatPatch implements DifferentialSurface, Parametric {
 
   getDomain(): SurfaceDomain {
     return this.domain;
+  }
+
+  getDomainBounds(): ManifoldDomain {
+    return boundsFromSurfaceDomain(this.domain);
   }
 
   computeNormal(_u: number, _v: number): THREE.Vector3 {
@@ -56,7 +56,7 @@ export class FlatPatch implements DifferentialSurface, Parametric {
     };
   }
 
-  computeMetric(_u: number, _v: number): FirstFundamentalForm {
-    return { E: 1, F: 0, G: 1 };
+  computeMetric(_p: number[]): Matrix {
+    return this._metric;
   }
 }

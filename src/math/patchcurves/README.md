@@ -1,76 +1,69 @@
 # Patch curves
 
-Curves that live in a 2D coordinate patch — a `(u, v)[]` polyline — plus
-renderers that draw them on arbitrary surfaces.
+Curves in a 2D coordinate patch, decomposed into three independent concerns:
 
-Two shapes cover the use cases we actually see:
+```
+   producer              adapter                   renderer
+(stores (u,v)[])     (maps via surface)       (existing, from math/curves/)
 
-## Streaming: `Trail` / `TrailTube`
+  FlowCurve      ─┐                            ┌─→ CurveTube
+  StreamPoints   ─┼→ CurveOnSurface   ─────────┤
+  (future:        │  (exposes .curve:          └─→ CurveLine
+   GeodesicCurve)─┘   NumericalCurve)
+```
 
-For "state evolves frame by frame and I want a trail behind it."
-Standalone classes; own your state externally, push each frame.
+Each box has one responsibility. Producers don't know about surfaces.
+The adapter doesn't know about rendering. Renderers consume the existing
+`NumericalCurve` interface — they don't know about `(u, v)` or patches.
+
+## Producers
+
+All implement `PatchCurve` (`getPoints()` + `params`):
+
+| Class | What it is |
+| --- | --- |
+| `FlowCurve` | Integrates a `VectorField` end-to-end on construction / on any upstream change. Reactive to field params. |
+| `StreamPoints` | Mutable `(u, v)[]` with `push`, `setAll`, `reset`. Ring buffer when full (drops oldest; `getPoints()` always returns logical order, so no visual seam). |
+
+## Adapter
+
+`CurveOnSurface(patchCurve, surface)` — maps every `(u, v)` through
+`surface.evaluate`, exposes a reactive `NumericalCurve` via `.curve`.
+Rebuilds when the producer or the surface changes.
 
 ```ts
-const trail = new Trail(sphere, { maxPoints: 5000, color: 0xff5522 });
-scene.add(trail);
+const lifted = new CurveOnSurface(patchCurve, surface);
+scene.add(new CurveTube({ curve: lifted.curve, radius: 0.1 }));
+```
 
-// animate loop:
+## Ergonomic wrappers for single-surface streaming
+
+The common "trail behind evolving state, one surface, one rendering"
+case gets a wrapper that bundles everything:
+
+```ts
+const trail = new StreamTube(surface, { maxPoints: 5000, radius: 0.12 });
+scene.add(trail);
+// in animate:
 trail.push(u, v);
 ```
 
-`TrailTube` has the same API, renders as a mesh tube:
+Also `StreamLine` (same shape, renders as `THREE.Line`).
+
+For **multi-surface streaming**, don't use the wrappers — compose
+directly:
 
 ```ts
-const trail = new TrailTube(sphere, { maxPoints: 5000, radius: 0.12 });
+const pts = new StreamPoints({ maxPoints: 5000 });
+scene.add(new CurveTube({ curve: new CurveOnSurface(pts, graph).curve, radius: 0.1 }));
+scene.add(new CurveTube({ curve: new CurveOnSurface(pts, flat ).curve, radius: 0.1 }));
+// animate: pts.push(u, v);  // both tubes update from the same source
 ```
-
-Methods: `push(u, v)`, `reset()`, `setAll(points)`. Reactive to surface
-param changes — if the surface morphs, existing points re-map through
-the new `evaluate`.
-
-## Precomputed: `FlowCurve` + `CurveLine`
-
-For "integrate once, draw in multiple places." Producer + renderer
-decomposition.
-
-```ts
-const curve = new FlowCurve(field, { initialPosition, steps: 500 });
-scene.add(new CurveLine(graph, curve));
-scene.add(new CurveLine(flat,  curve));
-```
-
-`FlowCurve` integrates on any upstream change; both `CurveLine`s render
-the same `(u, v)[]` through their own `Surface`.
-
-### Why not always use precomputed?
-
-Streaming has different semantics: points come in one at a time from
-user-owned state (physics integration, drag events, etc.), and it would
-be awkward to pipe that through a reactive producer. The two APIs reflect
-two genuinely different use patterns.
-
-## Producers implement `PatchCurve`
-
-The `PatchCurve` interface is minimal:
-
-```ts
-interface PatchCurve {
-  getDomain(): SurfaceDomain;
-  getPoints(): ReadonlyArray<[number, number]>;
-  readonly params: Params;
-}
-```
-
-`FlowCurve` implements it. A future `GeodesicCurve` will too. You can
-also supply one manually (e.g., from a file, from a symbolic
-parameterization of a curve in the patch). `CurveLine` renders any of
-them uniformly.
 
 ## Topological cascade
 
-`CurveLine` depends on both a surface and a curve. When both become dirty
-from the same root (e.g., a scalar field that drives both the graph
-surface and the gradient field), the framework walks the dependent DAG
-in topological order, guaranteeing that `CurveLine.rebuild()` fires
-*after* both sources have been rebuilt. No manual ordering, no lazy
-flags — it just works.
+Producers, adapters, and renderers all depend on their respective
+upstream nodes via `Params.dependOn`. The framework walks the dependent
+DAG in topological order on every change, so adapters always see
+fresh producer points before a downstream renderer reads them. No
+manual ordering, no lazy flags.

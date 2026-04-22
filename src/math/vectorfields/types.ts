@@ -1,58 +1,50 @@
 /**
- * Vector field types and interfaces
+ * Vector field types and interfaces (n-D).
  *
  * A vector field is a section of the tangent bundle: at each point of a
- * 2D coordinate patch it assigns a tangent vector `(du/dt, dv/dt)`. Integrating
- * it produces a flow line (integral curve).
+ * dim-D manifold it assigns a tangent vector. Integrating gives a flow
+ * line (integral curve).
  *
- * Currently 2D to match the rest of the library. The whole set of 2D-specific
- * interfaces (`FirstFundamentalForm`, `TangentVector`, `VectorField`) will be
- * generalized to n-D in a single cross-cutting sweep later — see
- * `docs/planning/vector-fields-and-flows.md`.
+ * 2D/3D authoring ergonomics will be restored later via `Name2D` helper
+ * classes; for now all consumers write n-D code directly.
  */
 
-import type { SurfaceDomain } from '@/math/surfaces/types';
+import type { ManifoldDomain } from '@/math/manifolds';
 import type { BoundaryEdge } from '@/math/geodesics/types';
 
 /**
- * A vector field on a 2D coordinate patch.
+ * A vector field on an n-D manifold.
  *
- * Intrinsic: lives on a parameter domain, knows nothing about any 3D
- * embedding. Composes with any `Surface` or `MetricPatch` sharing its domain.
- *
- * The optional time argument covers both autonomous fields (most of them —
- * ignore `t`) and non-autonomous fields (time-dependent forcing). Callers
- * that don't need time should just omit it when evaluating.
+ * `evaluate(p, t?)` returns a length-`dim` `Float64Array` — the tangent
+ * vector at `p`, optionally at time `t`. Callers that don't need time
+ * should omit it.
  */
 export interface VectorField {
-  /**
-   * Domain of definition (same shape as `Surface.getDomain`).
-   */
-  getDomain(): SurfaceDomain;
+  readonly dim: number;
+
+  /** Parameter-space bounds. */
+  getDomain(): ManifoldDomain;
 
   /**
-   * Vector at `(u, v)`, optionally at time `t`.
+   * Tangent vector at `p`, optionally at time `t`.
    *
-   * @returns `[du/dt, dv/dt]` in parameter-space coordinates
+   * @returns length-`dim` `Float64Array`
    */
-  evaluate(u: number, v: number, t?: number): [number, number];
+  evaluate(p: number[], t?: number): Float64Array;
 }
 
 /**
- * Flow state — just the position on the patch plus current time.
+ * Flow state for 2D flow integration.
  *
- * Flows are first-order ODEs, so the state is the point itself (no separate
- * velocity component, unlike `TangentVector` for geodesics).
+ * 2D-locked: the current `FlowIntegrator` and its trail stack (`StreamPoints`,
+ * etc.) work in 2D parameter space. A future sweep can generalize to
+ * length-`dim` positions if a higher-dim flow demo demands it.
  */
 export interface FlowState {
   position: [number, number];
   t: number;
 }
 
-/**
- * Result of a bounded flow step, analogous to `BoundedIntegrationResult` in
- * `math/geodesics/types`.
- */
 export interface BoundedFlowResult {
   state: FlowState;
   hitBoundary: boolean;

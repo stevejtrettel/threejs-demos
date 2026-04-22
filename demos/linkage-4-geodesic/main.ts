@@ -21,10 +21,9 @@ import {
   setChainAngles,
   LinkageMesh,
   SurfaceMesh,
-  NumericalCurve,
-  CurveTube,
   MetricSurface,
   GeodesicIntegrator,
+  TrailTube,
 } from '@/math';
 import type { Joint } from '@/math/linkages';
 import type { Surface, SurfaceDomain, FirstFundamentalForm } from '@/math/surfaces/types';
@@ -271,58 +270,19 @@ const abstractBall = new THREE.Mesh(
 );
 abstractGroup.add(abstractBall);
 
-// --- Trail (rolling buffer of (phi, t) samples, drawn as a tube) ---
+// --- Trail ---
 
-const TRAIL_MAX = 5000;
-const trailBuffer: Array<[number, number]> = [];
-
-function sphereLocalPoint(phi: number, t: number): THREE.Vector3 {
-  return new THREE.Vector3(
-    SPHERE_R * Math.cos(phi) * Math.cos(t),
-    SPHERE_R * Math.cos(phi) * Math.sin(t),
-    SPHERE_R * Math.sin(phi),
-  );
-}
-
-function trailPoints(): THREE.Vector3[] {
-  return trailBuffer.map(([p, t]) => sphereLocalPoint(p, t));
-}
-
-// Seed with two coincident dummy points so CatmullRomCurve3 is well-formed.
-const trailCurve = new NumericalCurve({
-  points: [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1e-6)],
-  closed: false,
-  curveType: 'centripetal',
-  tension: 0.5,
-});
-
-const trailTube = new CurveTube({
-  curve: trailCurve,
+const trail = new TrailTube(abstractShell, {
+  maxPoints: 5000,
   radius: 0.12,
-  tubularSegments: TRAIL_MAX,
   radialSegments: 6,
-  showEndpoints: false,
   color: 0xff5522,
   roughness: 0.35,
 });
-trailTube.visible = false;
-abstractGroup.add(trailTube);
+abstractGroup.add(trail);
 
-function pushTrail(phi: number, t: number) {
-  trailBuffer.push([phi, t]);
-  if (trailBuffer.length > TRAIL_MAX) trailBuffer.shift();
-  if (trailBuffer.length >= 2) {
-    trailCurve.updatePoints(trailPoints());
-    trailTube.visible = true;
-  } else {
-    trailTube.visible = false;
-  }
-}
-
-function clearTrail() {
-  trailBuffer.length = 0;
-  trailTube.visible = false;
-}
+const pushTrail = (phi: number, t: number) => trail.push(phi, t);
+const clearTrail = () => trail.reset();
 
 // --- UI: L slider ---
 

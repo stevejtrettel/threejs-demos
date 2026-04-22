@@ -109,22 +109,4 @@ export class FunctionGraph implements DifferentialSurface, Parametric {
       G: dv.dot(dv)
     };
   }
-
-  /**
-   * Rebuild notification handler
-   *
-   * Called when the underlying scalar field's parameters change.
-   * Propagates the rebuild notification to all dependents (SurfaceMesh, GeodesicTrails).
-   *
-   * This is a "pass-through" - FunctionGraph itself has no geometry to rebuild,
-   * but it needs to notify downstream components that the surface has changed.
-   */
-  rebuild(): void {
-    // Notify all dependents that the surface has changed
-    for (const dependent of this.params.getDependents()) {
-      if (typeof dependent.rebuild === 'function') {
-        dependent.rebuild();
-      }
-    }
-  }
 }

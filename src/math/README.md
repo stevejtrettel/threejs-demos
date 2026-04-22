@@ -30,7 +30,7 @@ Rather than deep folder nesting, we use naming conventions:
 |------------|-----------------------------|-----------------------------------------|
 | Primitives | Mathematical name only      | `Helicoid.ts`, `Torus.ts`, `GeodesicIntegrator.ts` |
 | Builders   | `build*` or verb prefix     | `buildGeometry.ts`, `extractBoundary.ts` |
-| Components | Ends with visual type       | `SurfaceMesh.ts`, `CurveLine.ts`, `GeodesicTrail.ts` |
+| Components | Ends with visual type       | `SurfaceMesh.ts`, `CurveLine.ts`, `TrailTube.ts` |
 | Helpers    | Descriptive of purpose      | `withNormals.ts`, `syncGeometry.ts` |
 | Types      | Always `types.ts`           | `types.ts` |
 
@@ -49,26 +49,25 @@ scene.add(mesh);
 torus.params.set('R', 3);  // Mesh rebuilds automatically
 ```
 
-### Geodesics
+### Streaming trail on a surface
 ```typescript
 import { Torus } from '@/math/surfaces/Torus';
 import { SurfaceMesh } from '@/math/surfaces/SurfaceMesh';
-import { GeodesicTrail } from '@/math/geodesics/GeodesicTrail';
+import { TrailTube, GeodesicIntegrator } from '@/math';
 
 const torus = new Torus({ R: 2, r: 1 });
-const surface = new SurfaceMesh(torus, { transmission: 0.5 });
-const geodesic = new GeodesicTrail(torus, {
-  initialPosition: [0, 0],
-  initialVelocity: [1, 0],
-  color: 0xff0000
-});
+scene.add(new SurfaceMesh(torus));
 
-scene.add(surface);
-scene.add(geodesic);
+const trail = new TrailTube(torus, { maxPoints: 2000, radius: 0.02, color: 0xff0000 });
+scene.add(trail);
 
-// In animation loop
+// Own the integrator and state yourself; push points each frame.
+const integrator = new GeodesicIntegrator(torus, { stepSize: 0.01 });
+let state = { position: [0, 0] as [number, number], velocity: [1, 0] as [number, number] };
+
 function animate(time, delta) {
-  geodesic.animate(time, delta);
+  state = integrator.integrate(state);
+  trail.push(state.position[0], state.position[1]);
 }
 ```
 
@@ -189,13 +188,19 @@ class MyObject {
 }
 ```
 
-Dependencies are automatically tracked:
-```typescript
-const surface = new Torus({ R: 2, r: 1 });
-const mesh = new SurfaceMesh(surface);
+Dependencies are automatically tracked, and the cascade is **transitive** —
+the framework walks the full dependent DAG on a param change, so intermediate
+nodes don't need to write pass-through `rebuild()` / `update()` methods. Just
+wire up `dependOn(...)` and implement `rebuild()` only on nodes with real local
+work to do:
 
-// Mesh automatically subscribes to surface param changes
-surface.params.set('R', 3);  // mesh.rebuild() called automatically
+```typescript
+const field = new MyScalarField({ phase: 0 });       // declares 'phase'
+const surface = new FunctionGraph(field);            // dependOn(field)
+const mesh = new SurfaceMesh(surface);               // dependOn(surface)
+
+// All three nodes are in the DAG. Setting phase fires the whole chain:
+field.params.set('phase', 0.5);  // → mesh.rebuild() called automatically
 ```
 
 ## Status
@@ -207,6 +212,6 @@ Currently implemented:
 - ✅ Surface builders (buildGeometry)
 - ✅ Surface components (SurfaceMesh, SurfaceMesh.fromFunction)
 - ✅ Geodesic integration (GeodesicIntegrator with bounded support)
-- ✅ Geodesic visualization (GeodesicTrail)
+- ✅ Curve rendering (patchcurves: FlowCurve, CurveLine, Trail, TrailTube)
 
 See [design document](../../docs/math-type-design.md) for full architecture details.

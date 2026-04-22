@@ -7,7 +7,7 @@
  *
  * - **Primitives**: Pure mathematical abstractions (Helicoid, Torus, GeodesicIntegrator)
  * - **Builders**: Functions that transform math → THREE.js (buildGeometry, buildMesh)
- * - **Components**: Scene objects that extend THREE.js classes (SurfaceMesh, GeodesicTrail)
+ * - **Components**: Scene objects that extend THREE.js classes (SurfaceMesh, CurveLine, TrailTube)
  * - **Helpers**: Utilities for composition and decoration (withNormals, syncGeometry)
  *
  * ## Organization
@@ -74,6 +74,7 @@ export { Torus } from './surfaces/Torus';
 export { BoysSurface } from './surfaces/BoysSurface';
 export { KleinBottle } from './surfaces/KleinBottle';
 export { FunctionGraph } from './surfaces/FunctionGraph';
+export { FlatPatch } from './surfaces/FlatPatch';
 export { buildGeometry } from './surfaces/buildGeometry';
 export type { BuildGeometryOptions } from './surfaces/buildGeometry';
 export { SurfaceMesh } from './surfaces/SurfaceMesh';
@@ -127,8 +128,12 @@ export type { DerivFn, Stepper, IntegrateOptions, Trajectory } from './ode';
 export * from './geodesics/types';
 export { GeodesicIntegrator } from './geodesics/GeodesicIntegrator';
 export type { GeodesicIntegratorOptions } from './geodesics/GeodesicIntegrator';
-export { GeodesicTrail } from './geodesics/GeodesicTrail';
-export type { GeodesicTrailOptions } from './geodesics/GeodesicTrail';
+
+// Vector fields & flows
+export * from './vectorfields';
+
+// Patch curves (curves in 2D coordinate patches + renderers)
+export * from './patchcurves';
 
 // Linkages
 export type { Joint, JointId, Rod } from './linkages/types';

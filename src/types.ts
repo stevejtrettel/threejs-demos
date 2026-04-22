@@ -83,11 +83,16 @@ export type ParamTrigger = 'rebuild' | 'update' | 'none';
  */
 export interface DefineOptions {
   /**
-   * What lifecycle method to trigger when this parameter changes
+   * What lifecycle method to trigger when this parameter changes.
    *
-   * - 'rebuild': Calls owner.rebuild() and dependent.rebuild()
-   * - 'update': Calls owner.update() and dependent.update()
-   * - 'none': No automatic action (use onChange for custom behavior)
+   * The cascade is **transitive**: the framework walks the full dependent
+   * DAG and calls the method on every reachable node at most once.
+   * Intermediate pass-through nodes don't need to implement a handler —
+   * `dependOn(...)` is all that's required to join the graph.
+   *
+   * - 'rebuild': Calls `rebuild()` on the owner and every transitive dependent.
+   * - 'update':  Calls `update()`  on the owner and every transitive dependent.
+   * - 'none':    No automatic action (use `onChange` for custom behavior).
    */
   triggers?: ParamTrigger;
 

@@ -1,14 +1,113 @@
 import type { ParamOptions, ParamDefinition } from './types';
 
 /**
+ * Walk the dependent DAG rooted at `node` in **topological order** (sources
+ * before dependents) and call `method` on each reachable node at most once.
+ *
+ * Why topological: a node with multiple sources (e.g., a renderer that
+ * depends on both a surface and a cached curve, both downstream of the same
+ * root) must be rebuilt *after* all of its sources have been rebuilt.
+ * Naive DFS with a visited-set gives no such guarantee and lets stale data
+ * leak into renderers. Topological order fixes this for every diamond in
+ * the DAG uniformly.
+ *
+ * Algorithm (Kahn's): discover the reachable sub-DAG, compute in-degrees
+ * restricted to that sub-DAG, then repeatedly emit zero-in-degree nodes.
+ * Nodes reached through a non-`Parametric` intermediate still get their
+ * method called, but we can't recurse through them (they own no `params`
+ * graph), so they appear as leaves.
+ *
+ * Cycle guard: if any nodes remain after the Kahn queue drains, the DAG
+ * has a cycle. We log a warning and fall back to calling them in arbitrary
+ * order, so a bug in user code doesn't silently lose updates.
+ */
+function cascade(root: any, method: 'rebuild' | 'update'): void {
+  // 1. Discover reachable nodes (BFS) and record parametric edges.
+  const reachable = new Set<any>();
+  const dependentsOf = new Map<any, any[]>();
+
+  const stack: any[] = [root];
+  while (stack.length > 0) {
+    const n = stack.pop();
+    if (reachable.has(n)) continue;
+    reachable.add(n);
+
+    const p = n?.params;
+    if (p && typeof p.getDependents === 'function') {
+      const deps = Array.from(p.getDependents());
+      dependentsOf.set(n, deps);
+      for (const d of deps) {
+        if (!reachable.has(d)) stack.push(d);
+      }
+    }
+  }
+
+  // 2. Compute in-degree within the reachable sub-DAG.
+  const indeg = new Map<any, number>();
+  for (const n of reachable) indeg.set(n, 0);
+  for (const [, deps] of dependentsOf) {
+    for (const d of deps) {
+      indeg.set(d, (indeg.get(d) ?? 0) + 1);
+    }
+  }
+
+  // 3. Kahn: queue zero-in-degree nodes, emit, decrement dependents' in-degree.
+  const queue: any[] = [];
+  for (const [n, d] of indeg) {
+    if (d === 0) queue.push(n);
+  }
+
+  let emitted = 0;
+  while (queue.length > 0) {
+    const n = queue.shift();
+    emitted++;
+
+    if (typeof n?.[method] === 'function') {
+      n[method]();
+    }
+
+    const deps = dependentsOf.get(n);
+    if (deps) {
+      for (const d of deps) {
+        const nd = (indeg.get(d) ?? 1) - 1;
+        indeg.set(d, nd);
+        if (nd === 0) queue.push(d);
+      }
+    }
+  }
+
+  // 4. Cycle guard.
+  if (emitted < reachable.size) {
+    const stranded: any[] = [];
+    for (const n of reachable) {
+      if ((indeg.get(n) ?? 0) > 0) stranded.push(n);
+    }
+    // eslint-disable-next-line no-console
+    console.warn(
+      `Params cascade: cycle detected in dependency graph. ` +
+      `${stranded.length} node(s) reached in fallback order.`,
+    );
+    for (const n of stranded) {
+      if (typeof n?.[method] === 'function') n[method]();
+    }
+  }
+}
+
+/**
  * Reactive parameter system for math objects
  *
  * Creates reactive properties on owner object with automatic lifecycle hooks.
- * When a parameter changes, it can automatically trigger rebuild() or update().
+ * When a parameter changes, it can automatically trigger rebuild() or update()
+ * and cascade that call transitively through the dependent DAG.
  *
  * Supports dependency tracking in both directions:
  * - dependents: objects that depend on THIS object (notified when we change)
  * - sources: objects that THIS object depends on (auto-cleanup on dispose)
+ *
+ * **Transitive cascade.** When a param fires, every reachable dependent's
+ * `rebuild()` / `update()` is called. Intermediate "pass-through" nodes do
+ * not need to implement a notification handler — they only need to call
+ * `dependOn(...)` so they're part of the graph.
  *
  * @example Basic usage
  *   class MyCurve {
@@ -21,7 +120,7 @@ import type { ParamOptions, ParamDefinition } from './types';
  *     }
  *   }
  *
- * @example Dependency tracking
+ * @example Dependency tracking (transitive)
  *   class SurfaceMesh {
  *     readonly params = new Params(this);
  *
@@ -29,7 +128,7 @@ import type { ParamOptions, ParamDefinition } from './types';
  *       this.surface = surface;
  *       this.params
  *         .define('color', 0xff0000, { triggers: 'update' })
- *         .dependOn(surface);  // Rebuild when surface changes
+ *         .dependOn(surface);  // Rebuilds when surface OR anything upstream changes
  *     }
  *
  *     dispose() {
@@ -59,7 +158,6 @@ export class Params {
     // Create reactive property on owner
     let currentValue = defaultValue;
     const owner = this.owner;
-    const paramsInstance = this;
 
     Object.defineProperty(this.owner, name, {
       get() {
@@ -79,27 +177,11 @@ export class Params {
           options.onChange(value);
         }
 
-        // Auto-trigger rebuild/update based on declaration
-        if (options.triggers === 'rebuild') {
-          if (typeof owner.rebuild === 'function') {
-            owner.rebuild();
-          }
-          // Notify all dependents
-          for (const dependent of paramsInstance.dependents) {
-            if (typeof dependent.rebuild === 'function') {
-              dependent.rebuild();
-            }
-          }
-        } else if (options.triggers === 'update') {
-          if (typeof owner.update === 'function') {
-            owner.update();
-          }
-          // Notify all dependents
-          for (const dependent of paramsInstance.dependents) {
-            if (typeof dependent.update === 'function') {
-              dependent.update();
-            }
-          }
+        // Auto-trigger rebuild/update based on declaration.
+        // Cascade walks the full dependent DAG in topological order
+        // (sources before dependents), so diamonds resolve correctly.
+        if (options.triggers === 'rebuild' || options.triggers === 'update') {
+          cascade(owner, options.triggers);
         }
         // If triggers === 'none' or undefined, do nothing (manual control via onChange)
       },

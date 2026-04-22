@@ -1,162 +1,61 @@
 # Geodesics
 
-Geodesic curves on surfaces - the "straightest possible" paths.
+Geodesic integration on a `MetricPatch` — the "straightest possible" paths
+given a Riemannian metric on a 2D coordinate patch.
 
-## What Goes Here
+## What's here
 
-### Primitives (Mathematical Objects)
-Pure mathematical geodesic integration and computation.
+- `GeodesicIntegrator.ts` — RK4 integration of the geodesic equation
+  `d²x^k/dt² = −Γ^k_ij (dx^i/dt)(dx^j/dt)`. Works on any `MetricPatch`
+  (so intrinsic metrics work, not just embedded surfaces).
+- `types.ts` — `TangentVector`, `GeodesicState`, `BoundaryEdge`,
+  `BoundedIntegrationResult`.
 
-**Examples:**
-- `GeodesicIntegrator.ts` - Integrates geodesic equation using RK4
-- `ChristoffelComputer.ts` - Computes Christoffel symbols (finite difference or analytical)
+## Curve rendering
 
-**Interface:** Work with `DifferentialSurface` from `../surfaces/types.ts`
+Geodesic *visualization* lives in [`math/patchcurves/`](../patchcurves/):
 
-### Components (Scene Objects)
-Animated geodesic visualizations.
+- **Streaming** (watch a geodesic grow as state evolves, e.g.
+  `linkage-4-geodesic`): own a `TangentVector`, call
+  `integrator.integrate(state)` each frame, push `state.position` to a
+  `Trail` or `TrailTube`.
+- **Precomputed** (draw a geodesic on one or more surfaces): a future
+  `GeodesicCurve` primitive in `patchcurves/` will play the role
+  `FlowCurve` plays for vector fields. Add it when a demo wants it —
+  parallel structure, small file.
 
-**Examples:**
-- `GeodesicTrail.ts` - Extends THREE.Line, animates geodesic path
-- `GeodesicFlow.ts` - Multiple geodesics flowing from a point
-- `ParallelTransport.ts` - Visualizes parallel transport along geodesic
+## Import example
 
-**Naming:** Descriptive of the geodesic visualization
-
-### Helpers
-Animation controllers and utilities.
-
-**Location:** `helpers/` subfolder
-
-**Examples:**
-- `createController.ts` - Controller for geodesic animation
-
-## Import Examples
-
-```typescript
-// Types
-import { TangentVector, GeodesicState } from '@/math/geodesics/types';
-import { DifferentialSurface } from '@/math/surfaces/types';
-
-// Primitives
+```ts
 import { GeodesicIntegrator } from '@/math/geodesics/GeodesicIntegrator';
-
-// Components
-import { GeodesicTrail } from '@/math/geodesics/GeodesicTrail';
-import { Torus } from '@/math/surfaces/Torus';
+import { TrailTube } from '@/math';  // from patchcurves/
 ```
 
-## Usage Patterns
+## Usage — streaming a geodesic on a torus
 
-### Animated Geodesic on Surface
-```typescript
-// Create surface
+```ts
+import { Torus, SurfaceMesh, GeodesicIntegrator, TrailTube } from '@/math';
+import type { TangentVector } from '@/math/geodesics/types';
+
 const torus = new Torus({ R: 2, r: 1 });
-const surfaceMesh = new SurfaceMesh(torus, {
-  color: 0x4488ff,
-  transmission: 0.3
-});
-scene.add(surfaceMesh);
+scene.add(new SurfaceMesh(torus));
 
-// Create geodesic
-const geodesic = new GeodesicTrail(torus, {
-  initialPosition: [0, 0],
-  initialVelocity: [1, 0.5],
-  color: 0xff0000,
-  maxPoints: 500
-});
-scene.add(geodesic);
+const trail = new TrailTube(torus, { maxPoints: 2000, radius: 0.02, color: 0xff0000 });
+scene.add(trail);
 
-// In animation loop
-function animate(time, delta) {
-  geodesic.animate(time, delta);
-  renderer.render(scene, camera);
-}
-```
-
-### Multiple Geodesics
-```typescript
-const torus = new Torus({ R: 2, r: 1 });
-const geodesics = [];
-
-// Launch geodesics in different directions
-for (let i = 0; i < 8; i++) {
-  const angle = (i / 8) * Math.PI * 2;
-  const geodesic = new GeodesicTrail(torus, {
-    initialPosition: [0, 0],
-    initialVelocity: [Math.cos(angle), Math.sin(angle)],
-    color: 0xff0000
-  });
-  geodesics.push(geodesic);
-  scene.add(geodesic);
-}
-
-// Animate all
-function animate(time, delta) {
-  geodesics.forEach(g => g.animate(time, delta));
-}
-```
-
-### Custom Integration
-```typescript
-const torus = new Torus({ R: 2, r: 1 });
 const integrator = new GeodesicIntegrator(torus, { stepSize: 0.01 });
+let state: TangentVector = { position: [0, 0], velocity: [1, 0] };
 
-let state: TangentVector = {
-  position: [0, 0],
-  velocity: [1, 0]
-};
-
-// Integrate manually
-for (let i = 0; i < 1000; i++) {
+function animate(time: number, delta: number) {
   state = integrator.integrate(state);
-  const point = torus.evaluate(state.position[0], state.position[1]);
-  // Do something with point...
+  trail.push(state.position[0], state.position[1]);
 }
 ```
 
-### Bounded Integration (Domain Boundaries)
-```typescript
-// For surfaces with finite domains (e.g., FunctionGraph)
-const surface = SurfaceMesh.fromFunction((x, y) => Math.sin(x) * Math.cos(y));
-const integrator = new GeodesicIntegrator(surface, { stepSize: 0.01 });
-const domain = surface.getDomain();
+## Design notes
 
-let state: TangentVector = { position: [0, 0], velocity: [1, 0.5] };
-
-// Integrate with boundary detection
-const result = integrator.integrateBounded(state, domain);
-if (result.hitBoundary) {
-  console.log(`Hit ${result.boundaryEdge} boundary`);
-}
-```
-
-### Geodesic Trail with Boundaries
-```typescript
-// GeodesicTrail automatically handles boundaries when bounded: true
-const geodesic = new GeodesicTrail(surface, {
-  initialPosition: [0, 0],
-  initialVelocity: [1, 0.3],
-  bounded: true  // Stop at domain boundaries
-});
-
-// Check if stopped
-if (geodesic.stopped) {
-  console.log(`Stopped at: ${geodesic.stoppedAtBoundary}`);
-}
-```
-
-## Mathematical Background
-
-A geodesic on a surface satisfies the geodesic equation:
-
-```
-d²uᵏ/dt² + Γᵏᵢⱼ(duⁱ/dt)(duʲ/dt) = 0
-```
-
-Where:
-- `uᵏ` are the parameter coordinates (u, v)
-- `Γᵏᵢⱼ` are the Christoffel symbols
-- `t` is the curve parameter (arc length or time)
-
-The integrator solves this system numerically using RK4 integration.
+See `docs/planning/metric-patch-refactor.md` for the split between
+`MetricPatch` (intrinsic metric) and `DifferentialSurface` (embedding +
+induced metric). Geodesic integration only needs the former, which is why
+it works for linkage configuration spaces and other abstract patches that
+have no natural 3D embedding.

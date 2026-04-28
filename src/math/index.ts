@@ -74,6 +74,9 @@ export * from './forms';
 // Symplectic geometry and Hamiltonian mechanics
 export * from './symplectic';
 
+// Matrix Lie groups, Lie algebras, and Poisson structures
+export * from './lie';
+
 // Domain-specific exports
 // (These will be populated as we implement each domain)
 
@@ -132,7 +135,7 @@ export {
 export type { SmoothCurveOptions, SmoothingMethod } from './curves/smoothCurve';
 
 // ODE integration
-export { euler, rk4, implicitMidpoint, gaussLegendre4, integrate } from './ode';
+export { euler, rk4, implicitMidpoint, gaussLegendre4, integrate, poincareSection } from './ode';
 export type { DerivFn, Stepper, IntegrateOptions, Trajectory } from './ode';
 
 // Geodesics

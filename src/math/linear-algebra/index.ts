@@ -1,4 +1,5 @@
 export { Matrix } from './Matrix';
+export { ComplexMatrix } from './ComplexMatrix';
 export { rref } from './rref';
 export { nullspace } from './nullspace';
 

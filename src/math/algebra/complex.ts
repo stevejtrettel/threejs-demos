@@ -91,3 +91,37 @@ export function cpow(z: Complex, w: Complex): Complex {
   if (z[0] === 0 && z[1] === 0) return CZERO;
   return cexp(cmul(w, clog(z)));
 }
+
+// ── Hyperbolic + trig (used by closed-form Lie-group exp/log) ─
+
+/** `cosh(z) = cosh(x) cos(y) + i sinh(x) sin(y)`. */
+export function ccosh(z: Complex): Complex {
+  return [Math.cosh(z[0]) * Math.cos(z[1]), Math.sinh(z[0]) * Math.sin(z[1])];
+}
+
+/** `sinh(z) = sinh(x) cos(y) + i cosh(x) sin(y)`. */
+export function csinh(z: Complex): Complex {
+  return [Math.sinh(z[0]) * Math.cos(z[1]), Math.cosh(z[0]) * Math.sin(z[1])];
+}
+
+/** `cos(z) = cos(x) cosh(y) − i sin(x) sinh(y)`. */
+export function ccos(z: Complex): Complex {
+  return [Math.cos(z[0]) * Math.cosh(z[1]), -Math.sin(z[0]) * Math.sinh(z[1])];
+}
+
+/** `sin(z) = sin(x) cosh(y) + i cos(x) sinh(y)`. */
+export function csin(z: Complex): Complex {
+  return [Math.sin(z[0]) * Math.cosh(z[1]), Math.cos(z[0]) * Math.sinh(z[1])];
+}
+
+// ── Equality with tolerance ─────────────────────────────────
+
+export function cclose(z: Complex, w: Complex, tol = 1e-12): boolean {
+  return Math.abs(z[0] - w[0]) <= tol && Math.abs(z[1] - w[1]) <= tol;
+}
+
+// ── Convenience constructor ─────────────────────────────────
+
+export function complex(re: number, im = 0): Complex {
+  return [re, im];
+}

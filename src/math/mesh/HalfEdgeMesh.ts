@@ -229,6 +229,23 @@ export class HalfEdgeMesh {
   }
 
   /**
+   * Given a boundary half-edge `e` (one with `twin === null`), return the
+   * next boundary half-edge in the same boundary loop. Walks around the
+   * destination vertex of `e` through interior faces until it reaches
+   * another boundary half-edge.
+   */
+  nextBoundaryEdge(e: HalfEdge): HalfEdge {
+    if (e.twin !== null) {
+      throw new Error('nextBoundaryEdge: input edge is not on the boundary.');
+    }
+    let next: HalfEdge = e.next;
+    while (next.twin !== null) {
+      next = next.twin.next;
+    }
+    return next;
+  }
+
+  /**
    * One half-edge per undirected edge.
    * For interior edges, picks the one with lower index.
    * For boundary edges, picks the only one.

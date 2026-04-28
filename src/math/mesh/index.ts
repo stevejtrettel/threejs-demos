@@ -1,2 +1,10 @@
 export type { Vertex, HalfEdge, Face } from './types';
 export { HalfEdgeMesh } from './HalfEdgeMesh';
+export { Embedding } from './Embedding';
+export type { EmbeddingOptions, Triple } from './Embedding';
+export { FaceMesh } from './FaceMesh';
+export type { FaceMeshOptions } from './FaceMesh';
+export { MeshView } from './MeshView';
+export type { MeshViewOptions } from './MeshView';
+export * from './energy';
+export * from './evolvers';

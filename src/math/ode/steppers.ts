@@ -5,7 +5,7 @@
  * State is number[], derivative is number[] of the same length.
  */
 
-import type { DerivFn, Stepper } from './types';
+import type { Stepper } from './types';
 
 /**
  * Euler method (first-order).

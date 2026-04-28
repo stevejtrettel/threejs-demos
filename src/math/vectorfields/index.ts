@@ -21,3 +21,5 @@ export { FlowIntegrator } from './FlowIntegrator';
 export type { FlowIntegratorOptions } from './FlowIntegrator';
 export { FieldArrows } from './FieldArrows';
 export type { FieldArrowsOptions } from './FieldArrows';
+export { ArrowGlyphs } from './ArrowGlyphs';
+export type { ArrowGlyphsOptions } from './ArrowGlyphs';

@@ -10,9 +10,9 @@
     "./types": "./src/types.ts"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "node scripts/run-demo.mjs dev",
+    "build": "node scripts/run-demo.mjs build",
+    "preview": "node scripts/run-demo.mjs preview"
   },
   "devDependencies": {
     "@types/three": "^0.181.0",

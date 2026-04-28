@@ -11,3 +11,6 @@
 export type { SymplecticManifold } from './types';
 export { cotangentBundle } from './CotangentBundle';
 export { SymplecticGradient } from './SymplecticGradient';
+
+export type { PoissonManifold } from './PoissonManifold';
+export { PoissonGradient } from './PoissonGradient';

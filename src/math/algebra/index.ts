@@ -2,6 +2,7 @@ export type { Complex } from './complex';
 export {
   cadd, csub, cmul, cdiv, cinv, cscale, cneg, cconj,
   cabs, cabs2, carg, cexp, clog, csqrt, cpow,
+  ccosh, csinh, ccos, csin, cclose, complex,
   CZERO, CONE, CI,
 } from './complex';
 

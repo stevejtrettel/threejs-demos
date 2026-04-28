@@ -15,3 +15,12 @@ export { Euclidean } from './Euclidean';
 export type { EuclideanOptions } from './Euclidean';
 
 export { christoffelFromMetric, chrIndex } from './christoffel';
+
+export { parallelTransport } from './parallelTransport';
+export type { ParallelTransportOptions, ParallelTransportResult } from './parallelTransport';
+
+export { parallelTransportOperator } from './parallelTransportOperator';
+export type {
+  ParallelTransportOperatorOptions,
+  ParallelTransportOperatorResult,
+} from './parallelTransportOperator';

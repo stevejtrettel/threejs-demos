@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# View preset written by the sp6-limit-sets-render demo's "save view" button
+scripts/view-preset.json
+
+# Point cache for sp6-render-limit-set.mjs (post-projection xs/ys/zs binary)
+scripts/cache/

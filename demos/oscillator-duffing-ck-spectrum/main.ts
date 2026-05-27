@@ -1,0 +1,320 @@
+/**
+ * oscillator-duffing-ck-spectrum — per-harmonic resonance structure.
+ *
+ *   ẍ + 2γẋ + x + εx³ = cos(ω t).
+ *
+ * For each ω, integrate to the steady state and decompose it into Fourier
+ * coefficients c_k. Plot |c_k|² as a function of ω, one curve per odd k.
+ *
+ * The k-th component is, perturbatively, the linear response to an effective
+ * forcing at frequency kω, so |c_k(ω)|² peaks when kω matches the natural
+ * frequency 1 — i.e., at ω ≈ 1/k. Each odd harmonic gets its own resonance,
+ * sitting at its own ω. Plotting them separately makes each resonance
+ * visible (whereas they're swamped by the dominant k=1 contribution when
+ * summed into total absorption).
+ *
+ * Curves: k = 1 (maroon), k = 3 (rust), k = 5 (amber), k = 7 (tan).
+ * Vertical guides at ω = 1, 1/3, 1/5, 1/7 mark the expected peak locations.
+ */
+
+import * as THREE from 'three';
+import { App } from '@/app/App';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+
+// --- palette ---------------------------------------------------------------
+
+const BG          = 0xF0EDE8;
+const FRAME_COLOR = 0x8FA3B5;
+
+const K_DEFS: { k: number; color: number }[] = [
+  { k: 1, color: 0x7A1F2C },  // maroon
+  { k: 3, color: 0xA8521F },  // rust
+  { k: 5, color: 0xC79030 },  // amber
+  { k: 7, color: 0xB89055 },  // tan
+];
+
+// --- layout ---------------------------------------------------------------
+
+const PLOT_W  = 8.0;
+const PLOT_H  = 4.0;
+const PLOT_CX = 0;
+const PLOT_CY = 0;
+
+const W_MIN = 0.08;
+const W_MAX = 2.0;
+
+const LOG_FLOOR = -7.0;
+const LOG_TOP   =  0.5;
+
+const N_OMEGA  = 300;
+const N_PERIOD = 256;
+const TARGET_DT = 0.01;
+const CHUNK = 2;
+
+// --- coordinate maps ------------------------------------------------------
+
+function omegaToX(w: number): number {
+  return PLOT_CX + ((w - W_MIN) / (W_MAX - W_MIN) - 0.5) * PLOT_W;
+}
+
+function logToY(logV: number): number {
+  const y = Math.max(LOG_FLOOR, Math.min(LOG_TOP, logV));
+  return (PLOT_CY - PLOT_H / 2) + (y - LOG_FLOOR) / (LOG_TOP - LOG_FLOOR) * PLOT_H;
+}
+
+// --- inline RK4 step ------------------------------------------------------
+
+let omegaCur = 0;
+
+function rk4Step(x: number, v: number, t: number, dt: number): [number, number] {
+  const half = 0.5 * dt;
+  const k1x = v;
+  const k1v = -2 * gamma * v - x - eps * x * x * x + Math.cos(omegaCur * t);
+  const x2 = x + half * k1x, v2 = v + half * k1v;
+  const k2x = v2;
+  const k2v = -2 * gamma * v2 - x2 - eps * x2 * x2 * x2 + Math.cos(omegaCur * (t + half));
+  const x3 = x + half * k2x, v3 = v + half * k2v;
+  const k3x = v3;
+  const k3v = -2 * gamma * v3 - x3 - eps * x3 * x3 * x3 + Math.cos(omegaCur * (t + half));
+  const x4 = x + dt * k3x, v4 = v + dt * k3v;
+  const k4x = v4;
+  const k4v = -2 * gamma * v4 - x4 - eps * x4 * x4 * x4 + Math.cos(omegaCur * (t + dt));
+  return [
+    x + (dt / 6) * (k1x + 2 * k2x + 2 * k3x + k4x),
+    v + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v),
+  ];
+}
+
+// --- compute |c_k|² for k in K_DEFS at one ω -----------------------------
+
+const sampleBuffer = new Float32Array(N_PERIOD);
+
+function computeCkSquared(w: number, out: Float32Array) {
+  omegaCur = w;
+  const T = 2 * Math.PI / w;
+  const sampleDt = T / N_PERIOD;
+  const subSteps = Math.max(1, Math.ceil(sampleDt / TARGET_DT));
+  const intDt = sampleDt / subSteps;
+  const M = Math.max(20, Math.ceil(40 / (gamma * T)));
+
+  let x = 0, v = 0, t = 0;
+  // Transient
+  for (let i = 0; i < M * N_PERIOD; i++) {
+    for (let s = 0; s < subSteps; s++) {
+      [x, v] = rk4Step(x, v, t, intDt);
+      t += intDt;
+    }
+  }
+  // Sample one period
+  for (let i = 0; i < N_PERIOD; i++) {
+    sampleBuffer[i] = x;
+    for (let s = 0; s < subSteps; s++) {
+      [x, v] = rk4Step(x, v, t, intDt);
+      t += intDt;
+    }
+  }
+  // DFT for each tracked k
+  for (let j = 0; j < K_DEFS.length; j++) {
+    const k = K_DEFS[j].k;
+    let re = 0, im = 0;
+    for (let n = 0; n < N_PERIOD; n++) {
+      const angle = -2 * Math.PI * k * n / N_PERIOD;
+      re += sampleBuffer[n] * Math.cos(angle);
+      im += sampleBuffer[n] * Math.sin(angle);
+    }
+    re /= N_PERIOD; im /= N_PERIOD;
+    out[j] = re * re + im * im;
+  }
+}
+
+// --- scene ----------------------------------------------------------------
+
+const app = new App({ antialias: true, debug: false });
+app.camera.position.set(0, 0, 12);
+app.camera.fov = 30;
+app.camera.updateProjectionMatrix();
+app.controls.target.set(0, 0, 0);
+app.controls.controls.enabled = false;
+app.backgrounds.setColor(BG);
+
+// --- frame + grid ---------------------------------------------------------
+
+const frameMat = new THREE.LineBasicMaterial({ color: FRAME_COLOR });
+const frameGeo = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(PLOT_CX - PLOT_W / 2, PLOT_CY - PLOT_H / 2, 0),
+  new THREE.Vector3(PLOT_CX + PLOT_W / 2, PLOT_CY - PLOT_H / 2, 0),
+  new THREE.Vector3(PLOT_CX + PLOT_W / 2, PLOT_CY + PLOT_H / 2, 0),
+  new THREE.Vector3(PLOT_CX - PLOT_W / 2, PLOT_CY + PLOT_H / 2, 0),
+]);
+app.scene.add(new THREE.LineLoop(frameGeo, frameMat));
+
+const guideMat = new THREE.LineBasicMaterial({
+  color: FRAME_COLOR, transparent: true, opacity: 0.35,
+});
+
+// Faint horizontal grid
+for (const logL of [0, -2, -4, -6]) {
+  const y = logToY(logL);
+  const g = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(PLOT_CX - PLOT_W / 2, y, 0),
+    new THREE.Vector3(PLOT_CX + PLOT_W / 2, y, 0),
+  ]);
+  app.scene.add(new THREE.Line(g, guideMat));
+}
+
+// Faint vertical guides at ω = 1/k for k in K_DEFS
+for (const { k } of K_DEFS) {
+  const wG = 1 / k;
+  if (wG < W_MIN || wG > W_MAX) continue;
+  const x = omegaToX(wG);
+  const g = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x, PLOT_CY - PLOT_H / 2, 0),
+    new THREE.Vector3(x, PLOT_CY + PLOT_H / 2, 0),
+  ]);
+  app.scene.add(new THREE.Line(g, guideMat));
+}
+
+// --- mode curves ---------------------------------------------------------
+
+interface ModeCurve {
+  k: number;
+  positions: Float32Array;
+  geometry: LineGeometry;
+  line: Line2;
+  material: LineMaterial;
+}
+
+const allLineMats: LineMaterial[] = [];
+function updateLineResolutions() {
+  for (const m of allLineMats) m.resolution.set(window.innerWidth, window.innerHeight);
+}
+updateLineResolutions();
+window.addEventListener('resize', updateLineResolutions);
+
+const modeCurves: ModeCurve[] = K_DEFS.map(({ k, color }) => {
+  const material = new LineMaterial({
+    color, linewidth: 2.2, worldUnits: false, depthTest: false,
+  });
+  allLineMats.push(material);
+  const positions = new Float32Array(N_OMEGA * 3);
+  const geometry = new LineGeometry();
+  const line = new Line2(geometry, material);
+  line.renderOrder = 3;
+  app.scene.add(line);
+  return { k, positions, geometry, line, material };
+});
+
+// --- params --------------------------------------------------------------
+
+let gamma = 0.3;
+let eps   = 0.1;
+
+// Pre-allocated sweep storage
+const omegaValues = new Float32Array(N_OMEGA);
+for (let i = 0; i < N_OMEGA; i++) {
+  omegaValues[i] = W_MIN + (W_MAX - W_MIN) * (i / (N_OMEGA - 1));
+}
+// ckSqValues[i*K_DEFS.length + j] = |c_{K_DEFS[j].k}|² at ω_i
+const ckSqValues = new Float32Array(N_OMEGA * K_DEFS.length);
+const ckScratch = new Float32Array(K_DEFS.length);
+
+let sweepIdx = 0;
+
+// --- redraw ---------------------------------------------------------------
+
+function refreshLines() {
+  if (sweepIdx < 2) {
+    for (const c of modeCurves) c.line.visible = false;
+    return;
+  }
+  for (let j = 0; j < modeCurves.length; j++) {
+    const curve = modeCurves[j];
+    curve.line.visible = true;
+    for (let i = 0; i < N_OMEGA; i++) {
+      const idx = Math.min(i, sweepIdx - 1);
+      const w = omegaValues[idx];
+      const v = ckSqValues[idx * K_DEFS.length + j];
+      const logV = v > 0 ? Math.log10(v) : LOG_FLOOR;
+      curve.positions[i * 3 + 0] = omegaToX(w);
+      curve.positions[i * 3 + 1] = logToY(logV);
+      curve.positions[i * 3 + 2] = 0;
+    }
+    curve.geometry.setPositions(curve.positions);
+  }
+}
+
+function restartSweep() {
+  sweepIdx = 0;
+  refreshLines();
+}
+
+app.addAnimateCallback(() => {
+  if (sweepIdx >= N_OMEGA) return;
+  const end = Math.min(sweepIdx + CHUNK, N_OMEGA);
+  for (let i = sweepIdx; i < end; i++) {
+    computeCkSquared(omegaValues[i], ckScratch);
+    for (let j = 0; j < K_DEFS.length; j++) {
+      ckSqValues[i * K_DEFS.length + j] = ckScratch[j];
+    }
+  }
+  sweepIdx = end;
+  refreshLines();
+});
+
+// --- DOM sliders ---------------------------------------------------------
+
+const sliderStyle = document.createElement('style');
+sliderStyle.textContent = `
+  .thin-slider { -webkit-appearance: none; appearance: none; width: 200px; height: 5px; margin: 0; background: transparent; outline: none; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+  .thin-slider::-webkit-slider-runnable-track { height: 5px; background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.45); border-radius: 999px; box-sizing: border-box; }
+  .thin-slider::-moz-range-track { height: 5px; background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.45); border-radius: 999px; box-sizing: border-box; }
+  .thin-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5px; background: #fff; border: 1.5px solid rgba(0,0,0,0.8); border-radius: 50%; box-sizing: border-box; cursor: pointer; }
+  .thin-slider::-moz-range-thumb { width: 14px; height: 14px; background: #fff; border: 1.5px solid rgba(0,0,0,0.8); border-radius: 50%; box-sizing: border-box; cursor: pointer; }
+  .thin-slider:focus { outline: none; }
+  .osc-row { display: flex; align-items: center; gap: 10px; color: #333; font: 14px/1 monospace; }
+  .osc-row .label { width: 14px; text-align: right; }
+  .osc-row .value { width: 40px; color: #666; font-size: 12px; }
+`;
+document.head.appendChild(sliderStyle);
+
+const sliderWrap = document.createElement('div');
+sliderWrap.style.cssText =
+  'position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;' +
+  'pointer-events:auto;z-index:10;';
+sliderWrap.innerHTML = `
+  <div class="osc-row">
+    <span class="label">γ</span>
+    <input id="osc-gamma" type="range" class="thin-slider" min="0.05" max="1.5" step="0.01" value="${gamma}" />
+    <span class="value" id="osc-gamma-v">${gamma.toFixed(2)}</span>
+  </div>
+  <div class="osc-row">
+    <span class="label">ε</span>
+    <input id="osc-eps" type="range" class="thin-slider" min="0" max="1" step="0.01" value="${eps}" />
+    <span class="value" id="osc-eps-v">${eps.toFixed(2)}</span>
+  </div>
+`;
+document.body.appendChild(sliderWrap);
+
+const gammaSlider = sliderWrap.querySelector<HTMLInputElement>('#osc-gamma')!;
+const epsSlider   = sliderWrap.querySelector<HTMLInputElement>('#osc-eps')!;
+const gammaReadout = sliderWrap.querySelector<HTMLSpanElement>('#osc-gamma-v')!;
+const epsReadout   = sliderWrap.querySelector<HTMLSpanElement>('#osc-eps-v')!;
+
+gammaSlider.addEventListener('input', () => {
+  gamma = parseFloat(gammaSlider.value);
+  gammaReadout.textContent = gamma.toFixed(2);
+  restartSweep();
+});
+
+epsSlider.addEventListener('input', () => {
+  eps = parseFloat(epsSlider.value);
+  epsReadout.textContent = eps.toFixed(2);
+  restartSweep();
+});
+
+// --- start ---------------------------------------------------------------
+
+restartSweep();
+app.start();

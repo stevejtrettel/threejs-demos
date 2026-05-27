@@ -189,13 +189,29 @@ sliderStyle.textContent = `
   .osc-row { display: flex; align-items: center; gap: 10px; color: #333; font: 14px/1 monospace; }
   .osc-row .label { width: 14px; text-align: right; }
   .osc-row .value { width: 40px; color: #666; font-size: 12px; }
+  .osc-controls { position: fixed; left: 50%; bottom: 38px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; pointer-events: auto; z-index: 10; }
+  .equation-label { position: fixed; left: 50%; top: 32px; transform: translateX(-50%); color: #333; font: 18px/1.2 monospace; letter-spacing: 0; pointer-events: none; z-index: 10; white-space: nowrap; }
+  .equation-label .title { margin-right: 18px; color: #666; font-size: 14px; }
+  .equation-label .var { font-style: italic; }
+  .axis-label { position: fixed; left: calc(50% - 58px); bottom: 78px; transform: translateX(-50%); color: #666; font: 14px/1 monospace; pointer-events: none; z-index: 10; }
 `;
 document.head.appendChild(sliderStyle);
 
+const equationLabel = document.createElement('div');
+equationLabel.className = 'equation-label';
+equationLabel.innerHTML =
+  '<span class="title">absorption</span>' +
+  '<span class="var">x</span>\u2033 + 2\u03b3<span class="var">x</span>\u2032 + ' +
+  '<span class="var">x</span> = cos(\u03c9<span class="var">t</span>)';
+document.body.appendChild(equationLabel);
+
+const omegaAxisLabel = document.createElement('div');
+omegaAxisLabel.className = 'axis-label';
+omegaAxisLabel.textContent = '\u03c9';
+document.body.appendChild(omegaAxisLabel);
+
 const sliderWrap = document.createElement('div');
-sliderWrap.style.cssText =
-  'position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;' +
-  'pointer-events:auto;z-index:10;';
+sliderWrap.className = 'osc-controls';
 sliderWrap.innerHTML = `
   <div class="osc-row">
     <span class="label">γ</span>

@@ -1,0 +1,544 @@
+/**
+ * oscillator-coupled-phase-portrait — configuration-space trajectory of the
+ * coupled, damped, driven anharmonic system in the (x_1, x_2) plane.
+ *
+ *   V(x1, x2) = 1/2 omega_1^2 x_1^2 + 1/2 omega_2^2 x_2^2 + epsilon x_1^2 x_2
+ *   x_i'' + 2 gamma x_i' + d V / d x_i = A cos(Omega t)        (i = 1, 2)
+ *
+ * Single square panel. Integrate from rest at (x_1(0), x_2(0)) for a long
+ * time and draw the resulting curve. Click anywhere in the panel to pick a
+ * new initial condition (drag previews live, release commits). Sliders gamma,
+ * A, Omega, omega_1, omega_2, epsilon all re-integrate on input.
+ */
+
+import * as THREE from 'three';
+import { App } from '@/app/App';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+
+// --- palette ---------------------------------------------------------------
+
+const BG          = 0xF0EDE8;
+const MAROON      = 0x7A1F2C;
+const LIGHT_GRAY  = 0xB5B0A4;
+const FRAME_COLOR = 0x8FA3B5;
+const IC_DOT      = 0x4A6B8A;
+
+// --- layout ---------------------------------------------------------------
+
+const PANEL_W = 6.4;
+const PANEL_H = 6.4;
+const PANEL_CX = 0;
+const PANEL_CY = 0;
+
+const X_MIN = -3.2;
+const X_MAX =  3.2;
+const Y_MIN = -3.2;
+const Y_MAX =  3.2;
+
+// --- coordinate maps ------------------------------------------------------
+
+function xToWorld(x: number): number {
+  return PANEL_CX + ((x - X_MIN) / (X_MAX - X_MIN) - 0.5) * PANEL_W;
+}
+function yToWorld(y: number): number {
+  return PANEL_CY + ((y - Y_MIN) / (Y_MAX - Y_MIN) - 0.5) * PANEL_H;
+}
+function worldToXY(wx: number, wy: number): [number, number] {
+  const x = X_MIN + ((wx - PANEL_CX) / PANEL_W + 0.5) * (X_MAX - X_MIN);
+  const y = Y_MIN + ((wy - PANEL_CY) / PANEL_H + 0.5) * (Y_MAX - Y_MIN);
+  return [x, y];
+}
+function inPanel(wx: number, wy: number): boolean {
+  return Math.abs(wx - PANEL_CX) <= PANEL_W / 2 && Math.abs(wy - PANEL_CY) <= PANEL_H / 2;
+}
+
+// --- physics --------------------------------------------------------------
+
+let omega1   = 1.0;
+let omega2   = 1.4;
+let epsilon  = 0.15;
+let gamma    = 0.15;
+let driveAmp = 1.0;
+let Omega    = 1.2;
+
+let icX = 1.6;
+let icY = 0.0;
+
+const DT = 0.01;
+const T_TOTAL = 800;
+const N_STEPS = Math.round(T_TOTAL / DT) + 1;
+const STRIDE = 2;
+const N_VERTS = Math.floor((N_STEPS - 1) / STRIDE) + 1;
+const ESCAPE_LIMIT = 8;
+
+// limit cycle detection
+const K_MAX        = 4;
+const PERIOD_TOL   = 0.012;
+const T_LIMIT_MAX  = 280;                   // upper bound on K * T_drive
+const N_LIMIT_VERTS = Math.round(T_LIMIT_MAX / DT) + 1;
+
+interface Solution {
+  positions: Float32Array;     // length 3 * N_VERTS
+  validVerts: number;           // number of valid vertices
+  totalTime: number;            // dt * (validVerts - 1) * STRIDE
+}
+
+const solution: Solution = {
+  positions: new Float32Array(N_VERTS * 3),
+  validVerts: 0,
+  totalTime: 0,
+};
+
+interface LimitCycle {
+  positions: Float32Array;     // length 3 * N_LIMIT_VERTS
+  validVerts: number;
+  k: number;                    // detected period in units of T_drive
+}
+
+const limitCycle: LimitCycle = {
+  positions: new Float32Array(N_LIMIT_VERTS * 3),
+  validVerts: 0,
+  k: 0,
+};
+
+function accel(x1v: number, v1v: number, x2v: number, v2v: number, tv: number): [number, number] {
+  const drive = driveAmp * Math.cos(Omega * tv);
+  const a1 = -2 * gamma * v1v - omega1 * omega1 * x1v - 2 * epsilon * x1v * x2v + drive;
+  const a2 = -2 * gamma * v2v - omega2 * omega2 * x2v - epsilon * x1v * x1v     + drive;
+  return [a1, a2];
+}
+
+const stepBuf = new Float64Array(4);
+
+function rk4(x1: number, v1: number, x2: number, v2: number, t: number, dt: number): Float64Array {
+  const [a1, a2] = accel(x1, v1, x2, v2, t);
+  const k1x1 = v1, k1x2 = v2, k1v1 = a1, k1v2 = a2;
+
+  const x1b = x1 + 0.5 * dt * k1x1;
+  const x2b = x2 + 0.5 * dt * k1x2;
+  const v1b = v1 + 0.5 * dt * k1v1;
+  const v2b = v2 + 0.5 * dt * k1v2;
+  const [a1b, a2b] = accel(x1b, v1b, x2b, v2b, t + 0.5 * dt);
+  const k2x1 = v1b, k2x2 = v2b, k2v1 = a1b, k2v2 = a2b;
+
+  const x1c = x1 + 0.5 * dt * k2x1;
+  const x2c = x2 + 0.5 * dt * k2x2;
+  const v1c = v1 + 0.5 * dt * k2v1;
+  const v2c = v2 + 0.5 * dt * k2v2;
+  const [a1c, a2c] = accel(x1c, v1c, x2c, v2c, t + 0.5 * dt);
+  const k3x1 = v1c, k3x2 = v2c, k3v1 = a1c, k3v2 = a2c;
+
+  const x1d = x1 + dt * k3x1;
+  const x2d = x2 + dt * k3x2;
+  const v1d = v1 + dt * k3v1;
+  const v2d = v2 + dt * k3v2;
+  const [a1d, a2d] = accel(x1d, v1d, x2d, v2d, t + dt);
+  const k4x1 = v1d, k4x2 = v2d, k4v1 = a1d, k4v2 = a2d;
+
+  stepBuf[0] = x1 + (dt / 6) * (k1x1 + 2 * k2x1 + 2 * k3x1 + k4x1);
+  stepBuf[1] = v1 + (dt / 6) * (k1v1 + 2 * k2v1 + 2 * k3v1 + k4v1);
+  stepBuf[2] = x2 + (dt / 6) * (k1x2 + 2 * k2x2 + 2 * k3x2 + k4x2);
+  stepBuf[3] = v2 + (dt / 6) * (k1v2 + 2 * k2v2 + 2 * k3v2 + k4v2);
+  return stepBuf;
+}
+
+function integrate() {
+  let x1 = icX, v1 = 0;
+  let x2 = icY, v2 = 0;
+  let t  = 0;
+
+  const out = solution.positions;
+  out[0] = xToWorld(x1);
+  out[1] = yToWorld(x2);
+  out[2] = 0;
+  let vIdx = 1;
+
+  for (let step = 1; step < N_STEPS; step++) {
+    const next = rk4(x1, v1, x2, v2, t, DT);
+    x1 = next[0]; v1 = next[1]; x2 = next[2]; v2 = next[3];
+    t  += DT;
+
+    if (!Number.isFinite(x1) || !Number.isFinite(x2) ||
+        Math.abs(x1) > ESCAPE_LIMIT || Math.abs(x2) > ESCAPE_LIMIT) {
+      break;
+    }
+
+    if (step % STRIDE === 0) {
+      out[vIdx * 3 + 0] = xToWorld(x1);
+      out[vIdx * 3 + 1] = yToWorld(x2);
+      out[vIdx * 3 + 2] = 0;
+      vIdx++;
+    }
+  }
+
+  // pad remaining slots with the last valid vertex so Line2 doesn't render
+  // garbage into the unused tail
+  if (vIdx > 0) {
+    const lastX = out[(vIdx - 1) * 3 + 0];
+    const lastY = out[(vIdx - 1) * 3 + 1];
+    for (let i = vIdx; i < N_VERTS; i++) {
+      out[i * 3 + 0] = lastX;
+      out[i * 3 + 1] = lastY;
+      out[i * 3 + 2] = 0;
+    }
+  }
+
+  solution.validVerts = vIdx;
+  solution.totalTime = (vIdx > 0 ? (vIdx - 1) * STRIDE * DT : 0);
+}
+
+function findLimitCycle() {
+  const T_DRIVE = 2 * Math.PI / Omega;
+  const stepsPerPeriod = Math.max(40, Math.round(T_DRIVE / DT));
+  const dt = T_DRIVE / stepsPerPeriod;       // dt that exactly tiles one drive period
+
+  // Settle from rest — long enough for transients to decay even at small gamma.
+  const settleTime = Math.max(60, 8 / Math.max(gamma, 0.02));
+  const settlePeriods = Math.ceil(settleTime / T_DRIVE);
+
+  let x1 = 0, v1 = 0, x2 = 0, v2 = 0, t = 0;
+
+  for (let p = 0; p < settlePeriods; p++) {
+    for (let s = 0; s < stepsPerPeriod; s++) {
+      const next = rk4(x1, v1, x2, v2, t, dt);
+      x1 = next[0]; v1 = next[1]; x2 = next[2]; v2 = next[3];
+      t += dt;
+      if (!Number.isFinite(x1) || Math.abs(x1) > ESCAPE_LIMIT || Math.abs(x2) > ESCAPE_LIMIT) {
+        limitCycle.validVerts = 0; limitCycle.k = 0; return;
+      }
+    }
+  }
+
+  // Sample state at multiples of T_drive and find smallest k with state(kT) ≈ state(0).
+  const refX1 = x1, refV1 = v1, refX2 = x2, refV2 = v2;
+  const refT  = t;
+  let foundK = 0;
+
+  for (let k = 1; k <= K_MAX; k++) {
+    for (let s = 0; s < stepsPerPeriod; s++) {
+      const next = rk4(x1, v1, x2, v2, t, dt);
+      x1 = next[0]; v1 = next[1]; x2 = next[2]; v2 = next[3];
+      t += dt;
+      if (!Number.isFinite(x1) || Math.abs(x1) > ESCAPE_LIMIT || Math.abs(x2) > ESCAPE_LIMIT) {
+        limitCycle.validVerts = 0; limitCycle.k = 0; return;
+      }
+    }
+    const err = Math.max(
+      Math.abs(x1 - refX1),
+      Math.abs(v1 - refV1),
+      Math.abs(x2 - refX2),
+      Math.abs(v2 - refV2),
+    );
+    if (err < PERIOD_TOL) { foundK = k; break; }
+  }
+
+  if (foundK === 0) { limitCycle.validVerts = 0; limitCycle.k = 0; return; }
+
+  // Trace the limit cycle: integrate K periods from (refX1, refV1, refX2, refV2)
+  // recording every step.
+  x1 = refX1; v1 = refV1; x2 = refX2; v2 = refV2; t = refT;
+  const out = limitCycle.positions;
+  out[0] = xToWorld(x1);
+  out[1] = yToWorld(x2);
+  out[2] = 0;
+
+  const total = foundK * stepsPerPeriod;
+  for (let i = 1; i <= total; i++) {
+    const next = rk4(x1, v1, x2, v2, t, dt);
+    x1 = next[0]; v1 = next[1]; x2 = next[2]; v2 = next[3];
+    t += dt;
+    out[i * 3 + 0] = xToWorld(x1);
+    out[i * 3 + 1] = yToWorld(x2);
+    out[i * 3 + 2] = 0;
+  }
+  // pad the tail
+  const lastX = out[total * 3 + 0];
+  const lastY = out[total * 3 + 1];
+  for (let i = total + 1; i < N_LIMIT_VERTS; i++) {
+    out[i * 3 + 0] = lastX;
+    out[i * 3 + 1] = lastY;
+    out[i * 3 + 2] = 0;
+  }
+
+  limitCycle.validVerts = total + 1;
+  limitCycle.k = foundK;
+}
+
+// --- scene ----------------------------------------------------------------
+
+const app = new App({ antialias: true, debug: false });
+app.camera.position.set(0, 0, 12);
+app.camera.fov = 30;
+app.camera.updateProjectionMatrix();
+app.controls.target.set(0, 0, 0);
+app.controls.controls.enabled = false;
+app.backgrounds.setColor(BG);
+
+const frameMat = new THREE.LineBasicMaterial({ color: FRAME_COLOR });
+
+function rectFrame(cx: number, cy: number, w: number, h: number): THREE.LineLoop {
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(cx - w / 2, cy - h / 2, 0),
+    new THREE.Vector3(cx + w / 2, cy - h / 2, 0),
+    new THREE.Vector3(cx + w / 2, cy + h / 2, 0),
+    new THREE.Vector3(cx - w / 2, cy + h / 2, 0),
+  ]);
+  return new THREE.LineLoop(geo, frameMat);
+}
+function segment(p1: [number, number], p2: [number, number]): THREE.Line {
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(p1[0], p1[1], 0),
+    new THREE.Vector3(p2[0], p2[1], 0),
+  ]);
+  return new THREE.Line(geo, frameMat);
+}
+
+app.scene.add(rectFrame(PANEL_CX, PANEL_CY, PANEL_W, PANEL_H));
+// origin axes
+app.scene.add(segment([xToWorld(X_MIN), yToWorld(0)], [xToWorld(X_MAX), yToWorld(0)]));
+app.scene.add(segment([xToWorld(0), yToWorld(Y_MIN)], [xToWorld(0), yToWorld(Y_MAX)]));
+
+// --- trajectory + limit cycle lines --------------------------------------
+
+const trajMat = new LineMaterial({
+  color: LIGHT_GRAY,
+  linewidth: 1.6,
+  worldUnits: false,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.85,
+});
+
+const limitMat = new LineMaterial({
+  color: MAROON,
+  linewidth: 2.4,
+  worldUnits: false,
+  depthTest: false,
+  transparent: true,
+  opacity: 0.98,
+});
+
+function updateLineResolution() {
+  trajMat.resolution.set(window.innerWidth, window.innerHeight);
+  limitMat.resolution.set(window.innerWidth, window.innerHeight);
+}
+updateLineResolution();
+window.addEventListener('resize', updateLineResolution);
+
+const trajGeometry = new LineGeometry();
+trajGeometry.setPositions(solution.positions);
+const trajLine = new Line2(trajGeometry, trajMat);
+trajLine.renderOrder = 3;
+app.scene.add(trajLine);
+
+const limitGeometry = new LineGeometry();
+limitGeometry.setPositions(limitCycle.positions);
+const limitLine = new Line2(limitGeometry, limitMat);
+limitLine.renderOrder = 4;
+limitLine.visible = false;
+app.scene.add(limitLine);
+
+type LineWithGeom = { geometry: { instanceCount: number } };
+
+function refreshTrajectory() {
+  integrate();
+  trajGeometry.setPositions(solution.positions);
+  const segCount = Math.max(0, solution.validVerts - 1);
+  (trajLine as unknown as LineWithGeom).geometry.instanceCount = segCount;
+
+  findLimitCycle();
+  if (limitCycle.validVerts >= 2) {
+    limitGeometry.setPositions(limitCycle.positions);
+    (limitLine as unknown as LineWithGeom).geometry.instanceCount = limitCycle.validVerts - 1;
+    limitLine.visible = true;
+  } else {
+    limitLine.visible = false;
+  }
+}
+
+// --- IC marker -----------------------------------------------------------
+
+const icMarkerMat = new THREE.MeshBasicMaterial({ color: IC_DOT, depthTest: false });
+const icMarker = new THREE.Mesh(new THREE.CircleGeometry(0.07, 24), icMarkerMat);
+icMarker.renderOrder = 5;
+app.scene.add(icMarker);
+
+function placeICMarker() {
+  icMarker.position.set(xToWorld(icX), yToWorld(icY), 0);
+}
+
+// --- pointer interaction --------------------------------------------------
+
+const renderer = app.renderManager.renderer;
+const canvas = renderer.domElement;
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const pickPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+let dragging = false;
+
+function pointerWorld(e: PointerEvent): { wx: number; wy: number } | null {
+  const rect = canvas.getBoundingClientRect();
+  ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, app.camera);
+  const hit = new THREE.Vector3();
+  if (!raycaster.ray.intersectPlane(pickPlane, hit)) return null;
+  return { wx: hit.x, wy: hit.y };
+}
+
+function applyIC(p: { wx: number; wy: number }) {
+  if (!inPanel(p.wx, p.wy)) return;
+  const [x, y] = worldToXY(p.wx, p.wy);
+  icX = x;
+  icY = y;
+  placeICMarker();
+  refreshTrajectory();
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  const p = pointerWorld(e);
+  if (!p) return;
+  if (!inPanel(p.wx, p.wy)) return;
+  dragging = true;
+  applyIC(p);
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const p = pointerWorld(e);
+  if (!p) return;
+  applyIC(p);
+});
+
+function endDrag(e: PointerEvent) {
+  if (!dragging) return;
+  dragging = false;
+  canvas.releasePointerCapture(e.pointerId);
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+// --- DOM controls ---------------------------------------------------------
+
+const sliderStyle = document.createElement('style');
+sliderStyle.textContent = `
+  .thin-slider { -webkit-appearance: none; appearance: none; width: 120px; height: 5px; margin: 0; background: transparent; outline: none; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+  .thin-slider::-webkit-slider-runnable-track { height: 5px; background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.45); border-radius: 999px; box-sizing: border-box; }
+  .thin-slider::-moz-range-track { height: 5px; background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.45); border-radius: 999px; box-sizing: border-box; }
+  .thin-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5px; background: #fff; border: 1.5px solid rgba(0,0,0,0.8); border-radius: 50%; box-sizing: border-box; cursor: pointer; }
+  .thin-slider::-moz-range-thumb { width: 14px; height: 14px; background: #fff; border: 1.5px solid rgba(0,0,0,0.8); border-radius: 50%; box-sizing: border-box; cursor: pointer; }
+  .thin-slider:focus { outline: none; }
+  .osc-row { display: flex; align-items: center; gap: 10px; color: #333; font: 14px/1 monospace; }
+  .osc-row .label { width: 22px; text-align: right; }
+  .osc-row .value { width: 40px; color: #666; font-size: 12px; }
+  .osc-controls { position: fixed; left: 50%; bottom: 38px; transform: translateX(-50%); display: grid; grid-template-columns: max-content max-content max-content; column-gap: 18px; row-gap: 10px; pointer-events: auto; z-index: 10; }
+  .equation-label { position: fixed; left: 50%; top: 32px; transform: translateX(-50%); color: #333; font: 18px/1.2 monospace; letter-spacing: 0; pointer-events: none; z-index: 10; white-space: nowrap; }
+  .equation-label .var { font-style: italic; }
+  .equation-label sub { font-size: 0.75em; }
+  .axis-label { position: fixed; color: #555; font: italic 14px/1 monospace; pointer-events: none; z-index: 10; }
+`;
+document.head.appendChild(sliderStyle);
+
+const equationLabel = document.createElement('div');
+equationLabel.className = 'equation-label';
+equationLabel.innerHTML =
+  '<span class="var">x</span>″<sub>i</sub> + ' +
+  '2γ<span class="var">x</span>′<sub>i</sub> + ' +
+  '∂<sub>i</sub><span class="var">V</span> = ' +
+  '<span class="var">A</span> cos(Ω<span class="var">t</span>)';
+document.body.appendChild(equationLabel);
+
+const sliderWrap = document.createElement('div');
+sliderWrap.className = 'osc-controls';
+sliderWrap.innerHTML = `
+  <div class="osc-row">
+    <span class="label">ω₁</span>
+    <input id="osc-omega1" type="range" class="thin-slider" min="0.3" max="2.5" step="0.01" value="${omega1}" />
+    <span class="value" id="osc-omega1-v">${omega1.toFixed(2)}</span>
+  </div>
+  <div class="osc-row">
+    <span class="label">ω₂</span>
+    <input id="osc-omega2" type="range" class="thin-slider" min="0.3" max="2.5" step="0.01" value="${omega2}" />
+    <span class="value" id="osc-omega2-v">${omega2.toFixed(2)}</span>
+  </div>
+  <div class="osc-row">
+    <span class="label">ε</span>
+    <input id="osc-epsilon" type="range" class="thin-slider" min="0" max="0.5" step="0.005" value="${epsilon}" />
+    <span class="value" id="osc-epsilon-v">${epsilon.toFixed(3)}</span>
+  </div>
+  <div class="osc-row">
+    <span class="label">γ</span>
+    <input id="osc-gamma" type="range" class="thin-slider" min="0.02" max="1.0" step="0.01" value="${gamma}" />
+    <span class="value" id="osc-gamma-v">${gamma.toFixed(2)}</span>
+  </div>
+  <div class="osc-row">
+    <span class="label">A</span>
+    <input id="osc-drive" type="range" class="thin-slider" min="0" max="2" step="0.01" value="${driveAmp}" />
+    <span class="value" id="osc-drive-v">${driveAmp.toFixed(2)}</span>
+  </div>
+  <div class="osc-row">
+    <span class="label">Ω</span>
+    <input id="osc-Omega" type="range" class="thin-slider" min="0.1" max="3" step="0.01" value="${Omega}" />
+    <span class="value" id="osc-Omega-v">${Omega.toFixed(2)}</span>
+  </div>
+`;
+document.body.appendChild(sliderWrap);
+
+const omega1Slider  = sliderWrap.querySelector<HTMLInputElement>('#osc-omega1')!;
+const omega2Slider  = sliderWrap.querySelector<HTMLInputElement>('#osc-omega2')!;
+const epsilonSlider = sliderWrap.querySelector<HTMLInputElement>('#osc-epsilon')!;
+const gammaSlider   = sliderWrap.querySelector<HTMLInputElement>('#osc-gamma')!;
+const driveSlider   = sliderWrap.querySelector<HTMLInputElement>('#osc-drive')!;
+const OmegaSlider   = sliderWrap.querySelector<HTMLInputElement>('#osc-Omega')!;
+const omega1Read    = sliderWrap.querySelector<HTMLSpanElement>('#osc-omega1-v')!;
+const omega2Read    = sliderWrap.querySelector<HTMLSpanElement>('#osc-omega2-v')!;
+const epsilonRead   = sliderWrap.querySelector<HTMLSpanElement>('#osc-epsilon-v')!;
+const gammaRead     = sliderWrap.querySelector<HTMLSpanElement>('#osc-gamma-v')!;
+const driveRead     = sliderWrap.querySelector<HTMLSpanElement>('#osc-drive-v')!;
+const OmegaRead     = sliderWrap.querySelector<HTMLSpanElement>('#osc-Omega-v')!;
+
+function onParamChange() {
+  refreshTrajectory();
+}
+
+omega1Slider.addEventListener('input',  () => { omega1   = parseFloat(omega1Slider.value);  omega1Read.textContent  = omega1.toFixed(2);  onParamChange(); });
+omega2Slider.addEventListener('input',  () => { omega2   = parseFloat(omega2Slider.value);  omega2Read.textContent  = omega2.toFixed(2);  onParamChange(); });
+epsilonSlider.addEventListener('input', () => { epsilon  = parseFloat(epsilonSlider.value); epsilonRead.textContent = epsilon.toFixed(3); onParamChange(); });
+gammaSlider.addEventListener('input',   () => { gamma    = parseFloat(gammaSlider.value);   gammaRead.textContent   = gamma.toFixed(2);   onParamChange(); });
+driveSlider.addEventListener('input',   () => { driveAmp = parseFloat(driveSlider.value);   driveRead.textContent   = driveAmp.toFixed(2); onParamChange(); });
+OmegaSlider.addEventListener('input',   () => { Omega    = parseFloat(OmegaSlider.value);   OmegaRead.textContent   = Omega.toFixed(2);   onParamChange(); });
+
+// --- axis labels ----------------------------------------------------------
+
+const axisX = document.createElement('div');
+axisX.className = 'axis-label';
+axisX.textContent = 'x₁';
+document.body.appendChild(axisX);
+
+const axisY = document.createElement('div');
+axisY.className = 'axis-label';
+axisY.textContent = 'x₂';
+document.body.appendChild(axisY);
+
+function placeAxisLabels() {
+  // crude placement based on canvas rect — bottom-right and top-left of panel
+  const rect = canvas.getBoundingClientRect();
+  axisX.style.left = (rect.left + rect.width * 0.5 + 230) + 'px';
+  axisX.style.top  = (rect.top + rect.height * 0.5 + 8) + 'px';
+  axisY.style.left = (rect.left + rect.width * 0.5 + 8) + 'px';
+  axisY.style.top  = (rect.top + rect.height * 0.5 - 240) + 'px';
+}
+window.addEventListener('resize', placeAxisLabels);
+
+// --- start ----------------------------------------------------------------
+
+placeICMarker();
+refreshTrajectory();
+placeAxisLabels();
+app.start();
+// label placement after the canvas has had a chance to size itself
+setTimeout(placeAxisLabels, 0);

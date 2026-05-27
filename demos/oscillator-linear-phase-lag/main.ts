@@ -284,8 +284,19 @@ sliderStyle.textContent = `
   .osc-row { display: flex; align-items: center; gap: 10px; color: #333; font: 14px/1 monospace; }
   .osc-row .label { width: 14px; text-align: right; }
   .osc-row .value { width: 40px; color: #666; font-size: 12px; }
+  .equation-label { position: fixed; left: 50%; top: 32px; transform: translateX(-50%); color: #333; font: 18px/1.2 monospace; letter-spacing: 0; pointer-events: none; z-index: 10; white-space: nowrap; }
+  .equation-label .title { margin-right: 18px; color: #666; font-size: 14px; }
+  .equation-label .var { font-style: italic; }
 `;
 document.head.appendChild(sliderStyle);
+
+const equationLabel = document.createElement('div');
+equationLabel.className = 'equation-label';
+equationLabel.innerHTML =
+  '<span class="title">phase lag</span>' +
+  '<span class="var">x</span>\u2033 + 2\u03b3<span class="var">x</span>\u2032 + ' +
+  '<span class="var">x</span> = cos(\u03c9<span class="var">t</span>)';
+document.body.appendChild(equationLabel);
 
 const sliderWrap = document.createElement('div');
 sliderWrap.style.cssText =

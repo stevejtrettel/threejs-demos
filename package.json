@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/three": "^0.181.0",
+    "pngjs": "^7.0.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },

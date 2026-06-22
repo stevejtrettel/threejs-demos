@@ -142,6 +142,10 @@ export type { DerivFn, Stepper, IntegrateOptions, Trajectory } from './ode';
 export * from './geodesics/types';
 export { GeodesicIntegrator } from './geodesics/GeodesicIntegrator';
 export type { GeodesicIntegratorOptions } from './geodesics/GeodesicIntegrator';
+export { geodesicDeriv, geodesicNorm } from './geodesics/geodesicFlow';
+
+// Relativity (spacetimes, charts, null geodesics, light cones, optical metric)
+export * from './relativity';
 
 // Vector fields & flows
 export * from './vectorfields';

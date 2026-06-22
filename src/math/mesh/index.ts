@@ -6,5 +6,7 @@ export { FaceMesh } from './FaceMesh';
 export type { FaceMeshOptions } from './FaceMesh';
 export { MeshView } from './MeshView';
 export type { MeshViewOptions } from './MeshView';
+export { exportQuadOBJ, downloadQuadOBJ } from './exportQuadOBJ';
+export type { QuadOBJOptions } from './exportQuadOBJ';
 export * from './energy';
 export * from './evolvers';

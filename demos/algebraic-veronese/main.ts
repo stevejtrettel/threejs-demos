@@ -38,6 +38,7 @@ import {
   veroneseR3Projection,
   veronesePcaR3Projection,
   cp3TetrahedronProjection,
+  projectorPcaR3Projection,
   TETRAHEDRON_VERTICES,
   type CP2Projection,
 } from '@/math/cp2/projections';
@@ -80,10 +81,10 @@ tetraOutline.visible = false;
 app.scene.add(tetraOutline);
 
 // --- State ---
-type Embedding = 'none' | 'tetrahedron' | 2 | 3;
+type Embedding = 'none' | 'tetrahedron' | 2 | 3 | 'proj1' | 'proj2' | 'proj3';
 let currentDef: CurveDef = CURVES[0];
 let currentSamples: CP2Point[] = [];
-let embedding: Embedding = 2;
+let embedding: Embedding = 'none';
 let projectionMethod: 'pca' | 'random' = 'pca';
 
 function buildProjection(): CP2Projection {
@@ -92,6 +93,14 @@ function buildProjection(): CP2Projection {
   }
   if (embedding === 'tetrahedron') {
     return cp3TetrahedronProjection();
+  }
+  if (embedding === 'proj1' || embedding === 'proj2' || embedding === 'proj3') {
+    const deg = embedding === 'proj1' ? 1 : embedding === 'proj2' ? 2 : 3;
+    return projectorPcaR3Projection({
+      degree: deg as 1 | 2 | 3,
+      samples: currentSamples,
+      scale: 1.5,
+    });
   }
   if (projectionMethod === 'pca') {
     return veronesePcaR3Projection({
@@ -199,10 +208,13 @@ function buildOverlay(): void {
   const degreeSelect = document.createElement('select');
   degreeSelect.style.cssText = selectStyle;
   for (const [v, t] of [
-    ['none', 'None — affine C² ⊂ CP² (R³ projection)'],
-    ['tetrahedron', 'Tetrahedron CP³ (linear ⊂ CP³ + FS moment)'],
-    ['2', 'ν₂ : CP² → CP⁵   (real codim 8 in 10D)'],
-    ['3', 'ν₃ : CP² → CP⁹   (real codim 16 in 18D)'],
+    ['none', 'None — affine C² ⊂ CP²'],
+    ['tetrahedron', 'Tetrahedron CP³ (linear + FS moment)'],
+    ['2', 'ν₂ PCA (CP⁵ → R³)'],
+    ['3', 'ν₃ PCA (CP⁹ → R³)'],
+    ['proj1', 'Projector (CP² → R⁹ → R³)'],
+    ['proj2', 'Projector ∘ ν₂ (CP⁵ → R³⁶ → R³)'],
+    ['proj3', 'Projector ∘ ν₃ (CP⁹ → R¹⁰⁰ → R³)'],
   ] as const) {
     const o = document.createElement('option');
     o.value = v; o.textContent = t;
@@ -278,6 +290,7 @@ function buildOverlay(): void {
   };
 
   const syncEnabled = () => {
+    // Only the plain Veronese modes (2, 3) support PCA vs Random toggle.
     const hasMethod = embedding === 2 || embedding === 3;
     const isRandom = hasMethod && projectionMethod === 'random';
     methodSelect.disabled = !hasMethod;
@@ -292,7 +305,9 @@ function buildOverlay(): void {
     embedding =
       v === 'none' ? 'none' :
       v === 'tetrahedron' ? 'tetrahedron' :
-      v === '3' ? 3 : 2;
+      v === '2' ? 2 :
+      v === '3' ? 3 :
+      v as Embedding;
     syncSceneForEmbedding();
     syncEnabled();
     refreshProjection();
@@ -313,10 +328,12 @@ function buildOverlay(): void {
   });
   rotCheck.onchange = () => { rotating = rotCheck.checked; };
 
-  // Default: Weierstrass cubic, PCA, ν₂.
+  // Default: Weierstrass cubic, embedding = none (affine C²).
   const defaultIdx = CURVES.findIndex((c) => c.label.startsWith('Weierstrass'));
   const startIdx = defaultIdx >= 0 ? defaultIdx : 0;
   curveSelect.value = String(startIdx);
+  degreeSelect.value = 'none';
+  syncSceneForEmbedding();
   syncEnabled();
   applyCurveIndex(startIdx);
 }

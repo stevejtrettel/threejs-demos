@@ -87,6 +87,25 @@ function stereoProject(p: [number, number, number, number]): THREE.Vector3 {
     return new THREE.Vector3(p[0] / denom, p[1] / denom, p[2] / denom);
 }
 
+// How a homogeneous point in P3 (a 4-vector) is mapped down to R3.
+//  - 'stereographic': normalize to S3, then stereographically project.
+//  - 'affine':        dehomogenize onto the affine chart {w != 0},
+//                     i.e. divide the first three coords by the fourth.
+export type Projection = 'stereographic' | 'affine';
+
+// Apply the SO(4) viewing rotation, then project to R3 by the given mode.
+// The rotation is a genuine projective change of frame in the affine case
+// (it picks which chart we look at), so the `angle` knob stays meaningful.
+function project(v: [number, number, number, number], angle: number, mode: Projection): THREE.Vector3 {
+    const r1 = rotate4(v, 2, 3, angle);
+    const r2 = rotate4(r1, 0, 3, angle * 0.7);
+    if (mode === 'affine') {
+        const w = r2[3];
+        return new THREE.Vector3(r2[0] / w, r2[1] / w, r2[2] / w);
+    }
+    return stereoProject(r2);
+}
+
 // Convert P2 points to their 12 singular (theta, phi) pairs on S2
 function singularParams(points: [number, number, number][]): [number, number][] {
     const params: [number, number][] = [];
@@ -120,12 +139,15 @@ class CubicSurface implements Surface {
     readonly map: (x: number, y: number, z: number) => [number, number, number, number];
     private singularities: [number, number][];
     angle: number;
+    projection: Projection;
     singularRadiusSq = 0.01; // exclusion zone — shrink after setting resolution
+    clipRadius = Infinity;   // drop projected points beyond this distance from the origin
 
-    constructor(points: [number, number, number][], angle = 0) {
+    constructor(points: [number, number, number][], angle = 0, projection: Projection = 'stereographic') {
         this.map = cubicMap(points);
         this.singularities = singularParams(points);
         this.angle = angle;
+        this.projection = projection;
     }
 
     evaluate(u: number, v: number): THREE.Vector3 {
@@ -138,11 +160,14 @@ class CubicSurface implements Surface {
 
         const pt = spherePoint(u, v);
         const r4 = this.map(...pt);
+        // Normalizing is required for stereographic and harmless (scale-
+        // invariant) for affine, so we always do it.
         const s3 = normalize4(r4);
-        // Rotate in two independent planes for a generic SO(4) element
-        const r1 = rotate4(s3, 2, 3, this.angle);
-        const r2 = rotate4(r1, 0, 3, this.angle * 0.7);
-        return stereoProject(r2);
+        const out = project(s3, this.angle, this.projection);
+        // Cut the surface off at a finite ball (the affine chart sends the
+        // locus w=0 off to infinity). NaN vertices are stripped from the mesh.
+        if (out.lengthSq() > this.clipRadius * this.clipRadius) return NAN_VEC;
+        return out;
     }
 
     getDomain(): SurfaceDomain {
@@ -244,6 +269,7 @@ function buildExceptionalLine(
     p: [number, number, number],
     map: (x: number, y: number, z: number) => [number, number, number, number],
     angle: number,
+    projection: Projection,
     angularRadius = 0.02,
     tSegments = 256,
     sSegments = 16,
@@ -288,16 +314,12 @@ function buildExceptionalLine(
                 cosR * center[3] + sinR * n3w,
             ];
 
-            // Apply SO(4) rotation and stereo project
-            const r1 = rotate4(q, 2, 3, angle);
-            const r2 = rotate4(r1, 0, 3, angle * 0.7);
-            const pt3 = stereoProject(r2);
+            // Project the tube surface point and its tube-center down to R3
+            const pt3 = project(q, angle, projection);
             positions.push(pt3.x, pt3.y, pt3.z);
 
-            // Normal in R3: stereo project the S3 normal direction
-            const r1c = rotate4(center, 2, 3, angle);
-            const r2c = rotate4(r1c, 0, 3, angle * 0.7);
-            const ptCenter = stereoProject(r2c);
+            // Approximate normal in R3: project the tube center the same way
+            const ptCenter = project(center, angle, projection);
             normals.push(pt3.x - ptCenter.x, pt3.y - ptCenter.y, pt3.z - ptCenter.z);
         }
     }
@@ -356,11 +378,16 @@ app.camera.position.set(0, 3, 8);
 app.controls.target.set(0, 0, 0);
 app.scene.add(Lights.threePoint());
 app.scene.add(Lights.ambient(0xffffff, 0.4));
-app.backgrounds.setColor(0x1a1a2e);
+app.backgrounds.setColor(0xf0f0f0);
 
 
 
-// 6 points in P2 
+// How to project the cubic surface in P3 down to R3.
+// 'stereographic' = normalize to S3 and stereo-project (the original view).
+// 'affine'        = dehomogenize onto an affine chart {w != 0}.
+const PROJECTION: Projection = 'stereographic';
+
+// 6 points in P2
 const points: [number, number, number][] = [
     [1, 0, 0],
     [0, 1, 0.2],
@@ -374,7 +401,8 @@ const basis = cubicNullspace(points);
 console.log('Nullspace dimension:', basis.length);
 console.log('Basis vectors:', basis);
 
-const surface = new CubicSurface(points);
+const surface = new CubicSurface(points, 0, PROJECTION);
+surface.clipRadius = 50; // cut the surface off at a ball of this radius
 const uSegs = 1024, vSegs = 1024;
 // Exclusion radius = 2 grid cells (squared)
 const gridStep = Math.max(Math.PI / uSegs, 2 * Math.PI / vSegs);
@@ -389,11 +417,11 @@ stripNaNTriangles(mesh.geometry);
 
 // Draw the 6 exceptional lines (reuse the same map as the surface)
 const lineMeshes: THREE.Mesh[] = [];
-for (const p of points) {
-    const line = buildExceptionalLine(p, surface.map, surface.angle);
-    lineMeshes.push(line);
-    app.scene.add(line);
-}
+// for (const p of points) {
+//     const line = buildExceptionalLine(p, surface.map, surface.angle, surface.projection);
+//     lineMeshes.push(line);
+//     app.scene.add(line);
+// }
 
 app.addAnimateCallback((time) => {
     //surface.angle = time * 0.2;

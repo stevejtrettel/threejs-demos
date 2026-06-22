@@ -12,6 +12,7 @@ import type { Complex } from '../algebraic-curves/complex';
 import type { CP2Point } from './point';
 import { momentMap, triangleTo2D } from './momentMap';
 import { veroneseFor, veroneseDim, type VeroneseMap } from './veronese';
+import { projectorEmbeddingNormalized, projectorDim } from './projectorEmbedding';
 
 export type CP2Projection = (
   p: CP2Point,
@@ -371,6 +372,92 @@ export function cp3TetrahedronProjection(opts: {
     out[off]     = w0 * t[0][0] + w1 * t[1][0] + w2 * t[2][0] + w3 * t[3][0];
     out[off + 1] = w0 * t[0][1] + w1 * t[1][1] + w2 * t[2][1] + w3 * t[3][1];
     out[off + 2] = w0 * t[0][2] + w1 * t[1][2] + w2 * t[2][2] + w3 * t[3][2];
+  };
+}
+
+// --- Projector embedding: CP² → CP^N → R^{(N+1)²} → R³ ----------------------
+//
+// The faithful (injective, isometric) embedding of CP^{N} into Euclidean space
+// via rank-1 Hermitian projectors. Combined with a Veronese map of degree d,
+// this embeds CP² into R^{k²} where k = C(d+2,2), then PCA projects to R³.
+//
+// Unlike moment-map or Veronese projections which lose phase information or
+// are many-to-one, this embedding is injective — every distinct CP point gives
+// a distinct real vector.
+
+/**
+ * Full pipeline: CP² → (Veronese degree d) → CP^N → (projector embedding)
+ * → R^{k²} → (PCA top-3 eigenvectors) → R³.
+ *
+ * The PCA is computed from the provided `samples` (typically the un-rotated
+ * cloud); as the U(3) rotation animates, the curve moves through this fixed
+ * projection.
+ *
+ * @param degree   Veronese degree. 1 = identity (CP² → R⁹);
+ *                 2 → CP⁵ → R³⁶; 3 → CP⁹ → R¹⁰⁰.
+ * @param samples  The CP² point cloud used to compute PCA (un-rotated).
+ * @param scale    Output ball radius (default 1.5).
+ */
+export function projectorPcaR3Projection(opts: {
+  degree: 1 | 2 | 3;
+  samples: CP2Point[];
+  scale?: number;
+}): CP2Projection {
+  const { degree, samples } = opts;
+  const scale = opts.scale ?? 1.5;
+
+  // For degree 1, skip Veronese; for 2 & 3, apply it first.
+  const useVeronese = degree > 1;
+  const veroneseMap: VeroneseMap | null = useVeronese ? veroneseFor(degree as 2 | 3) : null;
+  const k = useVeronese ? veroneseDim(degree as 2 | 3) : 3; // Complex dim of CP^N point
+  const realDim = projectorDim(k); // k² real output dim
+
+  // Temp buffer for projector embedding (reused per point).
+  const tmpProj = new Float64Array(realDim);
+
+  // Helper: apply Veronese (if needed) then projector embedding.
+  const embed = (p: CP2Point): Float64Array => {
+    const v = veroneseMap ? veroneseMap(p) : [p[0], p[1], p[2]];
+    const out = new Float64Array(realDim);
+    projectorEmbeddingNormalized(v, out, 0);
+    return out;
+  };
+
+  // Compute PCA from samples.
+  if (samples.length === 0) {
+    // No data: fall back to random orthonormal projection from R^{k²}.
+    const matrix = randomOrthoMatrix3(realDim);
+    return makeProjectorProjection(veroneseMap, k, realDim, matrix, tmpProj, scale);
+  }
+
+  const data: Float64Array[] = new Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    data[i] = embed(samples[i]);
+  }
+  const matrix = pcaMatrix3(data, realDim);
+  return makeProjectorProjection(veroneseMap, k, realDim, matrix, tmpProj, scale);
+}
+
+function makeProjectorProjection(
+  veroneseMap: VeroneseMap | null,
+  _k: number,
+  realDim: number,
+  matrix: Float64Array,
+  tmpProj: Float64Array,
+  scale: number,
+): CP2Projection {
+  return (p, out, off) => {
+    const v = veroneseMap ? veroneseMap(p) : [p[0], p[1], p[2]];
+    projectorEmbeddingNormalized(v, tmpProj, 0);
+    let x = 0, y = 0, z = 0;
+    for (let i = 0; i < realDim; i++) {
+      x += matrix[i] * tmpProj[i];
+      y += matrix[realDim + i] * tmpProj[i];
+      z += matrix[2 * realDim + i] * tmpProj[i];
+    }
+    out[off] = x * scale;
+    out[off + 1] = y * scale;
+    out[off + 2] = z * scale;
   };
 }
 

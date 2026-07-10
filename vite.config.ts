@@ -34,6 +34,45 @@ function viewPresetWriter(): PluginOption {
   };
 }
 
+// Dev-only middleware: lets the translation-surface-relax demo POST a relaxed
+// genus-2 embedding to /__save-lsurface, written to the demo folder for reuse.
+function lsurfaceConfigWriter(): PluginOption {
+  return {
+    name: 'lsurface-config-writer',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-lsurface', (req, res, next) => {
+        if (req.method !== 'POST') return next();
+        const chunks: Buffer[] = [];
+        req.on('data', (c: Buffer) => chunks.push(c));
+        req.on('end', () => {
+          try {
+            const body = Buffer.concat(chunks).toString('utf8');
+            const parsed = JSON.parse(body);
+            // Optional savePath (validated to demos/**.json) lets each demo
+            // write its own config; defaults to the relax demo's file.
+            let rel = 'demos/translation-surface-relax/relaxed-config.json';
+            if (typeof parsed.savePath === 'string') {
+              const p = parsed.savePath;
+              if (!/^demos\/[\w./-]+\.json$/.test(p) || p.includes('..')) throw new Error(`bad savePath: ${p}`);
+              rel = p;
+            }
+            const out = path.resolve(__dirname, rel);
+            writeFileSync(out, body);
+            res.statusCode = 200;
+            res.setHeader('content-type', 'application/json');
+            res.end(JSON.stringify({ ok: true, path: rel }));
+          } catch (e) {
+            res.statusCode = 400;
+            res.setHeader('content-type', 'application/json');
+            res.end(JSON.stringify({ ok: false, error: String(e) }));
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // Relative base so built HTML references ./main.js instead of /main.js —
   // required when each demo is hosted at a non-root subpath (e.g. inside an
@@ -57,5 +96,5 @@ export default defineConfig({
     }
   },
   assetsInclude: ['**/*.hdr', '**/*.exr', '**/*.obj'],
-  plugins: [viewPresetWriter()],
+  plugins: [viewPresetWriter(), lsurfaceConfigWriter()],
 });

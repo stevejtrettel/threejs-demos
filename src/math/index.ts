@@ -113,6 +113,9 @@ export * from './mesh';
 // Linear Algebra
 export * from './linear-algebra';
 
+// Planar geometry (convex hull, polygon area)
+export * from './geometry';
+
 // Curves
 export * from './curves/types';
 export { NumericalCurve } from './curves/NumericalCurve';

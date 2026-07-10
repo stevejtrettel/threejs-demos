@@ -76,6 +76,14 @@ export function buildGeometry(
   const normals: number[] = [];
   const uvs: number[] = [];
 
+  // Per-vertex validity. A vertex is invalid when the surface evaluates to a
+  // non-finite point — the natural signal for a hole (a surface defined on a
+  // non-rectangular domain returns NaN off-domain). For ordinary surfaces
+  // every vertex is valid, so the validity machinery below is a no-op and the
+  // result is identical to a plain full-grid mesh.
+  const valid: boolean[] = [];
+  let anyInvalid = false;
+
   // Generate vertices on a regular grid
   for (let i = 0; i <= vSegments; i++) {
     const v = vMin + (vMax - vMin) * (i / vSegments);
@@ -85,12 +93,26 @@ export function buildGeometry(
 
       // Evaluate surface at (u, v)
       const point = surface.evaluate(u, v);
-      positions.push(point.x, point.y, point.z);
+      const ok = Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z);
+      valid.push(ok);
+
+      if (ok) {
+        positions.push(point.x, point.y, point.z);
+      } else {
+        // Push a finite placeholder so bounding-sphere/culling stay well-defined.
+        // This vertex is referenced by no triangle, so it never renders.
+        anyInvalid = true;
+        positions.push(0, 0, 0);
+      }
 
       // Compute normal if surface supports it
       if (hasNormals) {
-        const normal = (surface as any).computeNormal(u, v);
-        normals.push(normal.x, normal.y, normal.z);
+        const normal = ok ? (surface as any).computeNormal(u, v) : null;
+        if (normal && Number.isFinite(normal.x) && Number.isFinite(normal.y) && Number.isFinite(normal.z)) {
+          normals.push(normal.x, normal.y, normal.z);
+        } else {
+          normals.push(0, 0, 1);
+        }
       }
 
       // UV texture coordinates (normalized to [0,1])
@@ -108,6 +130,9 @@ export function buildGeometry(
       const v1 = (i + 1) * (uSegments + 1) + j;     // Top-left
       const v2 = i * (uSegments + 1) + (j + 1);     // Bottom-right
       const v3 = (i + 1) * (uSegments + 1) + (j + 1); // Top-right
+
+      // Skip any quad touching an off-domain vertex, leaving a clean hole.
+      if (anyInvalid && !(valid[v0] && valid[v1] && valid[v2] && valid[v3])) continue;
 
       // Two triangles per quad
       // Winding consistent with normal = du × dv (outward)

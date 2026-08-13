@@ -25,6 +25,7 @@ import * as THREE from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
 import { App } from '@/app/App';
 import { createSurfaceShader } from '@/shaders/SurfaceShader';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 // ── The L, as three squares sampled on a grid ────────────────────────────
 
@@ -312,7 +313,7 @@ app.camera.position.set(1, 2.2, 4.2);
 app.controls.target.set(1, 0.4, 0.3);
 app.controls.update();
 
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.4,

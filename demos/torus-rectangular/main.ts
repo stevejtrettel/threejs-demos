@@ -14,6 +14,7 @@ import type { DifferentialSurface, SurfaceDomain, SurfacePartials } from '@/math
 import { boundsFromSurfaceDomain } from '@/math/surfaces/types';
 import type { ManifoldDomain } from '@/math/manifolds';
 import { Matrix } from '@/math/linear-algebra';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const TWO_PI = 2 * Math.PI;
 
@@ -70,7 +71,7 @@ const rectTorus: DifferentialSurface = {
 const app = new App({ antialias: true });
 app.camera.fov = 20;
 app.camera.updateProjectionMatrix();
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.5,

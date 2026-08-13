@@ -19,6 +19,7 @@ import { Embedding } from '@/math/mesh/Embedding';
 import { createSurfaceShader } from '@/shaders/SurfaceShader';
 import { type LSurface } from '../translation-surface-relax/buildLSurface';
 import { SURFACES, currentSurface, configPath, surfaceDropdown } from '../translation-surface-relax/surfaces';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const SURF = currentSurface();
 const FINE_N = SURFACES[SURF].fineN;
@@ -161,7 +162,7 @@ async function init(): Promise<void> {
   app.camera.position.set(5, 4, 6);
   app.controls.target.set(0, 0, 0);
   app.controls.update();
-  app.backgrounds.loadHDR('/assets/hdri/studio.hdr', { asEnvironment: true, asBackground: false, intensity: 1.4 });
+  app.backgrounds.loadHDR(studioHDR, { asEnvironment: true, asBackground: false, intensity: 1.4 });
   app.backgrounds.setColor(0xf0efe9);
   app.scene.add(new THREE.DirectionalLight(0xffffff, 2.2).translateX(4).translateY(5).translateZ(3));
   app.scene.add(new THREE.AmbientLight(0xffffff, 0.5));

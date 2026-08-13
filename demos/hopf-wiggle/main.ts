@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { App } from '@/app/App';
 import { HopfTorus, fromSpherical } from '@/math/hopf';
 import { fromSphericalCoords } from '@/math/hopf/hopfUtils';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const TWO_PI = 2 * Math.PI;
 
@@ -62,7 +63,7 @@ app.camera.position.set(5, 15, 35);
 app.controls.target.set(0, 0, 0);
 app.controls.update();
 
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.5,

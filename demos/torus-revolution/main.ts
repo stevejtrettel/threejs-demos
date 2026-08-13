@@ -9,6 +9,7 @@
 import { App } from '@/app/App';
 import { Torus } from '@/math/surfaces/Torus';
 import { RollUpMesh } from '@/math/surfaces/RollUpMesh';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const TWO_PI = 2 * Math.PI;
 
@@ -17,7 +18,7 @@ const TWO_PI = 2 * Math.PI;
 const app = new App({ antialias: true, debug: true });
 app.camera.fov = 20;
 app.camera.updateProjectionMatrix();
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.5,

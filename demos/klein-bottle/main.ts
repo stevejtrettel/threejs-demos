@@ -11,6 +11,7 @@ import { App } from '@/app/App';
 import { KleinBottle } from '@/math/surfaces/KleinBottle';
 import { createSurfaceShader, type SurfaceShaderResult } from '@/shaders/SurfaceShader';
 import { createSlicedSurface } from '@/shaders/SlicedSurface';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 // --- Scene ---
 
@@ -21,7 +22,7 @@ app.camera.position.set(0, 2, 8);
 app.controls.target.set(0, 0, 0);
 app.controls.update();
 
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.5,

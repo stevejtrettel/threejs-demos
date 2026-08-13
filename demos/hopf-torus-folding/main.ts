@@ -10,6 +10,7 @@ import { App } from '@/app/App';
 import { HopfTorus, fromSpherical } from '@/math/hopf';
 import { RollUpMesh } from '@/math/surfaces/RollUpMesh';
 import type { Surface, SurfaceDomain } from '@/math/surfaces/types';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const TWO_PI = 2 * Math.PI;
 
@@ -83,7 +84,7 @@ function buildSurface(index: number): { surface: Surface; name: string } {
 const app = new App({ antialias: true });
 app.camera.fov = 20;
 app.camera.updateProjectionMatrix();
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.5,

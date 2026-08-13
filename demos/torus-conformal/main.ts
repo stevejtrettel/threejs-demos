@@ -13,6 +13,7 @@ import type { DifferentialSurface, SurfaceDomain, SurfacePartials } from '@/math
 import { boundsFromSurfaceDomain } from '@/math/surfaces/types';
 import type { ManifoldDomain } from '@/math/manifolds';
 import { Matrix } from '@/math/linear-algebra';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const TWO_PI = 2 * Math.PI;
 const S = 1 / Math.SQRT2;
@@ -67,7 +68,7 @@ const clifford: DifferentialSurface = {
 const app = new App({ antialias: true, debug: true });
 app.camera.fov = 20;
 app.camera.updateProjectionMatrix();
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', {
+app.backgrounds.loadHDR(studioHDR, {
   asEnvironment: true,
   asBackground: false,
   intensity: 1.5,

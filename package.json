@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "node scripts/run-demo.mjs dev",
     "build": "node scripts/run-demo.mjs build",
+    "build:all": "node scripts/build-all.mjs",
     "preview": "node scripts/run-demo.mjs preview"
   },
   "devDependencies": {

@@ -31,6 +31,7 @@ import { Matrix } from '@/math/linear-algebra';
 import { eigensym } from '@/math/linear-algebra';
 import { createSurfaceShader } from '@/shaders/SurfaceShader';
 import { SURFACES, currentSurface, configPath, surfaceDropdown } from './surfaces';
+import studioHDR from '@assets/hdri/studio.hdr';
 
 const SURF = currentSurface();
 const N = SURFACES[SURF].coarseN;
@@ -448,7 +449,7 @@ app.camera.updateProjectionMatrix();
 app.camera.position.set(5, 4, 6);
 app.controls.target.set(0, 0, 0);
 app.controls.update();
-app.backgrounds.loadHDR('/assets/hdri/studio.hdr', { asEnvironment: true, asBackground: false, intensity: 1.4 });
+app.backgrounds.loadHDR(studioHDR, { asEnvironment: true, asBackground: false, intensity: 1.4 });
 app.backgrounds.setColor(0xf0efe9);
 app.scene.add(new THREE.DirectionalLight(0xffffff, 2.2).translateX(4).translateY(5).translateZ(3));
 app.scene.add(new THREE.AmbientLight(0xffffff, 0.5));

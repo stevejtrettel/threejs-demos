@@ -56,7 +56,10 @@ if (!existsSync(DEMOS)) {
 
 const NESTED_ENTRIES = ['main.ts', 'main.js', 'main.tsx', 'main.jsx', 'index.ts', 'index.js'];
 const FLAT_EXTS = ['.ts', '.js', '.tsx', '.jsx'];
-const skip = (name) => name.startsWith('_') || name.startsWith('.') || name === '__pages';
+// Build output and dependency directories sometimes sit inside demos/; they are
+// not demos and must never become pages.
+const NOT_DEMOS = new Set(['__pages', 'dist', 'dist-pages', 'build', 'node_modules', 'public', 'assets']);
+const skip = (name) => name.startsWith('_') || name.startsWith('.') || NOT_DEMOS.has(name);
 
 const entries = readdirSync(DEMOS, { withFileTypes: true });
 const warnings = [];

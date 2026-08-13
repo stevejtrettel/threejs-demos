@@ -16,7 +16,6 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const here = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SOURCE_REPO = 'stevejtrettel/threejs-demos';
 
 const targets = process.argv.slice(2);
 if (!targets.length) {
@@ -24,28 +23,11 @@ if (!targets.length) {
   process.exit(1);
 }
 
-// The caller workflow: everything real lives in the shared reusable workflow, so
-// version bumps happen once, in the source repo.
-const CALLER_WORKFLOW = `name: Deploy demos
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
-jobs:
-  deploy:
-    uses: ${SOURCE_REPO}/.github/workflows/pages.yml@main
-`;
+// This repo's own workflow is the canonical copy, propagated verbatim. Calling
+// it across repos via `workflow_call` would avoid the duplication, but GitHub
+// rejects the cross-repo reference here before any job is created, so copying
+// is what actually deploys. Re-running this installer re-syncs every repo.
+const WORKFLOW = readFileSync(path.join(here, '.github', 'workflows', 'pages.yml'), 'utf8');
 
 const GITIGNORE_BLOCK = `
 # GitHub Pages build (scripts/build-all.mjs)
@@ -100,12 +82,12 @@ for (const rel of targets) {
     }
   }
 
-  // 3. Caller workflow.
+  // 3. Deploy workflow.
   const wfDir = path.join(repo, '.github', 'workflows');
   mkdirSync(wfDir, { recursive: true });
   const wfPath = path.join(wfDir, 'pages.yml');
-  if (!existsSync(wfPath) || readFileSync(wfPath, 'utf8') !== CALLER_WORKFLOW) {
-    writeFileSync(wfPath, CALLER_WORKFLOW);
+  if (!existsSync(wfPath) || readFileSync(wfPath, "utf8") !== WORKFLOW) {
+    writeFileSync(wfPath, WORKFLOW);
     changed.push('.github/workflows/pages.yml');
   }
 

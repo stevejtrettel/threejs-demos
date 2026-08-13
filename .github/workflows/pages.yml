@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  # Other demo repos reuse this exact workflow rather than copying it, so action
-  # version bumps happen in one place:
-  #   jobs: { deploy: { uses: stevejtrettel/threejs-demos/.github/workflows/pages.yml@main } }
-  workflow_call:
+
+# This file is the canonical copy. `node scripts/add-pages.mjs <repo>` copies it
+# verbatim into the other demo repos, so bumping an action version here and
+# re-running the installer propagates it everywhere.
 
 permissions:
   contents: read

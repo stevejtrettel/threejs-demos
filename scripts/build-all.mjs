@@ -127,13 +127,17 @@ let demos = entries
   })
   .filter(Boolean);
 
-// Fallback: hand-written pages sitting flat in demos/. These are real entries,
-// so prefer them over the source files they pull in.
-if (!demos.length) {
-  demos = entries
+// Hand-written pages sitting flat in demos/ are real entries too, so add them
+// alongside any per-directory demos rather than only as a fallback — a repo can
+// have both (a top-level app plus one or more demo subdirectories).
+{
+  const flatPages = entries
     .filter((e) => e.isFile() && path.extname(e.name) === '.html' && !skip(e.name))
     .map((e) => {
       const html = path.join(DEMOS, e.name);
+      // A page that loads no local module is a hand-written gallery or index,
+      // not a demo. Publishing it would duplicate the gallery built below.
+      if (!scriptSrcs(html).length) return null;
       const { ok, dead } = pageIsLive(html);
       if (!ok) {
         warnings.push(`skipped ${e.name} — references missing ${dead.join(', ')}`);
@@ -143,6 +147,9 @@ if (!demos.length) {
       return { name, html: stagePage(html, name), generated: true, staged: true };
     })
     .filter(Boolean);
+  // A directory of the same name wins, so a demo is never published twice.
+  const taken = new Set(demos.map((d) => d.name));
+  demos.push(...flatPages.filter((p) => !taken.has(p.name)));
 }
 
 // Last resort: a flat source file per demo. Entry HTML goes in the staging dir

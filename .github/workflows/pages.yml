@@ -31,7 +31,10 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - run: npm ci
+      # `npm ci` is the fast, reproducible path, but several demo repos carry a
+      # lockfile that has drifted from package.json. Publishing demos should not
+      # be blocked on that, so fall back rather than failing the deploy.
+      - run: npm ci || npm install
 
       # Exposes the site's base path (e.g. /threejs-demos) so the build stays
       # correct if the repo is ever renamed.

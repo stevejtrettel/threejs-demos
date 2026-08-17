@@ -8,3 +8,6 @@ export { Materials } from './Materials';
 export { Lights } from './Lights';
 export { Labels } from './Labels';
 export { Helpers } from './Helpers';
+
+export { fitView } from './fitView';
+export type { FitViewOptions } from './fitView';

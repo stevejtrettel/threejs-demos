@@ -14,6 +14,9 @@ export type { Manifold, ManifoldDomain } from './types';
 export { Euclidean } from './Euclidean';
 export type { EuclideanOptions } from './Euclidean';
 
+export { MetricCircle, CircleGeodesic } from './MetricCircle';
+export type { MetricCircleOptions } from './MetricCircle';
+
 export { christoffelFromMetric, chrIndex } from './christoffel';
 
 export { parallelTransport } from './parallelTransport';

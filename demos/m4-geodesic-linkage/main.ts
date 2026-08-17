@@ -13,6 +13,7 @@
 
 import * as THREE from 'three';
 import { App } from '@/app/App';
+import { fitView } from '@/scene/fitView';
 import { SurfaceMesh, MetricSurface, GeodesicIntegrator, StreamTube } from '@/math';
 import { Matrix } from '@/math/linear-algebra';
 import type { Surface, SurfaceDomain } from '@/math/surfaces/types';
@@ -43,10 +44,16 @@ function psi4Position(phi: number, t: number, L: number): {
   const alpha_in = Math.acos((d * d - 3) / (2 * d));
   const theta_in = alpha_in * Math.sin(t);
 
-  const num   = 2 * d * (Math.cos(theta_in) - (d * d - 3) / (2 * d));
-  const nu_in = Math.abs(c) < 1e-6
-              ? Math.sign(c || 1) * Math.sqrt(d * alpha_in * Math.sin(alpha_in))
-              : c * Math.sqrt(num / (c * c));
+  // ν = 2·sign(c)·√(d sin A sin B) with A = (α+θ)/2, B = (α−θ)/2. Identical to
+  // c·√(num/c²) away from cos t = 0. At cos t = 0 that form is 0/0, and the
+  // guarded branch it used there returned the limit of √(num/c²) instead of the
+  // limit of ν — short a factor of c, so it gave a nonzero amplitude where ν
+  // actually vanishes and pulled the linkage apart. Rewriting num via
+  // 2·d(cos θ − cos α) = 4·d·sin A sin B removes both the 0/0 and the
+  // catastrophic cancellation in num, with no branch left to get wrong.
+  const halfSum  = (alpha_in + theta_in) / 2;
+  const halfDiff = (alpha_in - theta_in) / 2;
+  const nu_in = (c < 0 ? -2 : 2) * Math.sqrt(d * Math.sin(halfSum) * Math.sin(halfDiff));
 
   const e_re   = Math.cos(theta_in);
   const e_im   = Math.sin(theta_in);
@@ -186,6 +193,12 @@ let integrator = new GeodesicIntegrator(patch, { stepSize: 0.02 });
 const app = new App({ antialias: true, debug: false });
 app.camera.position.set(0, 0, 5.8);
 app.controls.target.set(0, 0, 0);
+// Blog iframes are narrower than the window this was laid out in, and a
+// fixed camera would let the two panels run off the sides. Extents cover
+// the widest linkage the L slider allows, so the framing is stable as L
+// moves; on a viewport wide enough for the intended framing this is a
+// no-op.
+fitView(app.camera, app.controls.target, { halfWidth: 6.5, halfHeight: 1.9 });
 app.backgrounds.setColor(BG);
 
 app.scene.add(new THREE.AmbientLight(0xfff3e0, 0.55));
@@ -443,6 +456,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (hits.length === 0) return;
   // Mid-sim drag interrupts the geodesic.
   mode = 'dragging';
+  cancelResume();
   app.controls.controls.enabled = false;
   canvas.setPointerCapture(e.pointerId);
   dragSamples.length = 0;
@@ -457,17 +471,44 @@ canvas.addEventListener('pointermove', (e) => {
   if (hit) pickAbstractHit(hit, e.timeStamp);
 });
 
+/**
+ * A press that produced no usable flick leaves the ball parked.
+ *
+ * Left there the demo is a dead end: the reader tapped the sphere, the motion
+ * stopped, and nothing brings it back. Instead fall idle briefly and then
+ * relaunch from wherever they left it, matching how m4-parametric-linkage
+ * resumes its own animation after a drag.
+ */
+const RESUME_DELAY_MS = 1400;
+let resumeTimer: number | null = null;
+
+function cancelResume(): void {
+  if (resumeTimer !== null) { clearTimeout(resumeTimer); resumeTimer = null; }
+}
+
+function idleThenResume(): void {
+  mode = 'idle';
+  cancelResume();
+  resumeTimer = window.setTimeout(() => {
+    resumeTimer = null;
+    if (mode !== 'idle') return;
+    // Relaunch from where the reader parked it, not from the demo's opening
+    // configuration, so their choice of starting point is what gets explored.
+    relaunchFromHere();
+  }, RESUME_DELAY_MS);
+}
+
 function endDrag(e: PointerEvent) {
   if (mode !== 'dragging') return;
   app.controls.controls.enabled = true;
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
 
   // Compute (φ̇, ṫ) from the earliest and latest kept drag samples.
-  if (dragSamples.length < 2) { mode = 'idle'; return; }
+  if (dragSamples.length < 2) { idleThenResume(); return; }
   const last = dragSamples[dragSamples.length - 1];
   const first = dragSamples[0];
   const dtWall = (last.time - first.time) / 1000; // seconds
-  if (dtWall <= 0) { mode = 'idle'; return; }
+  if (dtWall <= 0) { idleThenResume(); return; }
   let dPhi = last.phi - first.phi;
   let dT = last.t - first.t;
   // Wrap dt to the shorter arc so a drag across the ±π seam doesn't blow up.
@@ -482,11 +523,12 @@ function endDrag(e: PointerEvent) {
   const g = patch.computeMetric([phiState, tState]).data;
   const E = g[0], F = g[1], G = g[3];
   const v2 = E * phiDotRaw * phiDotRaw + 2 * F * phiDotRaw * tDotRaw + G * tDotRaw * tDotRaw;
-  if (v2 < 1e-8) { mode = 'idle'; return; }
+  if (v2 < 1e-8) { idleThenResume(); return; }
   const speed = Math.sqrt(v2);
   phiDot = phiDotRaw / speed;
   tDot   = tDotRaw   / speed;
 
+  cancelResume();
   trail.push(phiState, tState);
   mode = 'simulating';
 }
@@ -495,7 +537,7 @@ canvas.addEventListener('pointercancel', (e) => {
   if (mode !== 'dragging') return;
   app.controls.controls.enabled = true;
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-  mode = 'idle';
+  idleThenResume();
 });
 
 // --- Simulation tick ---
@@ -592,6 +634,11 @@ style.textContent = `
     cursor: pointer;
   }
   .thin-slider:focus { outline: none; }
+  .readout {
+    position: absolute; bottom: 16px; left: 16px; z-index: 10;
+    font: 12px/1.6 ui-monospace, monospace; color: #5A5148;
+    font-variant-numeric: tabular-nums;
+  }
 `;
 document.head.appendChild(style);
 
@@ -603,9 +650,22 @@ sliderWrap.innerHTML = `
 `;
 document.body.appendChild(sliderWrap);
 
+// The slider is a bare pill with no label, so name what it controls. Matches
+// the readout in the other three demos of this set.
+const readout = document.createElement('div');
+readout.className = 'readout';
+document.body.appendChild(readout);
+
+function updateReadout(): void {
+  readout.innerHTML = [
+    `L = ${L.toFixed(2)}`,
+  ].join('<br>');
+}
+
 const lSlider = sliderWrap.querySelector<HTMLInputElement>('#psi4-L')!;
 lSlider.addEventListener('input', () => {
   L = parseFloat(lSlider.value);
+  updateReadout();
   patch = buildPatch(L);
   integrator = new GeodesicIntegrator(patch, { stepSize: 0.02 });
   trail.reset();
@@ -615,9 +675,18 @@ lSlider.addEventListener('input', () => {
 
 // --- Auto-launch a geodesic on load so the demo is alive when the reader arrives ---
 
+/** Launch a geodesic from the current point, in the demo's default direction. */
+function relaunchFromHere() {
+  launchFrom(phiState, tState);
+}
+
 function launchAuto() {
-  phiState = 0;
-  tState   = 0.3;
+  launchFrom(0, 0.3);
+}
+
+function launchFrom(phi0: number, t0: number) {
+  phiState = phi0;
+  tState   = t0;
   // Direction (slightly off-axis) — normalized to unit speed below.
   const phiDotRaw = 0.5;
   const tDotRaw   = 1.0;
@@ -635,3 +704,5 @@ function launchAuto() {
 
 launchAuto();
 app.start();
+
+updateReadout();

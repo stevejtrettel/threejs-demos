@@ -43,10 +43,16 @@ function psi4Position(phi: number, t: number, L: number): {
   const alpha_in = Math.acos((d * d - 3) / (2 * d));
   const theta_in = alpha_in * Math.sin(t);
 
-  const num   = 2 * d * (Math.cos(theta_in) - (d * d - 3) / (2 * d));
-  const nu_in = Math.abs(c) < 1e-6
-              ? Math.sign(c || 1) * Math.sqrt(d * alpha_in * Math.sin(alpha_in))
-              : c * Math.sqrt(num / (c * c));
+  // ν = 2·sign(c)·√(d sin A sin B) with A = (α+θ)/2, B = (α−θ)/2. Identical to
+  // c·√(num/c²) away from cos t = 0. At cos t = 0 that form is 0/0, and the
+  // guarded branch it used there returned the limit of √(num/c²) instead of the
+  // limit of ν — short a factor of c, so it gave a nonzero amplitude where ν
+  // actually vanishes and pulled the linkage apart. Rewriting num via
+  // 2·d(cos θ − cos α) = 4·d·sin A sin B removes both the 0/0 and the
+  // catastrophic cancellation in num, with no branch left to get wrong.
+  const halfSum  = (alpha_in + theta_in) / 2;
+  const halfDiff = (alpha_in - theta_in) / 2;
+  const nu_in = (c < 0 ? -2 : 2) * Math.sqrt(d * Math.sin(halfSum) * Math.sin(halfDiff));
 
   const e_re   = Math.cos(theta_in);
   const e_im   = Math.sin(theta_in);

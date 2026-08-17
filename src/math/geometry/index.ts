@@ -6,3 +6,5 @@ export { convexHull } from './convexHull';
 export { polygonArea } from './polygonArea';
 export { marchingSquares } from './marchingSquares';
 export type { ScalarGrid, Segment } from './marchingSquares';
+export { chainSegments } from './chainSegments';
+export type { ChainSegmentsOptions } from './chainSegments';

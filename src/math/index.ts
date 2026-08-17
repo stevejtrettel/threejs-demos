@@ -150,6 +150,16 @@ export { geodesicDeriv, geodesicNorm } from './geodesics/geodesicFlow';
 // Relativity (spacetimes, charts, null geodesics, light cones, optical metric)
 export * from './relativity';
 
+// Root finding (Newton, least-squares objectives)
+export * from './rootfind';
+
+// Interval arithmetic and certification (the Krawczyk test)
+export * from './interval';
+export * from './certify';
+
+// Implicit surfaces (level sets, retraction, constrained descent)
+export * from './implicit';
+
 // Vector fields & flows
 export * from './vectorfields';
 

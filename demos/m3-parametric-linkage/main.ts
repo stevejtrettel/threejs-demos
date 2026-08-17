@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { App } from '@/app/App';
+import { fitView } from '@/scene/fitView';
 
 // --- Palette ---
 
@@ -33,12 +34,16 @@ function psi3Position(t: number, L: number): { p1: [number, number]; p2: [number
   const p_im  =   - Math.sin(theta);
   const p_abs = Math.hypot(p_re, p_im);
 
-  // ν(t): smooth signed amplitude. Numerator and cos²t both vanish
-  // quadratically at cos t = 0; the ratio extends to L·α·sin α.
-  const num = 2 * L * (Math.cos(theta) - (L * L - 3) / (2 * L));
-  const nu  = Math.abs(c) < 1e-6
-            ? Math.sign(c || 1) * Math.sqrt(L * alpha * Math.sin(alpha))
-            : c * Math.sqrt(num / (c * c));
+  // ν = 2·sign(c)·√(L sin A sin B) with A = (α+θ)/2, B = (α−θ)/2. Identical to
+  // c·√(num/c²) away from cos t = 0. At cos t = 0 that form is 0/0, and the
+  // guarded branch it used there returned the limit of √(num/c²) instead of the
+  // limit of ν — short a factor of c, so it gave a nonzero amplitude where ν
+  // actually vanishes and pulled the linkage apart. Rewriting num via
+  // 2·L(cos θ − cos α) = 4·L·sin A sin B removes both the 0/0 and the
+  // catastrophic cancellation in num, with no branch left to get wrong.
+  const halfSum  = (alpha + theta) / 2;
+  const halfDiff = (alpha - theta) / 2;
+  const nu = (c < 0 ? -2 : 2) * Math.sqrt(L * Math.sin(halfSum) * Math.sin(halfDiff));
 
   // p1 = p2/2 + (i ν / (2|p2|)) * p2
   const k = nu / (2 * p_abs);
@@ -50,7 +55,10 @@ function psi3Position(t: number, L: number): { p1: [number, number]; p2: [number
 
 // --- State ---
 
-let L = 2.4;
+// Matches the default in m3-geodesic-linkage so the two demos open on the same
+// mechanism and can be read side by side. At the old 2.4 the kinetic-energy
+// pacing varies only 1.8×, which is invisible; here it varies 5.3×.
+let L = 1.5;
 let tParam = 0;
 let autoAnimate = true;
 let resumeTimer: number | null = null;
@@ -61,6 +69,12 @@ const RESUME_DELAY_MS = 1000;
 const app = new App({ antialias: true, debug: false });
 app.camera.position.set(0, 0, 5);
 app.controls.target.set(0, 0, 0);
+// Blog iframes are narrower than the window this was laid out in, and a
+// fixed camera would let the two panels run off the sides. Extents cover
+// the widest linkage the L slider allows, so the framing is stable as L
+// moves; on a viewport wide enough for the intended framing this is a
+// no-op.
+fitView(app.camera, app.controls.target, { halfWidth: 6.8, halfHeight: 2.0 });
 app.controls.controls.enabled = false; // 2D scene — no orbiting
 app.backgrounds.setColor(BG);
 
@@ -330,6 +344,11 @@ style.textContent = `
     cursor: pointer;
   }
   .thin-slider:focus { outline: none; }
+  .readout {
+    position: absolute; bottom: 16px; left: 16px; z-index: 10;
+    font: 12px/1.6 ui-monospace, monospace; color: #5A5148;
+    font-variant-numeric: tabular-nums;
+  }
 `;
 document.head.appendChild(style);
 
@@ -341,9 +360,22 @@ sliderWrap.innerHTML = `
 `;
 document.body.appendChild(sliderWrap);
 
+// The slider is a bare pill with no label, so name what it controls. Matches
+// the readout in the other three demos of this set.
+const readout = document.createElement('div');
+readout.className = 'readout';
+document.body.appendChild(readout);
+
+function updateReadout(): void {
+  readout.innerHTML = [
+    `L = ${L.toFixed(2)}`,
+  ].join('<br>');
+}
+
 const lSlider = sliderWrap.querySelector<HTMLInputElement>('#psi3-L')!;
 lSlider.addEventListener('input', () => {
   L = parseFloat(lSlider.value);
+  updateReadout();
   update();
 });
 
@@ -363,3 +395,5 @@ app.addAnimateCallback((_t, dt) => {
 
 update();
 app.start();
+
+updateReadout();

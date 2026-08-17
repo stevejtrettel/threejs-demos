@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { App } from '@/app/App';
+import { fitView } from '@/scene/fitView';
 import { SurfaceMesh } from '@/math';
 import type { Surface, SurfaceDomain } from '@/math/surfaces/types';
 
@@ -53,11 +54,16 @@ function psi4Position(phi: number, t: number, L: number): {
   const alpha_in = Math.acos((d * d - 3) / (2 * d));
   const theta_in = alpha_in * Math.sin(t);
 
-  // ν_in: smooth signed amplitude (apparent 0/0 at cos t = 0 is removable)
-  const num   = 2 * d * (Math.cos(theta_in) - (d * d - 3) / (2 * d));
-  const nu_in = Math.abs(c) < 1e-6
-              ? Math.sign(c || 1) * Math.sqrt(d * alpha_in * Math.sin(alpha_in))
-              : c * Math.sqrt(num / (c * c));
+  // ν = 2·sign(c)·√(d sin A sin B) with A = (α+θ)/2, B = (α−θ)/2. Identical to
+  // c·√(num/c²) away from cos t = 0. At cos t = 0 that form is 0/0, and the
+  // guarded branch it used there returned the limit of √(num/c²) instead of the
+  // limit of ν — short a factor of c, so it gave a nonzero amplitude where ν
+  // actually vanishes and pulled the linkage apart. Rewriting num via
+  // 2·d(cos θ − cos α) = 4·d·sin A sin B removes both the 0/0 and the
+  // catastrophic cancellation in num, with no branch left to get wrong.
+  const halfSum  = (alpha_in + theta_in) / 2;
+  const halfDiff = (alpha_in - theta_in) / 2;
+  const nu_in = (c < 0 ? -2 : 2) * Math.sqrt(d * Math.sin(halfSum) * Math.sin(halfDiff));
 
   // p2 = p3 - p3_hat * e^{i theta_in}
   const e_re   = Math.cos(theta_in);
@@ -94,6 +100,12 @@ const RESUME_DELAY_MS = 1000;
 const app = new App({ antialias: true, debug: false });
 app.camera.position.set(0, 0, 5.8);
 app.controls.target.set(0, 0, 0);
+// Blog iframes are narrower than the window this was laid out in, and a
+// fixed camera would let the two panels run off the sides. Extents cover
+// the widest linkage the L slider allows, so the framing is stable as L
+// moves; on a viewport wide enough for the intended framing this is a
+// no-op.
+fitView(app.camera, app.controls.target, { halfWidth: 6.5, halfHeight: 1.9 });
 app.backgrounds.setColor(BG);
 
 app.scene.add(new THREE.AmbientLight(0xfff3e0, 0.55));
@@ -444,6 +456,11 @@ style.textContent = `
     cursor: pointer;
   }
   .thin-slider:focus { outline: none; }
+  .readout {
+    position: absolute; bottom: 16px; left: 16px; z-index: 10;
+    font: 12px/1.6 ui-monospace, monospace; color: #5A5148;
+    font-variant-numeric: tabular-nums;
+  }
 `;
 document.head.appendChild(style);
 
@@ -455,9 +472,22 @@ sliderWrap.innerHTML = `
 `;
 document.body.appendChild(sliderWrap);
 
+// The slider is a bare pill with no label, so name what it controls. Matches
+// the readout in the other three demos of this set.
+const readout = document.createElement('div');
+readout.className = 'readout';
+document.body.appendChild(readout);
+
+function updateReadout(): void {
+  readout.innerHTML = [
+    `L = ${L.toFixed(2)}`,
+  ].join('<br>');
+}
+
 const lSlider = sliderWrap.querySelector<HTMLInputElement>('#psi4-L')!;
 lSlider.addEventListener('input', () => {
   L = parseFloat(lSlider.value);
+  updateReadout();
   update();
 });
 
@@ -483,3 +513,5 @@ app.addAnimateCallback((_t, dt) => {
 
 update();
 app.start();
+
+updateReadout();
